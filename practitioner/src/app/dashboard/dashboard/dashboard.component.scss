@@ -1,0 +1,23 @@
+.dashboard-content {
+    display: flex;
+    gap: 20px;
+    height: 100vh; 
+    box-sizing: border-box;
+    align-items: center; 
+    justify-content: center; 
+
+    >app-waiting-room-card,
+    >app-open-consultations-card {
+        width: 50%;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+        flex-direction: column;
+
+        >app-waiting-room-card,
+        >app-open-consultations-card {
+            width: 100%;
+        }
+    }
+}

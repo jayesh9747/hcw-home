@@ -1,0 +1,26 @@
+<div class="card open-consultations">
+  <h2>OPEN CONSULTATIONS</h2>
+  <p class="card-description">List of consultations waiting to be closed or completed.</p>
+
+  <div *ngIf="openConsultations.length === 0" class="empty-state">
+    <p>No consultations</p>
+  </div>
+
+  <div *ngIf="openConsultations.length > 0" class="consultation-list">
+    <div *ngFor="let consultation of openConsultations" class="consultation-item">
+      <div class="patient-info">
+        <div class="label">Patient</div>
+        <div class="value">{{ consultation.patientName }}</div>
+      </div>
+      <div class="time-info">
+        <div class="label">Time</div>
+        <div class="value">{{ formatTime(consultation.joinTime) }}</div>
+      </div>
+      <div class="action">
+        <i class="fas fa-chevron-right"></i>
+      </div>
+    </div>
+
+    <button class="view-all-button" routerLink="/consultations">View all</button>
+  </div>
+</div>
