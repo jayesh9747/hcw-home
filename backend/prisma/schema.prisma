@@ -23,7 +23,6 @@ enum MessageService {
   MANUALLY
 }
 
-
 model Consultation {
   id                 Int             @id @default(autoincrement())
   scheduledDate      DateTime?
@@ -36,7 +35,6 @@ model Consultation {
   messageService     MessageService?
   whatsappTemplateId Int?
 }
-
 
 model Whatsapp_Template {
   id              String  @id
