@@ -1,12 +1,17 @@
-// src/database/database.service.ts
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class DatabaseService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class DatabaseService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor() {
     super({
-      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      log:
+        process.env.NODE_ENV === 'development'
+          ? ['query', 'error', 'warn']
+          : ['error'],
     });
   }
 

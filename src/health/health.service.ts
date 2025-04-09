@@ -10,7 +10,7 @@ export class HealthService {
     try {
       // Simple query to check DB connection
       await this.databaseService.$queryRaw`SELECT 1`;
-      
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
