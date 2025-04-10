@@ -1,21 +1,24 @@
+@use 'variables' as *;
+
 .card.consultation-card {
-    background-color: var(--color-background-card);
+    background-color: $color-background-card;
     border-radius: 8px;
     padding: 20px;
     flex: 1;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
+    height: 100%;
 
     h2 {
         font-size: 20px;
         font-weight: 700;
         margin-bottom: 10px;
-        color: var(--color-heading);
+        color: $color-heading;
     }
 
     .card-description {
-        color: var(--color-description);
+        color: $color-description;
         margin-bottom: 20px;
         font-size: 14px;
     }
@@ -25,20 +28,25 @@
         justify-content: center;
         align-items: center;
         height: 200px;
-        background-color: var(--color-empty-state-bg);
+        background-color: $color-empty-state-bg;
         border-radius: 8px;
-        color: var(--color-empty-state-text);
+        color: $color-empty-state-text;
         font-style: italic;
+        text-align: center;
+        padding: 0 10px;
+        flex: 1;
     }
 
     .consultation-list {
         display: flex;
         flex-direction: column;
+        flex: 1; 
 
         .consultation-item {
             display: flex;
             padding: 15px 0;
-            border-bottom: 1px solid var(--color-border-bottom);
+            border-bottom: 1px solid $color-border-bottom;
+            gap: 10px;
 
             &:last-child {
                 border-bottom: none;
@@ -50,7 +58,7 @@
 
                 .label {
                     font-size: 12px;
-                    color: var(--color-description);
+                    color: $color-description;
                     margin-bottom: 5px;
                 }
 
@@ -63,23 +71,56 @@
             .action {
                 display: flex;
                 align-items: center;
-                color: var(--color-action-icon);
+                color: $color-action-icon;
+            }
+        }
+    }
+
+    .view-all-button {
+        margin-top: auto; // ✅ pushed to bottom of the card
+        align-self: center;
+        background: none;
+        border: 1px solid $color-button-border;
+        border-radius: 20px;
+        padding: 8px 20px;
+        font-size: 14px;
+        cursor: pointer;
+
+        &:hover {
+            background-color: $color-button-hover;
+        }
+    }
+
+    @media (max-width: 768px) {
+        padding: 16px;
+
+        h2 {
+            font-size: 18px;
+        }
+
+        .card-description {
+            font-size: 13px;
+        }
+
+        .consultation-item {
+            flex-direction: column;
+            align-items: flex-start;
+
+            .label,
+            .value {
+                font-size: 13px;
+            }
+
+            .action {
+                margin-top: 8px;
+                justify-content: flex-end;
+                width: 100%;
             }
         }
 
         .view-all-button {
-            align-self: center;
-            margin-top: 20px;
-            background: none;
-            border: 1px solid var(--color-button-border);
-            border-radius: 20px;
-            padding: 8px 20px;
-            font-size: 14px;
-            cursor: pointer;
-
-            &:hover {
-                background-color: var(--color-button-hover);
-            }
+            padding: 6px 16px;
+            font-size: 13px;
         }
     }
 }
