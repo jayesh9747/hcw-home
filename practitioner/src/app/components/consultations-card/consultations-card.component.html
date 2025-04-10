@@ -28,9 +28,9 @@
   </div>
   }
 
-  @if (consultations.length > 5) {
-  <button class="view-all-button" [routerLink]="routerLink">
+  @if (consultations.length > 3) {
+  <app-button [variant]="'outline'" [routerLink]="routerLink" [size]="'md'">
     View all
-  </button>
+  </app-button>
   }
 </div>

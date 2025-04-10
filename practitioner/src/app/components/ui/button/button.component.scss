@@ -1,0 +1,58 @@
+button,
+.button-link {
+    font-family: inherit;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+}
+
+.primary {
+    background-color: #4169e1;
+    color: white;
+
+    &:hover {
+        background-color: #3a5fcd;
+    }
+}
+
+.secondary {
+    background-color: #eee;
+    color: #333;
+
+    &:hover {
+        background-color: #ddd;
+    }
+}
+
+.outline {
+    border: 1px solid #ccc;
+    background: none;
+    color: #333;
+
+    &:hover {
+        background-color: #f0f0f0;
+    }
+}
+
+.sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.md {
+    padding: 8px 20px;
+    font-size: 14px;
+}
+
+.lg {
+    padding: 10px 24px;
+    font-size: 16px;
+}

@@ -1,7 +1,6 @@
 <div class="dashboard-content">
-    <app-consultation-card [title]="'WAITING ROOM'" [description]="'Consultations waiting to be attended'"
-        [consultations]="waitingConsultations" [routerLink]="RoutePaths.WaitingRoom"></app-consultation-card>
-
-    <app-consultation-card [title]="'OPEN CONSULTATIONS'" [description]="'Consultations in progress'"
-        [consultations]="openConsultations" [routerLink]="RoutePaths.OpenConsultations"></app-consultation-card>
+    @for (card of cards(); track card.title) {
+    <app-consultation-card [title]="card.title" [description]="card.description" [consultations]="card.consultations"
+        [routerLink]="card.routerLink"></app-consultation-card>
+    }
 </div>
