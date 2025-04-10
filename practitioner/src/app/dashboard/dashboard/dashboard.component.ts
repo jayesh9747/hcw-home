@@ -1,18 +1,29 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WaitingRoomCardComponent } from '../../components/waiting-room-card/waiting-room-card.component';
-import { OpenConsultationsCardComponent } from '../../components/open-consultations-card/open-consultations-card.component';
+import { ConsultationCardComponent } from '../../components/consultations-card/consultations-card.component';
+import { Consultation } from '../../models/consultation.model';
+import { ConsultationService } from '../../services/consultation.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [
-    CommonModule,
-    WaitingRoomCardComponent,
-    OpenConsultationsCardComponent,
-  ],
+  imports: [CommonModule, ConsultationCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit {
+  waitingConsultations: Consultation[] = [];
+  openConsultations: Consultation[] = [];
+
+  constructor(private consultationService: ConsultationService) {}
+
+  ngOnInit(): void {
+    this.consultationService.getWaitingConsultations().subscribe((data) => {
+      this.waitingConsultations = data;
+    });
+
+    this.consultationService.getOpenConsultations().subscribe((data) => {
+      this.openConsultations = data;
+    });
+  }
 }

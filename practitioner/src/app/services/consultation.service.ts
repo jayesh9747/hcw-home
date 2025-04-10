@@ -11,13 +11,19 @@ export class ConsultationService {
     {
       id: '1',
       patientName: 'Olivier Bitsch',
-      joinTime: new Date(Date.now() - 24 * 60 * 60 * 1000), 
+      joinTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
       status: 'active',
     },
     {
       id: '2',
       patientName: 'Olivier Bitsch',
-      joinTime: new Date(Date.now() - 24 * 60 * 60 * 1000), 
+      joinTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      status: 'active',
+    },
+    {
+      id: '3',
+      patientName: 'Olivier Bitsch',
+      joinTime: new Date(Date.now() - 24 * 60 * 60 * 1000),
       status: 'active',
     },
   ];

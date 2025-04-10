@@ -1,4 +1,7 @@
 <div class="dashboard-content">
-    <app-waiting-room-card></app-waiting-room-card>
-    <app-open-consultations-card></app-open-consultations-card>
+    <app-consultation-card [title]="'WAITING ROOM'" [description]="'Consultations waiting to be attended'"
+        [consultations]="waitingConsultations" [routerLink]="'/waiting-room'"></app-consultation-card>
+
+    <app-consultation-card [title]="'OPEN CONSULTATIONS'" [description]="'Consultations in progress'"
+        [consultations]="openConsultations" [routerLink]="'/consultations'"></app-consultation-card>
 </div>
