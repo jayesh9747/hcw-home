@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { of, type Observable } from 'rxjs';
-import type { Consultation } from '../models/consultation.model';
-import { ConsultationStatus } from '../constants/consultation-status.enum';
-import { formatConsultationTime } from '../utils/date-utils';
+import type { Consultation } from '../../models/consultations/consultation.model';
+import { ConsultationStatus } from '../../constants/consultation-status.enum';
+import { formatConsultationTime } from '../../utils/date-utils';
 
 @Injectable({
   providedIn: 'root',

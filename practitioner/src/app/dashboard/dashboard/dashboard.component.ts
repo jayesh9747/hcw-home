@@ -2,8 +2,8 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConsultationCardComponent } from '../../components/consultations-card/consultations-card.component';
 import { RoutePaths } from '../../constants/route-paths.enum';
-import { ConsultationService } from '../../services/consultation.service';
-import { type Consultation } from '../../models/consultation.model';
+import { ConsultationService } from '../../services//consultations/consultation.service';
+import { type Consultation } from '../../models/consultations/consultation.model';
 
 @Component({
   selector: 'app-dashboard',

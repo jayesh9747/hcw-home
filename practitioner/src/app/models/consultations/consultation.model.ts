@@ -1,4 +1,4 @@
-import { ConsultationStatus } from '../constants/consultation-status.enum';
+import { ConsultationStatus } from '../../constants/consultation-status.enum';
 
 export interface Consultation {
   id: string;
