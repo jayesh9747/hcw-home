@@ -32,10 +32,10 @@
               }
             ],
             "stylePreprocessorOptions": {
-              "includePaths": ["src/styles"]
+              "includePaths": ["src/app/styles"]
             },
             "styles": [
-              "src/styles/styles.scss"
+              "src/app/styles/styles.scss"
             ],
             "scripts": []
           },
@@ -94,10 +94,10 @@
               }
             ],
             "stylePreprocessorOptions": {
-              "includePaths": ["src/styles"]
+              "includePaths": ["src/app/styles"]
             },
             "styles": [
-              "src/styles/styles.scss"
+              "src/app/styles/styles.scss"
             ],
             "scripts": []
           }
