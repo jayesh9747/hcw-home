@@ -2,12 +2,16 @@
   <h2>{{ title }}</h2>
   <p class="card-description">{{ description }}</p>
 
-  <div *ngIf="consultations.length === 0" class="empty-state">
+  @if (consultations.length === 0) {
+  <div class="empty-state">
     <p>No consultations</p>
   </div>
+  }
 
-  <div *ngIf="consultations.length > 0" class="consultation-list">
-    <div *ngFor="let consultation of consultations" class="consultation-item">
+  @if (consultations.length > 0) {
+  <div class="consultation-list">
+    @for (consultation of consultations; track consultation.id) {
+    <div class="consultation-item">
       <div class="patient-info">
         <div class="label">Patient</div>
         <div class="value">{{ consultation.patientName }}</div>
@@ -20,9 +24,13 @@
         <i class="fas fa-chevron-right"></i>
       </div>
     </div>
+    }
   </div>
+  }
 
-  <button *ngIf="consultations.length > 5" class="view-all-button" [routerLink]="routerLink">
+  @if (consultations.length > 5) {
+  <button class="view-all-button" [routerLink]="routerLink">
     View all
   </button>
+  }
 </div>

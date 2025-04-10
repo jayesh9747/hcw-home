@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Consultation } from '../../models/consultation.model';
 import { RouterLink } from '@angular/router';
+import { RoutePaths } from '../../constants/route-paths.enum';
 
 @Component({
   selector: 'app-consultation-card',
@@ -11,10 +12,12 @@ import { RouterLink } from '@angular/router';
   styleUrls: ['./consultations-card.component.scss'],
 })
 export class ConsultationCardComponent {
-  @Input() title: string = 'CONSULTATIONS';
-  @Input() description: string = 'List of consultations';
+  @Input() title = 'CONSULTATIONS';
+  @Input() description = 'List of consultations';
   @Input() consultations: Consultation[] = [];
-  @Input() routerLink: string = '/consultations';
+  @Input() routerLink: RoutePaths = RoutePaths.OpenConsultations;
+
+  RoutePaths = RoutePaths;
 
   formatTime(date: Date): string {
     return new Date(date).toLocaleTimeString([], {

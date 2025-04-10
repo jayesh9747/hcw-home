@@ -1,9 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConsultationCardComponent } from '../../components/consultations-card/consultations-card.component';
 import { Consultation } from '../../models/consultation.model';
 import { ConsultationService } from '../../services/consultation.service';
-
+import { RoutePaths } from '../../constants/route-paths.enum';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -11,7 +11,9 @@ import { ConsultationService } from '../../services/consultation.service';
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent {
+  RoutePaths = RoutePaths; 
+
   waitingConsultations: Consultation[] = [];
   openConsultations: Consultation[] = [];
 

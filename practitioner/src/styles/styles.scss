@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 * {
     margin: 0;
     padding: 0;
@@ -5,9 +7,11 @@
 }
 
 body {
-    font-family: sans-serif;
-    color: #333;
-    background-color: #f9f9f9;
+    font-family: $font-family-base;
+    font-size: $font-size-base;
+    line-height: $line-height-base;
+    color: $color-text;
+    background-color: $color-background;
 }
 
 a {
@@ -32,8 +36,7 @@ button {
     border-width: 0;
 }
 
-
-
+/* Responsive breakpoints - add helpers if needed */
 @media (min-width: 576px) {}
 
 @media (min-width: 768px) {}
