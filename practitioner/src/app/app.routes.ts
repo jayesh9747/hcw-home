@@ -1,5 +1,5 @@
 import type { Routes } from '@angular/router';
-import { DashboardComponent } from './dashboard/dashboard/dashboard.component';
+import { DashboardComponent } from './dashboard/dashboard.component';
 import { AppComponent } from './app.component';
 import { RoutePaths } from './constants/route-paths.enum';
 
