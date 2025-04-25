@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ConsultationModule } from './consultation/consultation.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ConsultationModule } from './consultation/consultation.module';
       envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
     }),
     DatabaseModule,
+    CommonModule,
     HealthModule,
     AuthModule,
     UserModule,

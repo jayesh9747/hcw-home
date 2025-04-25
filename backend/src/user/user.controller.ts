@@ -1,34 +1,95 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { UserService } from './user.service';
-import { Prisma } from '@prisma/client';
-import { DatabaseModule } from 'src/database/database.module';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiResponseDto,
+  PaginatedApiResponseDto,
+} from '../common/dto/api-response.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 
-@Controller('user')
+@ApiTags('users')
+@Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  create(@Body()  data:Prisma.UserCreateInput) {
-    return this.userService.create(data);
+  @ApiResponse({
+    status: 201,
+    description: 'User created successfully',
+    type: () => ApiResponseDto,
+  })
+  async create(@Body() createUserDto: CreateUserDto) {
+    const user = await this.userService.create(createUserDto);
+    return ApiResponseDto.success(user, 'User created successfully', 201);
   }
 
   @Get()
-  findAll() {
-    return this.userService.findAll();
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Users retrieved successfully',
+    type: () => PaginatedApiResponseDto,
+  })
+  async findAll(@Query('page') page = 1, @Query('limit') limit = 10) {
+    const { users, total } = await this.userService.findAll(+page, +limit);
+    return PaginatedApiResponseDto.paginatedSuccess(
+      users,
+      total,
+      +page,
+      +limit,
+      'Users retrieved successfully',
+    );
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(+id);
+  @ApiResponse({
+    status: 200,
+    description: 'User retrieved successfully',
+    type: () => ApiResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.findOne(id);
+    return ApiResponseDto.success(user, 'User retrieved successfully');
   }
 
-  // @Patch(':id')
-  // update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-  //   return this.userService.update(+id, updateUserDto);
-  // }
+  @Patch(':id')
+  @ApiResponse({
+    status: 200,
+    description: 'User updated successfully',
+    type: () => ApiResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    const user = await this.userService.update(id, updateUserDto);
+    return ApiResponseDto.success(user, 'User updated successfully');
+  }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.userService.remove(+id);
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+    type: () => ApiResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.userService.remove(id);
+    return ApiResponseDto.success(user, 'User deleted successfully');
   }
 }
