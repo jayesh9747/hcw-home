@@ -89,17 +89,17 @@ export class ConsultationService {
                 participants: {
                     some: {
                         isActive: true,
-                        user: { role: 'Patient' },
+                        user: { role: 'PATIENT' },
                     },
                 },
-                NOT: {
-                    participants: {
-                        some: {
-                            isActive: true,
-                            user: { role: 'Practitioner' },
-                        },
-                    },
-                },
+                // NOT: {
+                //     participants: {
+                //         some: {
+                //             isActive: true,
+                //             user: { role: 'Practitioner' },
+                //         },
+                //     },
+                // },
             },
             select: {
                 id: true,
@@ -107,7 +107,7 @@ export class ConsultationService {
                 participants: {
                     where: {
                         isActive: true,
-                        user: { role: 'Patient' },
+                        user: { role: 'PATIENT' },
                     },
                     select: {
                         joinedAt: true,
