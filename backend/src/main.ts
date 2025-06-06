@@ -21,7 +21,6 @@ class ApplicationBootstrap {
 
       // Configure application
       this.configureCors(app, configService);
-      this.configureValidation(app, configService);
       this.configureSwagger(app, configService);
       this.configureGlobalPrefix(app);
 
@@ -55,17 +54,6 @@ class ApplicationBootstrap {
       });
       this.logger.log(`CORS enabled for origin: ${configService.corsOrigin}`);
     }
-  }
-
-  private configureValidation(app: any, configService: ConfigService): void {
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true,
-        disableErrorMessages: configService.shouldDisableErrorMessages,
-      }),
-    );
   }
 
   private configureSwagger(app: any, configService: ConfigService): void {

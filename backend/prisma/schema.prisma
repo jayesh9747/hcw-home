@@ -17,34 +17,38 @@ enum ConsultationStatus {
 
 model User {
   id               Int           @id @default(autoincrement())
-  role             Role          @default(Patient) // Enum: Patient, Practitioner, Admin
-  firstName        String
-  lastName         String
-  password         String
-  temporaryAccount Boolean
-  phoneNumber      String        @unique()
-  country          String
-  language         String
-  sex              Sex // Enum: male, female, other
-  status           Status        @default(not_approved) // Enum: approved, not_approved
+  role             UserRole
+  firstName        String        @db.VarChar(100)
+  lastName         String        @db.VarChar(100)
+  email            String        @unique @db.VarChar(255)
+  password         String        @db.VarChar(255)
+  temporaryAccount Boolean       @default(false)
+  phoneNumber      String?       @db.VarChar(20)
+  country          String?       @db.VarChar(100)
+  sex              UserSex?
+  status           UserStatus    @default(NOT_APPROVED)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
   Participant      Participant[]
+
+  @@map("users")
 }
 
-enum Role {
-  Patient
-  Practitioner
-  Admin
+enum UserRole {
+  PATIENT
+  PRACTITIONER
+  ADMIN
 }
 
-enum Sex {
-  male
-  female
-  other
+enum UserSex {
+  MALE
+  FEMALE
+  OTHER
 }
 
-enum Status {
-  approved
-  not_approved
+enum UserStatus {
+  APPROVED
+  NOT_APPROVED
 }
 
 //  Add the new models/enums that is necessary for consultation remainders

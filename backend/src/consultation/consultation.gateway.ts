@@ -51,7 +51,7 @@ export class ConsultationGateway
       where: {
         consultationId,
         isActive: true,
-        user: { role: 'Patient' },
+        user: { role: 'PATIENT' },
       },
     });
 
