@@ -1,18 +1,18 @@
+import { CardComponentComponent } from 'src/app/components/card-component/card-component.component';
+import { HeaderComponent } from 'src/app/components/header/header.component';
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
-  IonHeader, IonToolbar, IonTitle, IonContent, 
-  IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
-  IonList, IonItem, IonLabel, IonButton, IonIcon, 
-  IonChip, IonText, AlertController, ToastController, IonAvatar
+   AlertController, ToastController,
 } from '@ionic/angular/standalone';
-import { DatePipe } from '@angular/common';
+
 import { addIcons } from 'ionicons';
 import { 
-  videocamOutline, starOutline, documentTextOutline, 
-  closeCircleOutline, calendarOutline, checkmarkCircle 
+  videocamOutline, starOutline,
+  calendarOutline, checkmarkCircle 
 } from 'ionicons/icons';
-
+import { ButtonComponent } from 'src/app/components/button/button.component';
+import { Router } from '@angular/router';
 interface Consultation {
   id: number;
   doctorName: string;
@@ -25,43 +25,49 @@ interface Consultation {
 }
 
 @Component({
-  selector: 'app-tab1',
-  templateUrl: 'tab1.page.html',
-  styleUrls: ['tab1.page.scss'],
+  selector: 'app-dashboard',
+  templateUrl: './patient-dashboard.page.html',
+  styleUrls: ['./patient-dashboard.page.scss'],
   standalone: true,
   imports: [
+    CardComponentComponent,
+    HeaderComponent,
     CommonModule,
-    IonHeader, 
-    IonAvatar,
-    IonToolbar, 
-    IonTitle, 
-    IonContent, 
-    IonCard, 
-    IonCardHeader, 
-    IonCardTitle, 
-    IonCardContent, 
-    IonList, 
-    IonItem, 
-    IonLabel, 
-    IonButton, 
-    IonIcon, 
-    IonChip, 
-    IonText,
-    DatePipe
+    ButtonComponent,
   ],
 })
-export class Tab1Page {
+
+export class PatientDashboard {
+  consultations: Consultation[] = [];
   activeConsultations: Consultation[] = [];
   completedConsultations: Consultation[] = [];
   upcomingConsultations: Consultation[] = [];
 
-  constructor(private alertController: AlertController, private toastController: ToastController) {
+
+//    constructor(private api: ApiService) {
+//      addIcons({
+//       videocamOutline, 
+//       starOutline, 
+//       calendarOutline,
+//       checkmarkCircle
+//     });
+//    }
+
+//   ngOnInit() {
+//     this.api.consultationRecords().subscribe((data) => {
+//       this.consultations = data;
+//     });
+
+//       this.activeConsultations = this.allConsultations.filter(c => c.status === 'Open' || c.status === 'Waiting');
+//       this.completedConsultations = this.allConsultations.filter(c => c.status === 'Completed');
+//       this.upcomingConsultations = this.allConsultations.filter(c => c.status === 'Upcoming');
+//   }
+
+  constructor(private router: Router ,private alertController: AlertController, private toastController: ToastController) {
     // Add icons to be used in the template
     addIcons({
       videocamOutline, 
       starOutline, 
-      documentTextOutline, 
-      closeCircleOutline, 
       calendarOutline,
       checkmarkCircle
     });
@@ -72,7 +78,7 @@ export class Tab1Page {
 
   loadDummyData() {
     // Active consultations
-    this.activeConsultations = [
+    this.activeConsultations = [ 
       {
         id: 1,
         doctorName: 'Dr. Sarah Johnson',
@@ -140,7 +146,8 @@ export class Tab1Page {
       }
     ];
   }
-
+  
+  // on clicking this button patient navigate
   async joinConsultation(consultationId: number) {
     const toast = await this.toastController.create({
       message: 'Joining video consultation...',
@@ -151,6 +158,7 @@ export class Tab1Page {
     // In a real app, this would navigate to a video call page or launch a video SDK
   }
 
+  // we have to provide it after consultation ends
   async provideFeedback(consultationId: number) {
     const alert = await this.alertController.create({
       header: 'Rate your consultation',
@@ -189,58 +197,6 @@ export class Tab1Page {
     await alert.present();
   }
 
-  async viewSummary(consultationId: number) {
-    const consultation = this.completedConsultations.find(c => c.id === consultationId);
-    
-    if (consultation) {
-      const alert = await this.alertController.create({
-        header: 'Consultation Summary',
-        subHeader: `${consultation.doctorName} - ${consultation.specialty}`,
-        message: `
-          <p><strong>Date:</strong> ${new Date(consultation.dateTime).toLocaleDateString()}</p>
-          <p><strong>Time:</strong> ${new Date(consultation.dateTime).toLocaleTimeString()}</p>
-          <p><strong>Duration:</strong> ${consultation.duration} minutes</p>
-          <p><strong>Notes:</strong> Follow-up in 30 days. Prescribed medication reviewed. Overall health improving.</p>
-        `,
-        buttons: ['Close']
-      });
-
-      await alert.present();
-    }
-  }
-
-  async cancelConsultation(consultationId: number) {
-    const alert = await this.alertController.create({
-      header: 'Cancel Consultation',
-      message: 'Are you sure you want to cancel this consultation?',
-      buttons: [
-        {
-          text: 'No',
-          role: 'cancel'
-        },
-        {
-          text: 'Yes',
-          handler: () => {
-            // Remove the consultation from the list
-            this.upcomingConsultations = this.upcomingConsultations.filter(c => c.id !== consultationId);
-            this.presentToast('Consultation cancelled successfully');
-          }
-        }
-      ]
-    });
-
-    await alert.present();
-  }
-
-  async rescheduleConsultation(consultationId: number) {
-    // In a real app, this would open a date/time picker
-    const toast = await this.toastController.create({
-      message: 'Opening scheduler...',
-      duration: 2000
-    });
-    toast.present();
-  }
-
   async presentToast(message: string) {
     const toast = await this.toastController.create({
       message: message,
@@ -248,5 +204,9 @@ export class Tab1Page {
       color: 'success'
     });
     toast.present();
+  }
+
+  goToConsultationRequest() {
+    this.router.navigate(['/consultation-request']);
   }
 }

@@ -1,35 +1,59 @@
-.custom-toolbar {
-    min-height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+// .custom-toolbar {
+//     min-height: 80px;
+//     display: flex;
+//     align-items: center;
+//     justify-content: center;
+//   }
   
-  .custom-title {
-    text-align: center;
-    width: 100%;
-    font-size: 1.6rem;
-    font-weight: 600;
-  }
+//   .custom-title {
+//     width: 100%;
+//     font-size: 1.6rem;
+//     font-weight: 600;
+//   }
+
+//   .consultation-btn {
+//   --background: #ffffff;
+//   --color: #f5f6fa;
+//   font-weight: 600;
+//   font-size: 1.2rem;
+//   margin-right: 32px;
+//   padding-right: 56px;
+//   // text-align: center;
+//   // line-height: 1.3;
+//   ion-icon {
+//     font-size: 1.8rem;
+//     margin-right: 6px;
+//   }
+// }
+// .consultation-btn::part(native) {
+//   border-radius: 8px !important;
+//   box-shadow: 0px 20px 40px rgba(102, 92, 100, 0.3);
+//   padding: 10px 20px;
+// }
   .dashboard-container {
     max-width: 900px; /* Increased width */
     margin: 0 auto;
     padding: 8px;
   }
-
+//   .content-container{
+//     padding-top: var(--ion-safe-area-top, 20px);
+//   }
   .consultation-card {
+    background-color: #f9f9f9;
+    color: #222; 
+    border-radius: 12px; 
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     margin-bottom: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(200, 14, 14, 0.1);
+    // box-shadow: 0 4px 12px rgba(200, 14, 14, 0.1);
   }
 
   /* Card-specific styling */
   .active-card {
-    border-top: 4px solid #3880ff; /* Primary blue for active */
+    border-top: 4px solid #10dc60; /* Primary blue for active */
   }
 
   .completed-card {
-    border-top: 4px solid #10dc60; /* Green for completed */
+    border-top: 4px solid #0090ff; /* Green for completed */
   }
 
   .upcoming-card {

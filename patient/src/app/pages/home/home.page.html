@@ -1,27 +1,12 @@
-<ion-header [translucent]="true">
-  <ion-toolbar color="primary" class="custom-toolbar">
-    <ion-title class="custom-title">
-      My Consultations
-    </ion-title>
-  </ion-toolbar>
-</ion-header>
-
-
-<ion-content [fullscreen]="true" class="ion-padding" style="--background: white;">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Consultations</ion-title>
-    </ion-toolbar>
-  </ion-header>
-
-  <!-- Wrapper for reduced width -->
-  <div class="dashboard-container" style="max-width: 900px; margin: 0 auto;">
-    <!-- Active Consultations Section -->
+  <!-- <div class="dashboard-container" style="max-width: 900px; margin: 0 auto;">
     
-    <ion-card class="consultation-card active-card" style="background-color: #f9f9f9; color: #222; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); border-top: 4px solid #28c76f;">
+    Active Consultations Section
+    
+    <ion-card class="consultation-card active-card">
       <ion-card-header style="background-color: #f4f5f8; padding: 12px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px;">
         <ion-card-title style="color: #1a1a1a; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600;">
           <ion-icon name="pulse-outline" style="font-size: 20px;"></ion-icon>
+          
           Active Consultations
         </ion-card-title>
       </ion-card-header>
@@ -76,9 +61,9 @@
     </ion-card>
     
     
-    <!-- Completed Consultations Section -->
+    Completed Consultations Section
 
-    <ion-card class="consultation-card completed-card" style="background-color: #f9f9f9; color: #222; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); border-top: 4px solid #0090ff;">
+    <ion-card class="consultation-card completed-card" >
       <ion-card-header style="background-color: #f4f5f8; padding: 12px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px;">
         <ion-card-title style="color: #1a1a1a; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600;">
           <ion-icon name="checkmark-circle-outline" style="font-size: 20px; color: #1a1a1a;"></ion-icon>
@@ -101,7 +86,7 @@
             </ion-label>
     
             <div slot="end" class="action-buttons" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: 8px;">
-              <!-- Rate button -->
+              Rate button
               <ion-button
                 fill="outline"
                 color="tertiary"
@@ -115,7 +100,7 @@
                 Rate
               </ion-button>
     
-              <!-- Rated chip -->
+              Rated chip
               <ion-chip
                 color="success"
                 *ngIf="consultation.feedbackSubmitted"
@@ -126,7 +111,7 @@
                 <ion-label>Rated</ion-label>
               </ion-chip>
     
-              <!-- Summary button -->
+              Summary button
               <ion-button
                 fill="outline"
                 color="primary"
@@ -152,9 +137,9 @@
     </ion-card>
     
     
-    <!-- Upcoming Consultations Section -->
+    Upcoming Consultations Section
     
-    <ion-card class="consultation-card upcoming-card" style="background-color: #f9f9f9; color: #222; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);">
+    <ion-card class="consultation-card upcoming-card" >
       <ion-card-header style="background-color: #f4f5f8; padding: 12px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px;">
         <ion-card-title style="color: #1a1a1a; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600;">
           <ion-icon name="calendar-outline" style="font-size: 20px; color: #1a1a1a;"></ion-icon>
@@ -176,7 +161,7 @@
               <p style="margin: 0; font-size: 13px; color: #cc0000;">In {{ consultation.timeUntil }}</p>
             </ion-label>
     
-            <!-- Center-aligned vertically without increasing button width -->
+            Center-aligned vertically without increasing button width
             <div slot="end" style="display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; height: 100%;">
               <ion-button fill="outline" color="danger" size="small" (click)="cancelConsultation(consultation.id)" style="--border-radius: 8px; font-size: 13px; height: 32px;">
                 <ion-icon name="close-circle-outline" slot="start"></ion-icon>
@@ -189,7 +174,7 @@
             </div>
           </ion-item>
     
-          <!-- Empty State -->
+          Empty State
           <ion-item *ngIf="upcomingConsultations.length === 0" class="empty-list-item" style="--background: #ffffff; color: #666;">
             <ion-label class="ion-text-center" style="width: 100%; padding: 16px;">
               <ion-icon name="information-circle-outline" size="large" style="color: #888;"></ion-icon>
@@ -201,5 +186,10 @@
     </ion-card>
     
     
-  </div>
-</ion-content>
+  </div> -->
+
+
+
+
+
+
