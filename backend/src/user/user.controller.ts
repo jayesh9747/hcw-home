@@ -9,6 +9,7 @@ import {
   Query,
   HttpStatus,
   ParseIntPipe,
+  UseGuards,
   Req,
 } from '@nestjs/common';
 import {
@@ -36,8 +37,13 @@ import {
   queryUserSchema,
 } from './validation/user.validation';
 import { UserRole, UserSex, UserStatus } from '@prisma/client';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/auth/enums/role.enum';
 
 @Controller('user')
+@UseGuards(AuthGuard,RolesGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -57,7 +63,7 @@ export class UserController {
       path: req.path,
     });
   }
-
+  @Roles(Role.ADMIN,Role.PRACTITIONER)
   @Get()
   @ApiOperation({ summary: 'Get all users with pagination and filtering' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
@@ -80,7 +86,7 @@ export class UserController {
       },
     );
   }
-
+  @Roles(Role.ADMIN,Role.PRACTITIONER)
   @Get(':id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User ID', type: 'number' })
@@ -93,7 +99,7 @@ export class UserController {
       path: req.path,
     });
   }
-
+  // add who can access this 
   @Patch(':id')
   @ApiOperation({ summary: 'Update user by ID' })
   @ApiParam({ name: 'id', description: 'User ID', type: 'number' })

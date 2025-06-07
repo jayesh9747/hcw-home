@@ -127,7 +127,7 @@ export class UserService {
     });
   }
 
-  async findByEmail(email: string): Promise<UserResponseDto | null> {
+  async findByEmail(email: string): Promise<any| null> {
     const user = await this.databaseService.user.findUnique({
       where: { email },
     });
@@ -136,9 +136,10 @@ export class UserService {
       return null;
     }
 
-    return plainToInstance(UserResponseDto, user, {
-      excludeExtraneousValues: false,
-    });
+    // return plainToInstance(UserResponseDto, user, {
+    //   excludeExtraneousValues: false,
+    // });
+    return user; // Return the user object directly for authentication purposes
   }
 
   async update(
