@@ -1,4 +1,4 @@
-import { Environment } from "./environment.enum";
+import { Environment } from './environment.enum';
 
 export interface AppConfig {
   port: number;

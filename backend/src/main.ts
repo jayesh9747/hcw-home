@@ -15,7 +15,7 @@ class ApplicationBootstrap {
       this.validateEnvironment();
 
       const app = await NestFactory.create(AppModule);
-      
+
       // Get ConfigService after app is fully initialized
       const configService = app.get(ConfigService);
 
@@ -34,7 +34,7 @@ class ApplicationBootstrap {
 
   private validateEnvironment(): void {
     const nodeEnv = process.env.NODE_ENV;
-    
+
     if (!nodeEnv) {
       throw new Error('NODE_ENV environment variable is required');
     }
@@ -77,7 +77,10 @@ class ApplicationBootstrap {
         },
         'JWT-auth',
       )
-      .addServer(`http://localhost:${configService.port}/api/v1`, 'Development server')
+      .addServer(
+        `http://localhost:${configService.port}/api/v1`,
+        'Development server',
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
@@ -105,7 +108,10 @@ class ApplicationBootstrap {
     app.setGlobalPrefix('api/v1');
   }
 
-  private async startApplication(app: any, configService: ConfigService): Promise<void> {
+  private async startApplication(
+    app: any,
+    configService: ConfigService,
+  ): Promise<void> {
     const port = configService.port;
     await app.listen(port);
 
@@ -113,7 +119,9 @@ class ApplicationBootstrap {
   }
 
   private logApplicationInfo(port: number, configService: ConfigService): void {
-    this.logger.log(`Application is running on: http://localhost:${port}/api/v1`);
+    this.logger.log(
+      `Application is running on: http://localhost:${port}/api/v1`,
+    );
     this.logger.log(`Environment: ${configService.environment}`);
 
     if (configService.shouldEnableSwagger) {

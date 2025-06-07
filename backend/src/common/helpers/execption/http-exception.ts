@@ -8,7 +8,7 @@ export class CustomHttpException extends HttpException {
     statusCode: number,
     error?: any,
     requestId?: string,
-    path?: string
+    path?: string,
   ) {
     super(
       {
@@ -21,7 +21,7 @@ export class CustomHttpException extends HttpException {
         requestId,
         path,
       },
-      statusCode
+      statusCode,
     );
   }
 }

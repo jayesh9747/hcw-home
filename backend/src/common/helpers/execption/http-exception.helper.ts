@@ -10,7 +10,13 @@ export class HttpExceptionHelper {
     path?: string,
     error?: any,
   ) {
-    return new CustomHttpException(message, HttpStatus.NOT_FOUND, error, requestId, path);
+    return new CustomHttpException(
+      message,
+      HttpStatus.NOT_FOUND,
+      error,
+      requestId,
+      path,
+    );
   }
 
   static unauthorized(
@@ -19,7 +25,13 @@ export class HttpExceptionHelper {
     path?: string,
     error?: any,
   ) {
-    return new CustomHttpException(message, HttpStatus.UNAUTHORIZED, error, requestId, path);
+    return new CustomHttpException(
+      message,
+      HttpStatus.UNAUTHORIZED,
+      error,
+      requestId,
+      path,
+    );
   }
 
   static badRequest(
@@ -28,7 +40,13 @@ export class HttpExceptionHelper {
     path?: string,
     error?: any,
   ) {
-    return new CustomHttpException(message, HttpStatus.BAD_REQUEST, error, requestId, path);
+    return new CustomHttpException(
+      message,
+      HttpStatus.BAD_REQUEST,
+      error,
+      requestId,
+      path,
+    );
   }
 
   static forbidden(
@@ -37,7 +55,13 @@ export class HttpExceptionHelper {
     path?: string,
     error?: any,
   ) {
-    return new CustomHttpException(message, HttpStatus.FORBIDDEN, error, requestId, path);
+    return new CustomHttpException(
+      message,
+      HttpStatus.FORBIDDEN,
+      error,
+      requestId,
+      path,
+    );
   }
 
   static internalServerError(
@@ -46,6 +70,12 @@ export class HttpExceptionHelper {
     path?: string,
     error?: any,
   ) {
-    return new CustomHttpException(message, HttpStatus.INTERNAL_SERVER_ERROR, error, requestId, path);
+    return new CustomHttpException(
+      message,
+      HttpStatus.INTERNAL_SERVER_ERROR,
+      error,
+      requestId,
+      path,
+    );
   }
 }
