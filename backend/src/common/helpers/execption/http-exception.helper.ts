@@ -1,4 +1,4 @@
-// common/helpers/http-exception.helper.ts
+// Chayan Das <01chayandas@gmail.com>
 
 import { HttpStatus } from '@nestjs/common';
 import { CustomHttpException } from './http-exception';

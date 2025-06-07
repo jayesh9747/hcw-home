@@ -1,4 +1,5 @@
-// common/exceptions/http-exception.ts
+// Chayan Das <01chayandas@gmail.com>
+
 import { HttpException } from '@nestjs/common';
 import { ResponseStatus } from '../response/response-status.enum';
 
