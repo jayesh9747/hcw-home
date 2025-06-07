@@ -4,15 +4,12 @@ import {
   Post,
   HttpStatus,
   HttpCode,
-  NotImplementedException,
   Req,
   Get,
   UseGuards,
-  HttpException,
 } from '@nestjs/common';
 import { LoginUserDto } from './dto/login-user.dto';
 import { AuthService } from './auth.service';
-import { ApiRequestTimeoutResponse } from '@nestjs/swagger';
 import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -20,10 +17,10 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 
 import { UserService } from 'src/user/user.service';
 import { Role } from './enums/role.enum';
-import { ResponseStatus } from 'src/common/helpers/response/response-status.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { loginSchema } from './validation/auth.validation';
+import { ExtendedRequest } from 'src/types/request';
 
 @Controller('auth')
 export class AuthController {
@@ -36,15 +33,16 @@ export class AuthController {
   @Post('login')
   async login(
     @Body(new ZodValidationPipe(loginSchema)) loginUserDto: LoginUserDto,
-    @Req() req: Request,
+    @Req() req: ExtendedRequest,
   ) {
+    const requestId = req.id as string;
     const result = await this.authService.authenticateUser(
       loginUserDto,
-      req['id'],
+      requestId,
       req.url,
     );
     return ApiResponseDto.success(result, 'User logged-in successfully', 200, {
-      requestId: req['id'],
+      requestId,
       path: req.url,
     });
   }
@@ -53,13 +51,16 @@ export class AuthController {
   @Roles(Role.ADMIN, Role.PATIENT, Role.PRACTITIONER)
   @HttpCode(HttpStatus.OK)
   @Get('me')
-  async getMe(@Req() req: Request): Promise<any> {
-    const user = await this.UserService.findOne(req['user'].id);
+  async getMe(@Req() req: ExtendedRequest): Promise<any> {
+    const requestId = req.id as string;
+    const userId = req.user?.id as Number;
+
+    const user = await this.UserService.findOne(Number(userId));
     if (!user) {
-      throw HttpExceptionHelper.notFound('user not found', req['id'], req.url);
+      throw HttpExceptionHelper.notFound('user not found', requestId, req.url);
     }
     return ApiResponseDto.success(user, 'User retrieved successfully', 200, {
-      requestId: req['id'],
+      requestId,
       path: req.url,
     });
   }
