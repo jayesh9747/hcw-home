@@ -1,64 +1,10 @@
-<div *ngIf="isLoggedIn">
-  <mat-drawer-container class="container">
-    
-    <mat-drawer
-      #sidenav
-      class="sidenav"
-      [mode]="isMobile ? 'over' : 'side'"
-      [opened]="isMobile ? isSidebarOpen : isSidebarVisible"
-      [disableClose]="!isMobile"
-      (closedStart)="isSidebarOpen = false"
-    >
-      <div class="sidebar">
-        <div class="sidebar-item home">
-          <a routerLink="/" (click)="closeSidebarOnMobile()">
-            <div class="icon"></div>
-            <div class="label">HOME</div>
-          </a>
-        </div>
-
-        <ng-container *ngFor="let item of sidebarItems">
-          <a
-            class="sidebar-item"
-            routerLinkActive="active"
-            [routerLink]="item.route"
-            #rla="routerLinkActive"
-            [ngClass]="{ active: rla.isActive }"
-            (click)="closeSidebarOnMobile()"
-          >
-            <div class="icon">
-              <img
-                [src]="'assets/svg/' + item.icon"
-                [alt]="item.label + ' icon'"
-              />
-              <app-badge *ngIf="item.badge" [value]="item.badge"></app-badge>
-            </div>
-            <div class="label">{{ item.label }}</div>
-          </a>
-        </ng-container>
-      </div>
-    </mat-drawer>
-
-    <mat-drawer-content>
-      <div class="toolbar">
-        <button
-        mat-icon-button
-        class="hamburger"
-        (click)="toggleSidebar()"
-        aria-label="Toggle sidebar"
-        >
-            <span class="hamburger-line"></span>
-            <span class="hamburger-line"></span>
-            <span class="hamburger-line"></span>
-        </button>
-
-      </div>
-
-      <div class="content">
-        <router-outlet *ngIf="navigated"></router-outlet>
-      </div>
-    </mat-drawer-content>
-  </mat-drawer-container>
-</div>
+<app-sidebar
+  *ngIf="isLoggedIn"
+  [pendingConsultations]="pendingConsultations"
+  [activeConsultations]="activeConsultations"
+  [isLoggedIn]="isLoggedIn"
+>
+  <router-outlet></router-outlet>
+</app-sidebar>
 
 <router-outlet *ngIf="!isLoggedIn"></router-outlet>
