@@ -1,0 +1,46 @@
+@use './variables' as *;
+:host {
+    display: block;
+    margin: 0.5rem 0;
+    font-family: $font-family-base; 
+    color: $color-heading; 
+    line-height: $line-height-base; 
+    font-weight: 500; 
+    letter-spacing: 0.03; 
+    word-spacing: 0.05; 
+    text-transform: none;
+}
+
+:host>h1,
+:host>h2,
+:host>h3,
+:host>h4,
+:host>h5,
+:host>h6 {
+    margin: 0; 
+    padding: 0; 
+}
+
+:host>h1 {
+    font-size: 3rem;
+}
+
+:host>h2 {
+    font-size: 2.5rem;
+}
+
+:host>h3 {
+    font-size: 2rem;
+}
+
+:host>h4 {
+    font-size: 1.75rem;
+}
+
+:host>h5 {
+    font-size: 1.5rem;
+}
+
+:host>h6 {
+    font-size: 1.25rem;
+}
