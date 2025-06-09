@@ -7,6 +7,7 @@ import { WaitingRoomComponent } from './waiting-room/waiting-room.component';
 import { OpenConsultationsComponent } from './open-consultations/open-consultations.component';
 import { InvitesComponent } from './invites/invites.component';
 
+import { TestCallComponent } from './test-call/test-call.component';
 export const routes: Routes = [
   { path: '', redirectTo: RoutePaths.Dashboard, pathMatch: 'full' },
   { path: RoutePaths.Dashboard, component: DashboardComponent },
@@ -14,7 +15,7 @@ export const routes: Routes = [
   { path: RoutePaths.OpenConsultations, component: OpenConsultationsComponent },
   { path: RoutePaths.ClosedConsultations, component: ClosedConsultationsComponent },
   { path: RoutePaths.Invitations, component: InvitesComponent },
-  { path: RoutePaths.Test, component: DashboardComponent },
+  { path: RoutePaths.Test, component: TestCallComponent },
 ];
 
 

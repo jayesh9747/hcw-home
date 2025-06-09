@@ -1,0 +1,20 @@
+<ng-container [ngSwitch]="level">
+    <ng-template ngSwitchCase="1">
+        <h1><ng-content></ng-content></h1>
+    </ng-template>
+    <ng-template ngSwitchCase="2">
+        <h2><ng-content></ng-content></h2>
+    </ng-template>
+    <ng-template ngSwitchCase="3">
+        <h3><ng-content></ng-content></h3>
+    </ng-template>
+    <ng-template ngSwitchCase="4">
+        <h4><ng-content></ng-content></h4>
+    </ng-template>
+    <ng-template ngSwitchCase="5">
+        <h5><ng-content></ng-content></h5>
+    </ng-template>
+    <ng-template ngSwitchDefault>
+        <h6><ng-content></ng-content></h6>
+    </ng-template>
+</ng-container>

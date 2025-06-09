@@ -1,0 +1,31 @@
+<div class="test-call">
+    <div class="test-sections">
+
+        <div class="test-section micro-test">
+            <app-typography [level]="2">MICRO TEST</app-typography>
+
+            <div class="audio-meter-container">
+                <div class="audio-meter">
+                    <div #audioMeter class="meter-fill"></div>
+                </div>
+            </div>
+            <p class="help-text">
+                A properly tuned microphone should put the VU meter in the green center area when speaking.
+            </p>
+
+            <app-device-selection *ngIf="audioInputDevices.length > 1" [devices]="audioInputDevices"
+                [selectedDeviceId]="selectedAudioDeviceId"
+                (deviceChange)="switchAudioInput($event)"></app-device-selection>
+        </div>
+
+        <div class="test-section camera-test">
+            <app-typography [level]="2">CAMERA TEST</app-typography>
+            <div class="video-container">
+                <video #videoPreview autoplay playsinline muted></video>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<app-toast-container></app-toast-container>
