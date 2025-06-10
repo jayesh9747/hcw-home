@@ -1,1 +1,9 @@
-<router-outlet></router-outlet>
+<app-sidebar
+  [pendingConsultations]="pendingConsultations"
+  [activeConsultations]="activeConsultations"
+  [isLoggedIn]="isLoggedIn"
+>
+  <router-outlet></router-outlet>
+</app-sidebar>
+
+@if(!isLoggedIn){<router-outlet></router-outlet>}
