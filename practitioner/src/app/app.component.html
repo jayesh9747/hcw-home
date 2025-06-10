@@ -1,5 +1,4 @@
 <app-sidebar
-  *ngIf="isLoggedIn"
   [pendingConsultations]="pendingConsultations"
   [activeConsultations]="activeConsultations"
   [isLoggedIn]="isLoggedIn"
@@ -7,4 +6,4 @@
   <router-outlet></router-outlet>
 </app-sidebar>
 
-<router-outlet *ngIf="!isLoggedIn"></router-outlet>
+@if(!isLoggedIn){<router-outlet></router-outlet>}
