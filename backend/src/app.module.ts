@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConsultationModule } from './consultation/consultation.module';
 import { UserModule } from './user/user.module';
 import { OrganizationModule } from './organization/organization.module';
+import { GroupModule } from './group/group.module';
 
 
 @Module({
@@ -19,7 +20,7 @@ import { OrganizationModule } from './organization/organization.module';
     ConsultationModule,
     UserModule,
     OrganizationModule,
-
+    GroupModule
   ],
   controllers: [AppController],
   providers: [AppService],
