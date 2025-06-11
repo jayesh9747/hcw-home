@@ -9,10 +9,11 @@ import { DatabaseService } from 'src/database/database.service';
 
 @WebSocketGateway({ namespace: '/consultation', cors: true })
 export class ConsultationGateway
-  implements OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
 
-  constructor(private readonly databaseService: DatabaseService) { }
+  constructor(private readonly databaseService: DatabaseService) {}
 
   /**
    * When a socket connects, we expect the client to pass
@@ -30,7 +31,12 @@ export class ConsultationGateway
 
     await this.databaseService.participant.upsert({
       where: { consultationId_userId: { consultationId: cId, userId: uId } },
-      create: { consultationId: cId, userId: uId, isActive: true, joinedAt: new Date() },
+      create: {
+        consultationId: cId,
+        userId: uId,
+        isActive: true,
+        joinedAt: new Date(),
+      },
       update: { isActive: true },
     });
   }
@@ -57,7 +63,7 @@ export class ConsultationGateway
 
     const consultation = await this.databaseService.consultation.findUnique({
       where: { id: consultationId },
-    });    
+    });
 
     if (activePatients.length === 0 && consultation?.status == 'WAITING') {
       await this.databaseService.consultation.update({
@@ -65,6 +71,5 @@ export class ConsultationGateway
         data: { status: 'SCHEDULED' },
       });
     }
-
   }
 }
