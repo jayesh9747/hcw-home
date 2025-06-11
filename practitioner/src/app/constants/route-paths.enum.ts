@@ -1,8 +1,8 @@
 export enum RoutePaths {
   Dashboard = 'dashboard',
   WaitingRoom = 'waiting-room',
-  OpenConsultations = 'consultations',
-  History = 'history',
-  Invitations = 'invitations',
+  OpenConsultations = 'open-consultations',
+  ClosedConsultations = 'closed-consultations',
+  Invitations = 'invites',
   Test = 'test',
 }

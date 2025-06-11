@@ -12,7 +12,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { plainToInstance } from 'class-transformer';
-import { Prisma, User } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -62,11 +62,10 @@ export class UserService {
       sortBy,
       sortOrder,
     } = query;
-    const skip = (page! - 1) * limit!;
+    const skip = (page - 1) * limit;
 
     console.log('page type:', typeof page);
     console.log('limit type:', typeof limit);
-
 
     // Build where clause
     const where: Prisma.UserWhereInput = {};
@@ -127,7 +126,7 @@ export class UserService {
     });
   }
 
-  async findByEmail(email: string): Promise<UserResponseDto | null> {
+  async findByEmail(email: string): Promise<any | null> {
     const user = await this.databaseService.user.findUnique({
       where: { email },
     });
@@ -136,9 +135,10 @@ export class UserService {
       return null;
     }
 
-    return plainToInstance(UserResponseDto, user, {
-      excludeExtraneousValues: false,
-    });
+    // return plainToInstance(UserResponseDto, user, {
+    //   excludeExtraneousValues: false,
+    // });
+    return user; // Return the user object directly for authentication purposes
   }
 
   async update(

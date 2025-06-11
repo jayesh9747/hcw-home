@@ -17,11 +17,24 @@ export const attachResponseHelpers = (req: any, res: any, next: any) => {
     return res.status(response.statusCode).json(response);
   };
 
-  res.paginated = <T>(data: T[], total: number, page: number, limit: number, message?: string) => {
-    const response = PaginatedApiResponseDto.paginatedSuccess(data, total, page, limit, message, {
-      requestId: req.id,
-      path: req.path,
-    });
+  res.paginated = <T>(
+    data: T[],
+    total: number,
+    page: number,
+    limit: number,
+    message?: string,
+  ) => {
+    const response = PaginatedApiResponseDto.paginatedSuccess(
+      data,
+      total,
+      page,
+      limit,
+      message,
+      {
+        requestId: req.id,
+        path: req.path,
+      },
+    );
     return res.status(response.statusCode).json(response);
   };
 

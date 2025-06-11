@@ -1,0 +1,55 @@
+<mat-drawer-container class="container">
+  <mat-drawer
+    #sidenav
+    class="sidenav"
+    [mode]="isMobile ? 'over' : 'side'"
+    [opened]="isMobile ? isSidebarOpen : isSidebarVisible"
+    [disableClose]="!isMobile"
+    (closedStart)="isSidebarOpen = false"
+  >
+    <div class="sidebar">
+      <div class="sidebar-item home">
+        <a routerLink="/" (click)="closeSidebarOnMobile()">
+          <img
+        src="assets/svg/HCW-Home.svg"
+        alt="HCW@Home"
+        width="75"
+        height="50"
+        class="img img-fluid"
+        />
+        </a>
+      </div>
+
+      @for (item of sidebarItems; track item){
+        <a
+          class="sidebar-item"
+          routerLinkActive="active"
+          [routerLink]="item.route"
+          #rla="routerLinkActive"
+          [ngClass]="{ active: rla.isActive }"
+          (click)="closeSidebarOnMobile()"
+        >
+          <div class="icon">
+            <img [src]="'assets/svg/' + item.icon" [alt]="item.label + ' icon'" />
+            @if (item.badge) { <app-badge [value]="item.badge"></app-badge> }
+          </div>
+          <div class="label">{{ item.label }}</div>
+        </a>
+      }
+    </div>
+  </mat-drawer>
+
+  <mat-drawer-content>
+    <div class="toolbar">
+      <button mat-icon-button class="hamburger" (click)="toggleSidebar()" aria-label="Toggle sidebar">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+    </div>
+
+    <div class="content">
+      <ng-content></ng-content>
+    </div>
+  </mat-drawer-content>
+</mat-drawer-container>
