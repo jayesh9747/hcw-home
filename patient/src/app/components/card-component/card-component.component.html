@@ -1,91 +1,80 @@
-<ion-content [fullscreen]="true" class="ion-padding" style="--background: white;">
-
-  <!-- Wrapper for reduced width -->
-  <div class="dashboard-container" style="max-width: 900px; margin: 0 auto;">
-    
+<ion-content [fullscreen]="true" class="ion-padding dashboard-bg">
+  <div class="dashboard-container">
     <!-- Active Consultations Section -->
-    
     <ion-card class="consultation-card active-card">
-      
-      <ion-card-header style="background-color: #f4f5f8; padding: 12px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px;">
-        <ion-card-title style="color: #1a1a1a; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600;">
-          <ion-icon name="pulse-outline" style="font-size: 20px;"></ion-icon>
-          
+      <ion-card-header class="consultation-header">
+        <ion-card-title class="consultation-title">
+          <ion-icon name="pulse-outline" class="section-icon"></ion-icon>
           Active Consultations
         </ion-card-title>
       </ion-card-header>
-    
-      <ion-card-content style="padding: 0;">
-        <ion-list lines="full" style="background-color: #f9f9f9;">
-          <ion-item *ngFor="let consultation of activeConsultations" class="consultation-item" style="--background: #ffffff; color: #222; padding: 12px 16px; margin-bottom: 8px; border-radius: 8px;">
-    
-            <ion-label style="margin: 0;">
-              <h2 style="margin: 0; font-weight: 600; font-size: 16px;">{{ consultation.doctorName }}</h2>
-              <h3 style="margin: 0; font-weight: 500; font-size: 14px; color: #666;">{{ consultation.specialty }}</h3>
-              <p style="margin: 4px 0 0; font-size: 13px;">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
-              <p style="margin: 0; font-size: 13px;">Status: <ion-text color="primary">{{ consultation.status }}</ion-text></p>
+
+      <ion-card-content class="no-padding">
+        <ion-list lines="full" class="consultation-list">
+          <ion-item *ngFor="let consultation of activeConsultations" class="consultation-item">
+            <ion-label>
+              <h2 class="doctor-name">{{ consultation.doctorName }}</h2>
+              <h3 class="specialty">{{ consultation.specialty }}</h3>
+              <p class="consultation-date">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
+              <p class="consultation-status">Status: 
+                <ion-text color="primary">{{ consultation.status }}</ion-text>
+              </p>
             </ion-label>
-    
-            <div slot="end" style="width: 150px; display: flex; justify-content: center; align-items: center;">
+
+            <div slot="end" class="consultation-end">
               <ion-button
                 *ngIf="consultation.status === 'Open'"
                 fill="solid"
                 color="success"
                 size="small"
                 (click)="joinConsultation(consultation.id)"
-                style="--padding-start: 12px; --padding-end: 12px; --border-radius: 8px; font-size: 13px; height: 32px;"
+                class="join-button"
               >
-                <ion-icon name="videocam-outline" slot="start" style="margin-right: 4px;"></ion-icon>
+                <ion-icon name="videocam-outline" slot="start"></ion-icon>
                 Join
               </ion-button>
-    
+
               <ion-chip
                 *ngIf="consultation.status === 'Waiting'"
                 color="warning"
-                class="status-chip"
-                style="font-size: 13px; height: 32px; justify-content: center; width: 150px;"
+                class="status-chip waiting-chip"
               >
-                <ion-icon name="time-outline" style="margin-right: 4px;"></ion-icon>
+                <ion-icon name="time-outline"></ion-icon>
                 <ion-label>Waiting for doctor</ion-label>
               </ion-chip>
             </div>
           </ion-item>
-    
-          <ion-item *ngIf="activeConsultations.length === 0" class="empty-list-item" style="--background: #ffffff; color: #666;">
-            <ion-label class="ion-text-center" style="width: 100%; padding: 16px;">
-              <ion-icon name="information-circle-outline" size="large" style="color: #888;"></ion-icon>
-              <p style="margin: 8px 0 0;">No active consultations at the moment.</p>
+
+          <ion-item *ngIf="activeConsultations.length === 0" class="empty-list-item">
+            <ion-label class="ion-text-center empty-label">
+              <ion-icon name="information-circle-outline" size="large"></ion-icon>
+              <p>No active consultations at the moment.</p>
             </ion-label>
           </ion-item>
         </ion-list>
       </ion-card-content>
     </ion-card>
-    
-    
-    <!-- Completed Consultations Section -->
 
-    <ion-card class="consultation-card completed-card" >
-      <ion-card-header style="background-color: #f4f5f8; padding: 12px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px;">
-        <ion-card-title style="color: #1a1a1a; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600;">
-          <ion-icon name="checkmark-circle-outline" style="font-size: 20px; color: #1a1a1a;"></ion-icon>
+    <!-- Completed Consultations Section -->
+    <ion-card class="consultation-card completed-card">
+      <ion-card-header class="consultation-header">
+        <ion-card-title class="consultation-title">
+          <ion-icon name="checkmark-circle-outline" class="section-icon"></ion-icon>
           Completed Consultations
         </ion-card-title>
       </ion-card-header>
-    
-      <ion-card-content style="padding: 0;">
-        <ion-list lines="full" style="background-color: #f9f9f9;">
-          <ion-item *ngFor="let consultation of completedConsultations" class="consultation-item" style="--background: #ffffff; color: #222; padding: 12px 16px; margin-bottom: 8px; border-radius: 8px;">
-            
-    
-            <ion-label style="margin: 0;">
-              <h2 style="margin: 0; font-weight: 600; font-size: 16px;">{{ consultation.doctorName }}</h2>
-              <h3 style="margin: 0; font-weight: 500; font-size: 14px; color: #666;">{{ consultation.specialty }}</h3>
-              <p style="margin: 4px 0 0; font-size: 13px;">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
-              <p style="margin: 0; font-size: 13px;">Duration: {{ consultation.duration }} minutes</p>
+
+      <ion-card-content class="no-padding">
+        <ion-list lines="full" class="consultation-list">
+          <ion-item *ngFor="let consultation of completedConsultations" class="consultation-item">
+            <ion-label>
+              <h2 class="doctor-name">{{ consultation.doctorName }}</h2>
+              <h3 class="specialty">{{ consultation.specialty }}</h3>
+              <p class="consultation-date">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
+              <p class="consultation-duration">Duration: {{ consultation.duration }} minutes</p>
             </ion-label>
-    
-            <div slot="end" class="action-buttons" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: 8px;">
-              <!-- Rate button -->
+
+            <div slot="end" class="action-buttons">
               <ion-button
                 fill="outline"
                 color="tertiary"
@@ -93,24 +82,20 @@
                 *ngIf="!consultation.feedbackSubmitted"
                 (click)="provideFeedback(consultation.id)"
                 class="action-button"
-                style="--padding-start: 12px; --padding-end: 12px; --border-radius: 8px; font-size: 13px; height: 32px;"
               >
-                <ion-icon name="star-outline" slot="start" style="margin-right: 4px;"></ion-icon>
+                <ion-icon name="star-outline" slot="start"></ion-icon>
                 Rate
               </ion-button>
-    
-              <!-- Rated chip -->
+
               <ion-chip
                 color="success"
                 *ngIf="consultation.feedbackSubmitted"
-                class="status-chip"
-                style="font-size: 13px; height: 32px; display: flex; align-items: center; --padding-start: 12px; --padding-end: 12px;"
+                class="status-chip rated-chip"
               >
-                <ion-icon name="checkmark-circle" style="margin-right: 4px;"></ion-icon>
+                <ion-icon name="checkmark-circle"></ion-icon>
                 <ion-label>Rated</ion-label>
               </ion-chip>
 
-              <!-- Summary button -->
               <ion-button
                 *ngIf="consultation.feedbackSubmitted"
                 fill="outline"
@@ -118,59 +103,51 @@
                 size="small"
                 (click)="viewSummary(consultation.id)"
                 class="action-button"
-                style="--padding-start: 12px; --padding-end: 12px; --border-radius: 8px; font-size: 13px; height: 32px;"
               >
-                <ion-icon name="document-text-outline" slot="start" style="margin-right: 4px;"></ion-icon>
+                <ion-icon name="document-text-outline" slot="start"></ion-icon>
                 Summary
               </ion-button>
             </div>
           </ion-item>
-    
-          <ion-item *ngIf="completedConsultations.length === 0" class="empty-list-item" style="--background: #ffffff; color: #666;">
-            <ion-label class="ion-text-center" style="width: 100%; padding: 16px;">
-              <ion-icon name="information-circle-outline" size="large" style="color: #888;"></ion-icon>
-              <p style="margin: 8px 0 0;">No completed consultations in your history.</p>
+
+          <ion-item *ngIf="completedConsultations.length === 0" class="empty-list-item">
+            <ion-label class="ion-text-center empty-label">
+              <ion-icon name="information-circle-outline" size="large"></ion-icon>
+              <p>No completed consultations in your history.</p>
             </ion-label>
           </ion-item>
         </ion-list>
       </ion-card-content>
     </ion-card>
-    
-    
+
     <!-- Upcoming Consultations Section -->
-    
-    <ion-card class="consultation-card upcoming-card" >
-      <ion-card-header style="background-color: #f4f5f8; padding: 12px 16px; border-top-left-radius: 12px; border-top-right-radius: 12px;">
-        <ion-card-title style="color: #1a1a1a; display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600;">
-          <ion-icon name="calendar-outline" style="font-size: 20px; color: #1a1a1a;"></ion-icon>
+    <ion-card class="consultation-card upcoming-card">
+      <ion-card-header class="consultation-header">
+        <ion-card-title class="consultation-title">
+          <ion-icon name="calendar-outline" class="section-icon"></ion-icon>
           Upcoming Consultations
         </ion-card-title>
       </ion-card-header>
-    
-      <ion-card-content style="padding: 0;">
-        <ion-list lines="full" style="background-color: #f9f9f9;">
-          <ion-item *ngFor="let consultation of upcomingConsultations" class="consultation-item" style="--background: #ffffff; color: #222; padding: 12px 16px; margin-bottom: 8px; border-radius: 8px;">
-           
-    
-            <ion-label style="margin: 0;">
-              <h2 style="margin: 0; font-weight: 600; font-size: 16px;">{{ consultation.doctorName }}</h2>
-              <h3 style="margin: 0; font-weight: 500; font-size: 14px; color: #666;">{{ consultation.specialty }}</h3>
-              <p style="margin: 4px 0 0; font-size: 13px;">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
-              <p style="margin: 0; font-size: 13px; color: #cc0000;">In {{ consultation.timeUntil }}</p>
+
+      <ion-card-content class="no-padding">
+        <ion-list lines="full" class="consultation-list">
+          <ion-item *ngFor="let consultation of upcomingConsultations" class="consultation-item">
+            <ion-label>
+              <h2 class="doctor-name">{{ consultation.doctorName }}</h2>
+              <h3 class="specialty">{{ consultation.specialty }}</h3>
+              <p class="consultation-date">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
+              <p class="time-until">In {{ consultation.timeUntil }}</p>
             </ion-label>
           </ion-item>
-    
-          <!-- Empty State -->
-          <ion-item *ngIf="upcomingConsultations.length === 0" class="empty-list-item" style="--background: #ffffff; color: #666;">
-            <ion-label class="ion-text-center" style="width: 100%; padding: 16px;">
-              <ion-icon name="information-circle-outline" size="large" style="color: #888;"></ion-icon>
-              <p style="margin: 8px 0 0;">No upcoming consultations scheduled.</p>
+
+          <ion-item *ngIf="upcomingConsultations.length === 0" class="empty-list-item">
+            <ion-label class="ion-text-center empty-label">
+              <ion-icon name="information-circle-outline" size="large"></ion-icon>
+              <p>No upcoming consultations scheduled.</p>
             </ion-label>
           </ion-item>
         </ion-list>
       </ion-card-content>
     </ion-card>
-    
-    
   </div>
 </ion-content>

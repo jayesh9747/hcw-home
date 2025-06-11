@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { 
   IonHeader, IonToolbar, IonTitle, IonIcon, IonButton, IonButtons
@@ -11,14 +12,15 @@ import { addCircleOutline } from 'ionicons/icons';
   templateUrl: './header.component.html',
   styleUrls: ['./header.component.scss'],
   standalone: true,
-  imports: [IonTitle, IonHeader, IonToolbar, IonIcon, IonButton, IonButtons],
+  imports: [CommonModule, IonTitle, IonHeader, IonToolbar, IonIcon, IonButton, IonButtons],
 })
 export class HeaderComponent {
-
+   
   constructor(private router: Router) {
     addIcons({ addCircleOutline });
   }
-
+  @Input() title: string = "";
+  @Input() showConsultationRequest: boolean = false;
   goToConsultationRequest() {
     this.router.navigate(['/consultation-request']);
   }

@@ -1,32 +1,8 @@
 <div>
-  <app-header></app-header>
+  <app-header [showConsultationRequest]="true" [title]="'My Consultations'"></app-header>
   <card-component 
   [activeConsultations]="activeConsultations"
   [completedConsultations]="completedConsultations"
   [upcomingConsultations]="upcomingConsultations">
 </card-component>
-
-
 </div>
-<!-- 
-<app-button variant="primary" size="btn-small" [disabled]="false">
-  Submit
-</app-button>
-
-<app-button size="btn-large" variant="outline" [disabled]="true">
-  Cancel
-</app-button>
-
-<app-button variant="outline" [disabled]="true">
-  Cancel
-</app-button> -->
-
-<!-- <app-button variant="secondary" [disabled]="false" width="220px" height="55px" fontSize="18px">
-  Book Now
-</app-button>
-<app-button variant="primary" [disabled]="false" width="220px" height="55px" fontSize="18px">
-  Book Now
-</app-button>
-<app-button variant="outline" [disabled]="false" width="220px" height="55px" fontSize="18px">
-  Book Now
-</app-button> -->

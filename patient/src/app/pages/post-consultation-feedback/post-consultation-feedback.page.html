@@ -1,60 +1,7 @@
-<!-- <ion-content class="ion-padding" style="--background: white;">
-
-  <div class="feedback-container">
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title class="thank-you-text">Thank you for your consultation!</ion-card-title>
-      </ion-card-header>
-
-      <ion-card-content>
-        <form [formGroup]="feedbackForm" (ngSubmit)="submitFeedback()">
-
-          <label class="label">How would you rate your experience?</label>
-          <div class="stars">
-            <ion-icon
-              *ngFor="let i of [1,2,3,4,5]"
-              name="{{ feedbackForm.value.rating >= i ? 'star' : 'star-outline' }}"
-              (click)="feedbackForm.controls['rating'].setValue(i)"
-              class="star-icon"
-            ></ion-icon>
-            <p class="text-center">You rated: {{ feedbackForm.value.rating }} / 5</p>
-          </div>
-
-          <ion-item lines="none">
-            <ion-label position="floating">Additional Comments (optional)</ion-label>
-            <ion-textarea formControlName="comments" autoGrow="true"></ion-textarea>
-          </ion-item>
-
-          <ion-button
-            expand="block"
-            type="submit"
-            color="primary"
-            [disabled]="feedbackForm.invalid"
-            class="submit-button"
-          >
-            Submit Feedback
-          </ion-button>
-          <ion-button expand="block" fill="clear" color="medium" (click)="skipFeedback()">
-            Skip Feedback
-          </ion-button>
-
-        </form>
-      </ion-card-content>
-    </ion-card>
-  </div>
-
-</ion-content> -->
-
+<app-header [title]="'Thank you for your consultation!'"></app-header>
 
 <ion-content class="feedback-page" fullscreen>
   <div class="feedback-container">
-    
-    <!-- Thank You Heading -->
-    <div class="thank-you-message">
-      <h3>Thank you for your consultation!</h3>
-    </div>
-
-    <!-- Feedback Card -->
     <ion-card class="feedback-card">
       <ion-card-header class="feedback-header">
         <div class="header-row">
@@ -78,20 +25,19 @@
 
           <ion-textarea
             formControlName="comment"
+            class="textarea large-textarea"
             placeholder="Describe your experience here..."
             autoGrow="true"
-            class="textarea large-textarea"
           ></ion-textarea>
 
-          <ion-button expand="block" type="submit" class="submit-button">
+          <ion-button color="success" expand="block" type="submit" class="submit-button">
             Send Feedback
           </ion-button>
-          <ion-button expand="block" fill="clear" color="medium" (click)="skipFeedback()">
-            Skip Feedback
+          <ion-button expand="block" fill="clear" color="medium" class="skip-button" (click)="skipFeedback()">
+            Skip
           </ion-button>
         </form>
       </ion-card-content>
     </ion-card>
-    
   </div>
 </ion-content>

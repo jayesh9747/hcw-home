@@ -11,7 +11,6 @@ import {
   videocamOutline, starOutline,
   calendarOutline, checkmarkCircle 
 } from 'ionicons/icons';
-import { ButtonComponent } from 'src/app/components/button/button.component';
 import { Router } from '@angular/router';
 interface Consultation {
   id: number;
@@ -33,7 +32,6 @@ interface Consultation {
     CardComponentComponent,
     HeaderComponent,
     CommonModule,
-    ButtonComponent,
   ],
 })
 
@@ -42,26 +40,6 @@ export class PatientDashboard {
   activeConsultations: Consultation[] = [];
   completedConsultations: Consultation[] = [];
   upcomingConsultations: Consultation[] = [];
-
-
-//    constructor(private api: ApiService) {
-//      addIcons({
-//       videocamOutline, 
-//       starOutline, 
-//       calendarOutline,
-//       checkmarkCircle
-//     });
-//    }
-
-//   ngOnInit() {
-//     this.api.consultationRecords().subscribe((data) => {
-//       this.consultations = data;
-//     });
-
-//       this.activeConsultations = this.allConsultations.filter(c => c.status === 'Open' || c.status === 'Waiting');
-//       this.completedConsultations = this.allConsultations.filter(c => c.status === 'Completed');
-//       this.upcomingConsultations = this.allConsultations.filter(c => c.status === 'Upcoming');
-//   }
 
   constructor(private router: Router ,private alertController: AlertController, private toastController: ToastController) {
     // Add icons to be used in the template

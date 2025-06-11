@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+
 import { 
   IonContent, 
   IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
@@ -49,7 +50,6 @@ interface Consultation {
 export class CardComponentComponent {
 
   constructor(private router: Router ,private alertController: AlertController, private toastController: ToastController) {
-    // Add icons to be used in the template
     addIcons({
       videocamOutline, 
       starOutline, 

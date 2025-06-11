@@ -3,12 +3,13 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ToastController } from '@ionic/angular';
+import { HeaderComponent } from 'src/app/components/header/header.component';
 import { 
   IonInput,
   IonTextarea,
   IonSelect,
   IonSelectOption,
-  IonHeader, IonToolbar, IonTitle, IonContent, 
+  IonContent, 
   IonItem, IonLabel, IonButton,
   IonCol,
   IonRow,
@@ -21,7 +22,7 @@ import {
   createOutline, 
   trashOutline 
 } from 'ionicons/icons';
-import { ButtonComponent } from 'src/app/components/button/button.component';
+
 
 interface Consultation {
   id: number;
@@ -39,6 +40,7 @@ interface Consultation {
   styleUrls: ['consultation-request.page.scss'],
   standalone: true,
   imports: [
+    HeaderComponent,
     IonCol,
     IonRow,
     IonGrid,
@@ -51,12 +53,8 @@ interface Consultation {
     IonButton,
     IonItem,
     IonLabel,
-    IonHeader,
-    IonToolbar,
-    IonTitle,
     IonContent,
     IonIcon,
-    ButtonComponent,
   ],
 })
 export class ConsultationRequestPage {
