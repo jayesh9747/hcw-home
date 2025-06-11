@@ -7,7 +7,10 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { ConsultationModule } from './consultation/consultation.module';
 import { UserModule } from './user/user.module';
+import { OrganizationModule } from './organization/organization.module';
+import { GroupModule } from './group/group.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+
 
 @Module({
   imports: [
@@ -17,6 +20,8 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     AuthModule,
     ConsultationModule,
     UserModule,
+    OrganizationModule,
+    GroupModule
   ],
   controllers: [AppController],
   providers: [AppService],

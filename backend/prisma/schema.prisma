@@ -32,6 +32,9 @@ model User {
   Participant      Participant[]
 
   @@map("users")
+  OrganizationMember OrganizationMember[]
+  GroupMember GroupMember[]
+  Message Message[]
 }
 
 enum UserRole {
@@ -49,6 +52,74 @@ enum UserSex {
 enum UserStatus {
   APPROVED
   NOT_APPROVED
+}
+
+model Organization {
+  id             Int      @id @default(autoincrement())
+  name           String   @unique @db.VarChar(255)
+  logo           String?
+  primaryColor   String?
+  footerMarkdown String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  members OrganizationMember[]
+  groups  Group[]
+
+  @@map("organizations")
+}
+
+enum OrgMemberRole {
+  ADMIN
+  MEMBER
+}
+
+model OrganizationMember {
+  id             Int           @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+  role           OrgMemberRole @default(MEMBER)
+  joinedAt       DateTime      @default(now())
+
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+
+model Group {
+  id                           Int      @id @default(autoincrement())
+  organizationId               Int
+  name                         String   
+  description                  String?
+  sharedOnlyIncomingConsultation Boolean @default(false)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+  
+  // Relations
+  organization                 Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members                      GroupMember[]
+  consultations                Consultation[]
+  
+  @@map("groups")
+}
+
+model GroupMember {
+  id      Int @id @default(autoincrement())
+  groupId Int
+  userId  Int
+  joinedAt DateTime @default(now())
+  
+  // Relations
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, userId])
+  @@map("group_members")
 }
 
 //  Add the new models/enums that is necessary for consultation remainders
@@ -72,20 +143,41 @@ model Consultation {
   messageService     MessageService?
   whatsappTemplateId Int?
   status             ConsultationStatus @default(SCHEDULED)
+  
+  // Relations
   participants       Participant[]
+  group              Group?        @relation(fields: [groupId], references: [id])
+  messages           Message[]
 }
 
 model Participant {
-  id             Int          @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   consultationId Int
   userId         Int
-  isActive       Boolean      @default(false)
+  isActive      Boolean @default(false)
+  isBeneficiary  Boolean  @default(false)
+  token          String?  @db.VarChar(255)
   joinedAt       DateTime?
+  
+  // Relations
   consultation   Consultation @relation(fields: [consultationId], references: [id])
   user           User         @relation(fields: [userId], references: [id])
-
+  
   @@unique([consultationId, userId])
 }
+
+model Message {
+  id      Int    @id @default(autoincrement())
+  userId  Int
+  content String @db.Text
+  
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+  consultationId Int?
+}
+
+
 
 model Whatsapp_Template {
   id              String @id
