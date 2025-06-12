@@ -2,7 +2,6 @@
 
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Request } from 'express';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ExtendedRequest } from 'src/types/request';
 import { UserService } from 'src/user/user.service';
