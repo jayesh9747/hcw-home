@@ -3,40 +3,98 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Post,
-  Request,
+  Query,
+  UsePipes,
+  ValidationPipe
 } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
+import {
+  JoinConsultationDto,
+  JoinConsultationResponseDto,
+} from './dto/join-consultation.dto';
+import { UserIdParamPipe } from './validation/user-id-param.pipe';
+import { ConsultationIdParamPipe } from './validation/consultation-id-param.pipe';
+import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
+import { WaitingRoomPreviewResponseDto } from './dto/waiting-room-preview.dto';
+import {
+  AdmitPatientDto,
+  AdmitPatientResponseDto,
+} from './dto/admit-patient.dto';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiBody,
+  ApiQuery,
+  ApiOkResponse,
+} from '@nestjs/swagger';
 
+@ApiTags('consultation')
 @Controller('consultation')
 export class ConsultationController {
   constructor(private readonly consultationService: ConsultationService) {}
 
   @Post(':id/join/patient')
+  @ApiOperation({ summary: 'Patient joins a consultation' })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({ type: JoinConsultationDto })
+  @ApiOkResponse({
+    description: 'Patient joined consultation',
+    type: ApiResponseDto,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true }))
   async joinPatient(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('userId') userId: number,
-  ) {
-    const res = await this.consultationService.joinAsPatient(id, userId);
-
-    return { message: 'Patient joined consultation.', ...res };
+    @Param('id', ConsultationIdParamPipe) id: number,
+    @Body() body: JoinConsultationDto,
+  ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
+    return this.consultationService.joinAsPatient(id, body.userId);
   }
 
   @Post(':id/join/practitioner')
+  @ApiOperation({ summary: 'Practitioner joins a consultation' })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({ type: JoinConsultationDto })
+  @ApiOkResponse({
+    description: 'Practitioner joined consultation',
+    type: ApiResponseDto,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true }))
   async joinPractitioner(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('userId') userId: number,
-  ) {
-    const res = await this.consultationService.joinAsPractitioner(id, userId);
+    @Param('id', ConsultationIdParamPipe) id: number,
+    @Body() body: JoinConsultationDto,
+  ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
+    return this.consultationService.joinAsPractitioner(id, body.userId);
+  }
 
-    return { message: 'Practitioner joined consultation. ', ...res };
+  @Post('/admit')
+  @ApiOperation({
+    summary: 'Admit a patient to a consultation (practitioner or admin only)',
+  })
+  @ApiBody({ type: AdmitPatientDto })
+  @ApiOkResponse({
+    description: 'Patient admitted to consultation',
+    type: ApiResponseDto,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  async admitPatient(
+    @Body() dto: AdmitPatientDto,
+    @Query('userId', UserIdParamPipe) userId: number, // Pass userId as query or get from auth context
+  ): Promise<ApiResponseDto<AdmitPatientResponseDto>> {
+    // In production, get userId and role from JWT/auth context instead of query
+    return this.consultationService.admitPatient(dto, userId);
   }
 
   @Get('/waiting-room')
-  async getWaitingRoom(@Body('userId') userId: number) {
-    const consultations =
-      await this.consultationService.getWaitingRoomConsultations(userId);
-    return { success: true, consultations };
+  @ApiOperation({ summary: 'Get waiting room consultations for a user' })
+  @ApiQuery({ name: 'userId', type: Number, description: 'User ID' })
+  @ApiOkResponse({
+    description: 'Waiting room consultations',
+    type: ApiResponseDto,
+  })
+  async getWaitingRoom(
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<ApiResponseDto<WaitingRoomPreviewResponseDto>> {
+    return this.consultationService.getWaitingRoomConsultations(userId);
   }
 }
