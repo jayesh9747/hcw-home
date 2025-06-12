@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      DATABASE_URL: postgresql://hcwuser:hcwpasswd@localhost:5432/hcw?schema=public
+    depends_on:
+      - db
+    restart: always
+
+  patient:
+    build:
+      context: patient
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - db
+    restart: always
+
+  admin:
+    build:
+      context: admin
+      dockerfile: Dockerfile
+    ports:
+      - "3001:80"
+    depends_on:
+      - db
+    restart: always
+
+  practionner:
+    build:
+      context: practionner
+      dockerfile: Dockerfile
+    ports:
+      - "3002:80"
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: hcwuser
+      POSTGRES_PASSWORD: hcwpasswd
+      POSTGRES_DB: hcw
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:
