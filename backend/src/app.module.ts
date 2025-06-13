@@ -10,6 +10,7 @@ import { UserModule } from './user/user.module';
 import { OrganizationModule } from './organization/organization.module';
 import { GroupModule } from './group/group.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { MediasoupModule } from './mediasoup/mediasoup.module';
 
 
 @Module({
@@ -21,7 +22,8 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     ConsultationModule,
     UserModule,
     OrganizationModule,
-    GroupModule
+    GroupModule,
+    MediasoupModule
   ],
   controllers: [AppController],
   providers: [AppService],
