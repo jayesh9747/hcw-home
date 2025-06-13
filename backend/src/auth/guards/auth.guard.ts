@@ -33,9 +33,11 @@ export class AuthGuard implements CanActivate {
     const token = authHeader.split(' ')[1];
 
     try {
-      const payload = await this.authService.VerifyToken(token);
+      const payload = await this.authService.verifyToken({
+        accessToken: token,
+      });
       // Check if the user exists in the database
-      const user = await this.UserService.findOne(payload.id);
+      const user = await this.UserService.findOne(payload.userId);
       if (!user) {
         throw HttpExceptionHelper.unauthorized(
           'no user found',

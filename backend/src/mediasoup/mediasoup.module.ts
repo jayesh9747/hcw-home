@@ -8,6 +8,6 @@ import { AuthModule } from 'src/auth/auth.module';
 @Module({
   controllers: [MediasoupServerController],
   providers: [MediasoupServerService],
-  imports :[DatabaseModule,UserModule,AuthModule]
+  imports: [DatabaseModule, UserModule, AuthModule],
 })
 export class MediasoupModule {}

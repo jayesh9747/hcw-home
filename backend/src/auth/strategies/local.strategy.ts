@@ -16,9 +16,12 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(email: string, password: string): Promise<{ id: number; email: string }> {
+  async validate(
+    email: string,
+    password: string,
+  ): Promise<{ id: number; email: string }> {
     this.logger.log(`Validating user with email: ${email}`);
-    const { userId,userEmail } = await this.authService.validateUser(
+    const { userId, userEmail } = await this.authService.validateUser(
       { email, password },
       NIL,
       NIL,
@@ -29,9 +32,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid credentials');
     }
     this.logger.log(`User authenticated: ${email}`);
-    const user = { id:userId, email:userEmail };
-    console.log(`User authenticated: ${JSON.stringify(user)}`);
-    
-    return user ;
+    const user = { id: userId, email: userEmail };
+    return user;
   }
 }

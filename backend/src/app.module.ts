@@ -22,7 +22,7 @@ import { MediasoupModule } from './mediasoup/mediasoup.module';
     UserModule,
     OrganizationModule,
     GroupModule,
-    MediasoupModule
+    MediasoupModule,
   ],
   controllers: [AppController],
   providers: [AppService],

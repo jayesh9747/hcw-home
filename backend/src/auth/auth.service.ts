@@ -9,6 +9,8 @@ import { Role } from './enums/role.enum';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserStatus } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { TokenDto } from './dto/token.dto';
 
 @Injectable()
 export class AuthService {
@@ -22,8 +24,9 @@ export class AuthService {
    */
 
   constructor(
-    private UserService: UserService,
-    private JwtService: JwtService,
+    private readonly UserService: UserService,
+    private readonly JwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   async validateUser(
@@ -60,50 +63,57 @@ export class AuthService {
     requestId: string,
     path: string,
   ): Promise<LoginResponseDto> {
-    const { token: accessToken, refreshToken } =
-      await this.generateToken(UserResponseDto);
-
-    return new LoginResponseDto({
-      accessToken,
-      refreshToken,
-      userId: UserResponseDto.id,
-      email: UserResponseDto.email,
-    });
+    const result = await this.generateToken(UserResponseDto);
+    return result;
   }
 
-  async generateToken(
-    user: UserResponseDto,
-  ): Promise<{ token: string; refreshToken: string }> {
+  async generateToken(user: UserResponseDto): Promise<LoginResponseDto> {
     this.logger.log(`Generating JWT tokens for user ${user.id}`);
-
-    const token = this.JwtService.sign(
-      { id: user.id },
+    const accessToken = this.JwtService.sign(
+      { userId: user.id, userEmail: user.email },
       {
-        secret: 'default_secret',
-        expiresIn: '15m',
+        secret: await this.configService.get<string>('jwt.accessSecret'),
+        expiresIn:
+          (await this.configService.get<string>('jwt.accessExpiresIn')) ||
+          '24h',
       },
     );
+    this.logger.log(`Access token generated successfully for user ${user.id}`);
 
     const refreshToken = this.JwtService.sign(
-      { id: user.id },
+      { userId: user.id, userEmail: user.email },
       {
-        secret: 'default_refresh_secret',
-        expiresIn: '7d',
+        secret: await this.configService.get<string>('jwt.refreshSecret'),
+        expiresIn:
+          (await this.configService.get<string>('jwt.refreshExpiresIn')) ||
+          '7d',
       },
     );
 
-    this.logger.log(`JWT tokens generated successfully for user ${user.id}`);
+    this.logger.log(`Refresh token generated successfully for user ${user.id}`);
 
-    return { token, refreshToken };
+    return { accessToken, refreshToken, userId: user.id, email: user.email };
   }
 
-  async VerifyToken(token: string, isRefreshToken = false): Promise<any> {
-    const secret = isRefreshToken ? 'default_refresh_secret' : 'default_secret';
+  async verifyToken(
+    tokenDto: TokenDto,
+    isRefreshToken = false,
+  ): Promise<{ userId: number; userEmail: string }> {
+    const secret = isRefreshToken
+      ? this.configService.get<string>('jwt.refreshSecret')
+      : this.configService.get<string>('jwt.accessSecret');
+
+    const token = isRefreshToken ? tokenDto.refreshToken : tokenDto.accessToken;
+
+    if (!token) {
+      this.logger.warn('Token not provided');
+      throw HttpExceptionHelper.badRequest('Token is required');
+    }
 
     this.logger.log('Verifying JWT token');
 
     try {
-      const decoded = this.JwtService.verify(token, { secret });
+      const decoded = await this.JwtService.verify(token, { secret });
       this.logger.log('JWT token verified successfully');
       return decoded;
     } catch (error) {
@@ -112,36 +122,38 @@ export class AuthService {
     }
   }
 
-  async refreshToken(refreshToken: string) {
-    if (!refreshToken) {
+  async refreshToken(tokenDto: TokenDto): Promise<LoginResponseDto> {
+    if (!tokenDto?.refreshToken) {
       this.logger.warn('Refresh token is required for token refresh');
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
 
     try {
-      const decoded = await this.VerifyToken(refreshToken, true);
+      const { userId } = await this.verifyRefreshToken(tokenDto);
 
-      const user = await this.UserService.findOne(decoded.id);
+      const user = await this.UserService.findOne(userId);
 
       if (!user || user.status !== 'APPROVED') {
-        this.logger.warn(`User with ID ${decoded.id} not found or unapproved`);
-
+        this.logger.warn(`User with ID ${userId} not found or unapproved`);
         throw HttpExceptionHelper.unauthorized('User not found or unapproved');
       }
 
       return this.generateToken(user);
     } catch (error) {
+      this.logger.error('Invalid refresh token', error?.message || error);
       throw HttpExceptionHelper.unauthorized('Invalid refresh token');
     }
   }
-  async verifyRefreshToken(refreshToken: string) {
-    if (!refreshToken) {
+
+  async verifyRefreshToken(
+    tokenDto: TokenDto,
+  ): Promise<{ userId: number; userEmail: string }> {
+    if (!tokenDto.refreshToken) {
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
 
     try {
-      this.VerifyToken(refreshToken, true);
-      return { message: 'Token is valid' };
+      return await this.verifyToken(tokenDto, true);
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         throw HttpExceptionHelper.unauthorized('Token expired');

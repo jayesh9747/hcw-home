@@ -37,9 +37,7 @@ import { Role } from 'src/auth/enums/role.enum';
 @Controller('user')
 @UseGuards(AuthGuard, RolesGuard)
 export class UserController {
-  constructor(
-    private readonly userService: UserService
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
@@ -56,7 +54,7 @@ export class UserController {
       path: req.path,
     });
   }
-   @Roles(Role.ADMIN, Role.PRACTITIONER)
+  @Roles(Role.ADMIN, Role.PRACTITIONER)
   @Get()
   @ApiOperation({ summary: 'Get all users with pagination and filtering' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
