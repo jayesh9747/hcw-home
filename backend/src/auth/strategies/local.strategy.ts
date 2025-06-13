@@ -3,6 +3,7 @@ import { Strategy } from 'passport-local';
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { AuthService } from '../auth.service';
 import { NIL } from 'uuid';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
@@ -15,19 +16,22 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(email: string, password: string): Promise<any> {
+  async validate(email: string, password: string): Promise<{ id: number; email: string }> {
     this.logger.log(`Validating user with email: ${email}`);
-    const { user } = await this.authService.validateUser(
+    const { userId,userEmail } = await this.authService.validateUser(
       { email, password },
       NIL,
       NIL,
     );
 
-    if (!user) {
+    if (!userEmail) {
       this.logger.warn(`Invalid login attempt for email: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
     }
     this.logger.log(`User authenticated: ${email}`);
-    return user;
+    const user = { id:userId, email:userEmail };
+    console.log(`User authenticated: ${JSON.stringify(user)}`);
+    
+    return user ;
   }
 }

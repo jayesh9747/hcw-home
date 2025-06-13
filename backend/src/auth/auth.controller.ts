@@ -89,7 +89,6 @@ async register(
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
     const result = await this.authService.refreshToken(refreshToken);
-    console.log(result);
     return ApiResponseDto.success(result, 'tokens created successfully', 200, {
       requestId,
       path: req.url,

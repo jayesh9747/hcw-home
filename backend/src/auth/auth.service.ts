@@ -9,7 +9,6 @@ import { Role } from './enums/role.enum';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserStatus } from '@prisma/client';
-import { NIL } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -31,7 +30,7 @@ export class AuthService {
     loginUserDto: LoginUserDto,
     requestId: string,
     path: string,
-  ): Promise<{ user: UserResponseDto }> {
+  ): Promise<{ userId: number; userEmail: string }> {
     const user = await this.UserService.findByEmail(loginUserDto.email);
 
     if (!user) {
@@ -50,10 +49,9 @@ export class AuthService {
         path,
       );
     }
-    const userDto = new UserResponseDto(user);
-
     return {
-      user: userDto,
+      userId: user.id,
+      userEmail: user.email,
     };
   }
 
