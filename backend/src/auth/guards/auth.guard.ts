@@ -6,13 +6,14 @@ import { Request } from 'express';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ExtendedRequest } from 'src/types/request';
 import { UserService } from 'src/user/user.service';
-
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly UserService: UserService,
+    private readonly authService: AuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -32,9 +33,9 @@ export class AuthGuard implements CanActivate {
     const token = authHeader.split(' ')[1];
 
     try {
-      const payload = await this.jwtService.verifyAsync(token);
+      const payload = await this.authService.VerifyToken(token);
       // Check if the user exists in the database
-      const user = await this.UserService.findOne(payload.sub);
+      const user = await this.UserService.findOne(payload.id);
       if (!user) {
         throw HttpExceptionHelper.unauthorized(
           'no user found',
