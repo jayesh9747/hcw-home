@@ -9,11 +9,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { AuthGuard } from './guards/auth.guard';
 
 @Module({
-  imports: [
-    ConfigModule,
-    JwtModule,
-    PassportModule,
-  ],
+  imports: [ConfigModule, JwtModule, PassportModule],
   controllers: [AuthController],
   providers: [AuthService, LocalStrategy, AuthGuard],
   exports: [AuthService, AuthGuard, JwtModule],

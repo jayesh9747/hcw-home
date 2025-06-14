@@ -21,7 +21,7 @@ import { Role } from './enums/role.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
-import {  ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RefreshTokenDto, TokenDto } from './dto/token.dto';
 import { registerUserSchema } from './validation/auth.validation';
@@ -31,11 +31,9 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(
-    private readonly authService: AuthService,
-  ) {}
-  
-  // login user 
+  constructor(private readonly authService: AuthService) {}
+
+  // login user
   @ApiOperation({ summary: 'Login a user' })
   @ApiResponse({
     status: 200,
@@ -49,18 +47,12 @@ export class AuthController {
     @Req() req: ExtendedRequest,
     @Body() LoginDto: LoginUserDto,
   ): Promise<ApiResponseDto<LoginResponseDto>> {
-    const requestId = req['id'] as string;
     const user = req.user as any;
-    const result = await this.authService.loginUser(user, requestId, req.url);
-    return ApiResponseDto.success(result, 'User logged-in successfully', 200, {
-      requestId,
-      path: req.url,
-    });
+    const result = await this.authService.loginUser(user);
+    return ApiResponseDto.success(result, 'User logged-in successfully', 200);
   }
 
-
-
-  // register pateint 
+  // register pateint
   @ApiOperation({ summary: 'Register a user' })
   @ApiResponse({
     status: 201,
@@ -72,19 +64,16 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body(new ZodValidationPipe(registerUserSchema)) registerDto: RegisterUserDto,
+    @Body(new ZodValidationPipe(registerUserSchema))
+    registerDto: RegisterUserDto,
     @Req() req: ExtendedRequest,
   ) {
     const user = await this.authService.registerUser(registerDto);
 
-    return ApiResponseDto.success(user, 'User registered successfully', 201, {
-      requestId: req['id'],
-      path: req.url,
-    });
+    return ApiResponseDto.success(user, 'User registered successfully', 201);
   }
 
-    
-  // get the current user 
+  // get the current user
   @ApiOperation({ summary: 'Get the user profile' })
   @ApiResponse({
     status: 200,
@@ -108,14 +97,10 @@ export class AuthController {
     }
     this.logger.log(`user ${user.id} retrieved successfully`);
     this.logger.log(`user ${user.id} role is ${user.role}`);
-    return ApiResponseDto.success(user, 'User retrieved successfully', 200, {
-      requestId,
-      path: req.url,
-    });
+    return ApiResponseDto.success(user, 'User retrieved successfully', 200);
   }
-   
 
-  // get a new access token 
+  // get a new access token
   @ApiOperation({ summary: 'Get a new access token using refresh token' })
   @ApiResponse({
     status: 200,
@@ -133,9 +118,6 @@ export class AuthController {
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
     const result = await this.authService.refreshToken(refreshToken);
-    return ApiResponseDto.success(result, 'tokens created successfully', 200, {
-      requestId,
-      path: req.url,
-    });
+    return ApiResponseDto.success(result, 'tokens created successfully', 200);
   }
 }

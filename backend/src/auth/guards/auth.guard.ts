@@ -1,8 +1,6 @@
 // Chayan Das <01chayandas@gmail.com>
 
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { Request } from 'express';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ExtendedRequest } from 'src/types/request';
 import { AuthService } from '../auth.service';
@@ -10,7 +8,6 @@ import { AuthService } from '../auth.service';
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private readonly jwtService: JwtService,
     private readonly authService: AuthService,
   ) {}
 

@@ -20,7 +20,7 @@ export class AuthService {
   constructor(
     private readonly JwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly databaseService:DatabaseService
+    private readonly databaseService: DatabaseService,
   ) {}
 
   async validateUser(
@@ -30,21 +30,24 @@ export class AuthService {
   ): Promise<{ userId: number; userEmail: string }> {
     const user = await this.findByEmail(loginUserDto.email);
 
-    if (!user) {
-      throw HttpExceptionHelper.notFound('user not found', requestId, path);
+    if (!user || user.temporaryAccount) {
+      this.logger.warn(
+        `LocalStrategy: No valid user found for email ${user.email}`,
+      );
+      throw HttpExceptionHelper.notFound('user not found/user not valid');
     }
-
+    if (user.status !== UserStatus.APPROVED) {
+      this.logger.warn(`LocalStrategy: User ${user.id} is not approved`);
+      throw HttpExceptionHelper.badRequest('user is not approved');
+    }
     const passwordMatch = await bcrypt.compare(
       loginUserDto.password,
       user.password,
     );
 
     if (!passwordMatch) {
-      throw HttpExceptionHelper.unauthorized(
-        'password or email is incorrect',
-        requestId,
-        path,
-      );
+      this.logger.warn(`LocalStrategy: Incorrect password for user ${user.id}`);
+      throw HttpExceptionHelper.unauthorized('password or email is incorrect');
     }
     return {
       userId: user.id,
@@ -52,11 +55,7 @@ export class AuthService {
     };
   }
 
-  async loginUser(
-    UserResponseDto: UserResponseDto,
-    requestId: string,
-    path: string,
-  ): Promise<LoginResponseDto> {
+  async loginUser(UserResponseDto: UserResponseDto): Promise<LoginResponseDto> {
     const result = await this.generateToken(UserResponseDto);
     return result;
   }
@@ -164,41 +163,39 @@ export class AuthService {
   // register pateint
   async registerUser(registerDto: RegisterUserDto): Promise<UserResponseDto> {
     this.logger.log('Registering new user');
-  
+
     const { email } = registerDto;
-  
-  // Check for existing user by email
+
+    // Check for existing user by email
     const existingUser = await this.databaseService.user.findUnique({
       where: { email },
     });
-  
+
     if (existingUser) {
-      this.logger.warn(`User registration failed: Email ${email} already exists`);
+      this.logger.warn(
+        `User registration failed: Email ${email} already exists`,
+      );
       throw HttpExceptionHelper.confilct('Email is already in use');
     }
-  
-    
-   // Create new user
+
+    // Create new user
     const createUserData = {
       ...registerDto,
       role: Role.PATIENT,
       status: UserStatus.NOT_APPROVED,
-      temporaryAccount: true,
+      temporaryAccount: false,
       phoneNumber: undefined,
       country: undefined,
       sex: undefined,
     };
-  
+
     const user = await this.databaseService.user.create({
       data: createUserData,
     });
-    this.logger.log(`new pateint registered with email: ${email}`)
-  
+    this.logger.log(`new pateint registered with email: ${email}`);
 
     return plainToInstance(UserResponseDto, user);
   }
-  
-
 
   //db query utility function
   async findByEmail(email: string): Promise<any | null> {
@@ -207,17 +204,11 @@ export class AuthService {
     });
 
     if (!user) {
-      this.logger.log(`user not found with email:${email}`)
-      return null;
+      this.logger.log(`user not found with email:${email}`);
+      throw HttpExceptionHelper.notFound('user not found');
     }
-    this.logger.log(`user found with email:${email}`)
+    this.logger.log(`user found with email:${email}`);
 
-    return user; 
+    return user;
   }
-
-
-
-
-
-
 }

@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { UserRole, UserSex, UserStatus } from '@prisma/client';
 
 export const registerUserSchema = z.object({
- 
   firstName: z
     .string()
     .min(2, 'First name must be at least 2 characters')
