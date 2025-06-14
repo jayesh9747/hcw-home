@@ -10,7 +10,6 @@ import { AuthGuard } from './guards/auth.guard';
 
 @Module({
   imports: [
-    forwardRef(() => UserModule),
     ConfigModule,
     JwtModule,
     PassportModule,

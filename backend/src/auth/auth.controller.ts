@@ -19,13 +19,13 @@ import { RolesGuard } from './guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from './enums/role.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
-import { UserService } from 'src/user/user.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
-import { ApiTags, ApiBody, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import {  ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
-import { string } from 'zod';
 import { RefreshTokenDto, TokenDto } from './dto/token.dto';
+import { registerUserSchema } from './validation/auth.validation';
+import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 
 @Controller('auth')
 export class AuthController {
@@ -33,9 +33,9 @@ export class AuthController {
 
   constructor(
     private readonly authService: AuthService,
-    private readonly UserService: UserService,
   ) {}
-
+  
+  // login user 
   @ApiOperation({ summary: 'Login a user' })
   @ApiResponse({
     status: 200,
@@ -58,6 +58,9 @@ export class AuthController {
     });
   }
 
+
+
+  // register pateint 
   @ApiOperation({ summary: 'Register a user' })
   @ApiResponse({
     status: 201,
@@ -69,7 +72,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body() registerDto: RegisterUserDto,
+    @Body(new ZodValidationPipe(registerUserSchema)) registerDto: RegisterUserDto,
     @Req() req: ExtendedRequest,
   ) {
     const user = await this.authService.registerUser(registerDto);
@@ -79,6 +82,9 @@ export class AuthController {
       path: req.url,
     });
   }
+
+    
+  // get the current user 
   @ApiOperation({ summary: 'Get the user profile' })
   @ApiResponse({
     status: 200,
@@ -93,21 +99,23 @@ export class AuthController {
     @Req() req: ExtendedRequest,
   ): Promise<ApiResponseDto<UserResponseDto>> {
     const requestId = req.id as string;
-    const userId = req.user?.id as Number;
-    const user = await this.UserService.findOne(Number(userId));
-    this.logger.log(`user ${userId} started retrieving`);
+    const userEmail = req.user?.email as string;
+    const user = await this.authService.findByEmail(userEmail);
+    this.logger.log(`user ${user.id} started retrieving`);
     if (!user) {
-      this.logger.warn(`${userId}:User not found`);
+      this.logger.warn(`${user.id}:User not found`);
       throw HttpExceptionHelper.notFound('user not found', requestId, req.url);
     }
-    this.logger.log(`user ${userId} retrieved successfully`);
-    this.logger.log(`user ${userId} role is ${user.role}`);
+    this.logger.log(`user ${user.id} retrieved successfully`);
+    this.logger.log(`user ${user.id} role is ${user.role}`);
     return ApiResponseDto.success(user, 'User retrieved successfully', 200, {
       requestId,
       path: req.url,
     });
   }
+   
 
+  // get a new access token 
   @ApiOperation({ summary: 'Get a new access token using refresh token' })
   @ApiResponse({
     status: 200,

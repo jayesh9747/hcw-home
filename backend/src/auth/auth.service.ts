@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LoginResponseDto, LoginUserDto } from './dto/login-user.dto';
-import { UserService } from 'src/user/user.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
@@ -11,22 +10,17 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { UserStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { TokenDto } from './dto/token.dto';
+import { DatabaseService } from 'src/database/database.service';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  /**
-   * AuthService constructor
-   * @param UserService - Service to handle user-related operations
-   * @param JwtService - Service to handle JWT operations
-   * @returns AuthService instance
-   */
-
   constructor(
-    private readonly UserService: UserService,
     private readonly JwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly databaseService:DatabaseService
   ) {}
 
   async validateUser(
@@ -34,7 +28,7 @@ export class AuthService {
     requestId: string,
     path: string,
   ): Promise<{ userId: number; userEmail: string }> {
-    const user = await this.UserService.findByEmail(loginUserDto.email);
+    const user = await this.findByEmail(loginUserDto.email);
 
     if (!user) {
       throw HttpExceptionHelper.notFound('user not found', requestId, path);
@@ -129,12 +123,12 @@ export class AuthService {
     }
 
     try {
-      const { userId } = await this.verifyRefreshToken(tokenDto);
+      const { userEmail } = await this.verifyRefreshToken(tokenDto);
 
-      const user = await this.UserService.findOne(userId);
+      const user = await this.findByEmail(userEmail);
 
       if (!user || user.status !== 'APPROVED') {
-        this.logger.warn(`User with ID ${userId} not found or unapproved`);
+        this.logger.warn(`User with ID ${user.id} not found or unapproved`);
         throw HttpExceptionHelper.unauthorized('User not found or unapproved');
       }
 
@@ -167,18 +161,63 @@ export class AuthService {
     }
   }
 
-  //registerUser
+  // register pateint
   async registerUser(registerDto: RegisterUserDto): Promise<UserResponseDto> {
     this.logger.log('Registering new user');
-    const createUserData: CreateUserDto = {
+  
+    const { email } = registerDto;
+  
+  // Check for existing user by email
+    const existingUser = await this.databaseService.user.findUnique({
+      where: { email },
+    });
+  
+    if (existingUser) {
+      this.logger.warn(`User registration failed: Email ${email} already exists`);
+      throw HttpExceptionHelper.confilct('Email is already in use');
+    }
+  
+    
+   // Create new user
+    const createUserData = {
       ...registerDto,
-      role: Role.PATIENT, // Default role
+      role: Role.PATIENT,
       status: UserStatus.NOT_APPROVED,
-      temporaryAccount: false,
+      temporaryAccount: true,
       phoneNumber: undefined,
       country: undefined,
       sex: undefined,
     };
-    return await this.UserService.create(createUserData);
+  
+    const user = await this.databaseService.user.create({
+      data: createUserData,
+    });
+    this.logger.log(`new pateint registered with email: ${email}`)
+  
+
+    return plainToInstance(UserResponseDto, user);
   }
+  
+
+
+  //db query utility function
+  async findByEmail(email: string): Promise<any | null> {
+    const user = await this.databaseService.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      this.logger.log(`user not found with email:${email}`)
+      return null;
+    }
+    this.logger.log(`user found with email:${email}`)
+
+    return user; 
+  }
+
+
+
+
+
+
 }

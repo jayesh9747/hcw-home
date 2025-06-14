@@ -5,14 +5,12 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ExtendedRequest } from 'src/types/request';
-import { UserService } from 'src/user/user.service';
 import { AuthService } from '../auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly UserService: UserService,
     private readonly authService: AuthService,
   ) {}
 
@@ -37,7 +35,7 @@ export class AuthGuard implements CanActivate {
         accessToken: token,
       });
       // Check if the user exists in the database
-      const user = await this.UserService.findOne(payload.userId);
+      const user = await this.authService.findByEmail(payload.userEmail);
       if (!user) {
         throw HttpExceptionHelper.unauthorized(
           'no user found',
