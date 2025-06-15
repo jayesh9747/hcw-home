@@ -9,6 +9,7 @@ import {
   Query,
   ParseIntPipe,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,14 +35,16 @@ import {
   updateSmsProviderSchema,
   querySmsProviderSchema,
 } from './validation/sms_provider.validation';
-
-// DTO for bulk reorder operation
-export class ReorderProvidersDto {
-  providerOrders: { id: number; order: number }[];
-}
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Role } from 'src/auth/enums/role.enum';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { ReorderProvidersDto } from './dto/bulk-reorder.dto';
 
 @ApiTags('sms-providers')
 @Controller('sms-provider')
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 export class SmsProviderController {
   constructor(private readonly smsProviderService: SmsProviderService) {}
 
@@ -58,9 +61,8 @@ export class SmsProviderController {
     createSmsProviderDto: CreateSmsProviderDto,
     @Req() req: Request,
   ) {
-    const smsProvider = await this.smsProviderService.create(
-      createSmsProviderDto,
-    );
+    const smsProvider =
+      await this.smsProviderService.create(createSmsProviderDto);
     return ApiResponseDto.created(
       smsProvider,
       'SMS provider created successfully',
@@ -218,9 +220,10 @@ export class SmsProviderController {
   }
 
   @Post('fix-order-sequence')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Fix order sequence (utility endpoint for data corruption)',
-    description: 'Reorders all SMS providers to have sequential order numbers starting from 1'
+    description:
+      'Reorders all SMS providers to have sequential order numbers starting from 1',
   })
   @ApiResponse({
     status: 200,
@@ -242,7 +245,8 @@ export class SmsProviderController {
   @Post('reorder')
   @ApiOperation({
     summary: 'Bulk reorder SMS providers',
-    description: 'Update the order of multiple SMS providers in a single operation'
+    description:
+      'Update the order of multiple SMS providers in a single operation',
   })
   @ApiBody({
     description: 'Array of provider IDs with their new order positions',
@@ -255,27 +259,30 @@ export class SmsProviderController {
             type: 'object',
             properties: {
               id: { type: 'number', description: 'Provider ID' },
-              order: { type: 'number', description: 'New order position' }
+              order: { type: 'number', description: 'New order position' },
             },
-            required: ['id', 'order']
-          }
-        }
+            required: ['id', 'order'],
+          },
+        },
       },
-      required: ['providerOrders']
-    }
+      required: ['providerOrders'],
+    },
   })
   @ApiResponse({
     status: 200,
     description: 'Providers reordered successfully',
     type: [SmsProviderResponseDto],
   })
-  @ApiResponse({ status: 400, description: 'Bad request - duplicate order numbers' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - duplicate order numbers',
+  })
   async reorderProviders(
     @Body() reorderDto: ReorderProvidersDto,
     @Req() req: Request,
   ) {
     const reorderedProviders = await this.smsProviderService.reorderProviders(
-      reorderDto.providerOrders
+      reorderDto.providerOrders,
     );
     return ApiResponseDto.success(
       reorderedProviders,
