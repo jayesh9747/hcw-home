@@ -139,19 +139,6 @@ export class SmsProviderService {
     });
   }
 
-  async findByProvider(provider: string): Promise<SmsProviderResponseDto | null> {
-    const smsProvider = await this.databaseService.smsProvider.findFirst({
-      where: { provider },
-    });
-
-    if (!smsProvider) {
-      return null;
-    }
-
-    return plainToInstance(SmsProviderResponseDto, smsProvider, {
-      excludeExtraneousValues: false,
-    });
-  }
 
   async update(
     id: number,
@@ -249,65 +236,6 @@ export class SmsProviderService {
     }
   }
 
-  async findActiveProviders(): Promise<SmsProviderResponseDto[]> {
-    const smsProviders = await this.databaseService.smsProvider.findMany({
-      where: { isDisabled: false },
-      orderBy: { order: 'asc' },
-    });
-
-    return smsProviders.map((smsProvider) =>
-      plainToInstance(SmsProviderResponseDto, smsProvider, {
-        excludeExtraneousValues: false,
-      }),
-    );
-  }
-
-  async findWhatsappProviders(): Promise<SmsProviderResponseDto[]> {
-    const smsProviders = await this.databaseService.smsProvider.findMany({
-      where: { 
-        isWhatsapp: true,
-        isDisabled: false,
-      },
-      orderBy: { order: 'asc' },
-    });
-
-    return smsProviders.map((smsProvider) =>
-      plainToInstance(SmsProviderResponseDto, smsProvider, {
-        excludeExtraneousValues: false,
-      }),
-    );
-  }
-
-  // Get the first enabled SMS provider (by order) - Main SMS selection logic
-  async getFirstEnabledProvider(): Promise<SmsProviderResponseDto | null> {
-    const firstEnabled = await this.databaseService.smsProvider.findFirst({
-      where: {
-        isDisabled: false
-      },
-      orderBy: {
-        order: 'asc'
-      }
-    });
-
-    if (!firstEnabled) {
-      return null;
-    }
-
-    return plainToInstance(SmsProviderResponseDto, firstEnabled, {
-      excludeExtraneousValues: false,
-    });
-  }
-
-  // Get provider for SMS sending - This is what your SMS service should call
-  async getProviderForSms(): Promise<SmsProviderResponseDto> {
-    const provider = await this.getFirstEnabledProvider();
-    
-    if (!provider) {
-      throw new NotFoundException('No enabled SMS provider available');
-    }
-    
-    return provider;
-  }
 
   // Update provider order with proper rebalancing
   private async updateProviderOrder(
