@@ -11,9 +11,12 @@ import { OrganizationModule } from './organization/organization.module';
 import { GroupModule } from './group/group.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { MediasoupModule } from './mediasoup/mediasoup.module';
+
 import { APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { SmsProviderModule } from './sms_provider/sms_provider.module';
+
 
 @Module({
   imports: [
@@ -26,6 +29,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     OrganizationModule,
     GroupModule,
     MediasoupModule,
+    SmsProviderModule
   ],
   controllers: [AppController],
   providers: [
