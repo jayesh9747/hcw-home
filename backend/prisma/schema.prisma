@@ -16,25 +16,25 @@ enum ConsultationStatus {
 }
 
 model User {
-  id               Int           @id @default(autoincrement())
-  role             UserRole
-  firstName        String        @db.VarChar(100)
-  lastName         String        @db.VarChar(100)
-  email            String        @unique @db.VarChar(255)
-  password         String        @db.VarChar(255)
-  temporaryAccount Boolean       @default(false)
-  phoneNumber      String?       @db.VarChar(20)
-  country          String?       @db.VarChar(100)
-  sex              UserSex?
-  status           UserStatus    @default(NOT_APPROVED)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  Participant      Participant[]
+  id                 Int                  @id @default(autoincrement())
+  role               UserRole
+  firstName          String               @db.VarChar(100)
+  lastName           String               @db.VarChar(100)
+  email              String               @unique @db.VarChar(255)
+  password           String               @db.VarChar(255)
+  temporaryAccount   Boolean              @default(false)
+  phoneNumber        String?              @db.VarChar(20)
+  country            String?              @db.VarChar(100)
+  sex                UserSex?
+  status             UserStatus           @default(NOT_APPROVED)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  Participant        Participant[]
+  OrganizationMember OrganizationMember[]
+  GroupMember        GroupMember[]
+  Message            Message[]
 
   @@map("users")
-  OrganizationMember OrganizationMember[]
-  GroupMember GroupMember[]
-  Message Message[]
 }
 
 enum UserRole {
@@ -90,34 +90,33 @@ model OrganizationMember {
   @@map("organization_members")
 }
 
-
 model Group {
-  id                           Int      @id @default(autoincrement())
-  organizationId               Int
-  name                         String   
-  description                  String?
-  sharedOnlyIncomingConsultation Boolean @default(false)
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
-  
+  id                             Int      @id @default(autoincrement())
+  organizationId                 Int
+  name                           String
+  description                    String?
+  sharedOnlyIncomingConsultation Boolean  @default(false)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
   // Relations
-  organization                 Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members                      GroupMember[]
-  consultations                Consultation[]
-  
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members       GroupMember[]
+  consultations Consultation[]
+
   @@map("groups")
 }
 
 model GroupMember {
-  id      Int @id @default(autoincrement())
-  groupId Int
-  userId  Int
+  id       Int      @id @default(autoincrement())
+  groupId  Int
+  userId   Int
   joinedAt DateTime @default(now())
-  
+
   // Relations
-  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([groupId, userId])
   @@map("group_members")
 }
@@ -143,26 +142,39 @@ model Consultation {
   messageService     MessageService?
   whatsappTemplateId Int?
   status             ConsultationStatus @default(SCHEDULED)
-  
+
   // Relations
-  participants       Participant[]
-  group              Group?        @relation(fields: [groupId], references: [id])
-  messages           Message[]
+  participants Participant[]
+  group        Group?        @relation(fields: [groupId], references: [id])
+  messages     Message[]
+}
+
+model MediasoupServer {
+  id                  String   @id @default(cuid())
+  url                 String   @unique
+  username            String
+  password            String
+  maxNumberOfSessions Int      @default(100)
+  active              Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("mediasoup_servers")
 }
 
 model Participant {
-  id             Int      @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   consultationId Int
   userId         Int
-  isActive      Boolean @default(false)
-  isBeneficiary  Boolean  @default(false)
-  token          String?  @db.VarChar(255)
+  isActive       Boolean   @default(false)
+  isBeneficiary  Boolean   @default(false)
+  token          String?   @db.VarChar(255)
   joinedAt       DateTime?
-  
+
   // Relations
-  consultation   Consultation @relation(fields: [consultationId], references: [id])
-  user           User         @relation(fields: [userId], references: [id])
-  
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
   @@unique([consultationId, userId])
 }
 
@@ -170,14 +182,12 @@ model Message {
   id      Int    @id @default(autoincrement())
   userId  Int
   content String @db.Text
-  
+
   // Relations
-  user         User          @relation(fields: [userId], references: [id])
-  consultation Consultation? @relation(fields: [consultationId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+  consultation   Consultation? @relation(fields: [consultationId], references: [id])
   consultationId Int?
 }
-
-
 
 model Whatsapp_Template {
   id              String @id
