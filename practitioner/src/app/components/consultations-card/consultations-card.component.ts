@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { RoutePaths } from '../../constants/route-paths.enum';
 import { ButtonComponent } from '../ui/button/button.component';
 import { ButtonSize, ButtonVariant } from '../../constants/button.enums';
+import { Output, EventEmitter } from '@angular/core';
 
 @Component({
   selector: 'app-consultation-card',
@@ -19,6 +20,11 @@ export class ConsultationCardComponent {
   @Input() consultations: Consultation[] = [];
   @Input() routerLink: RoutePaths = RoutePaths.OpenConsultations;
 
+  /** NEW: show invite button when true */
+  @Input() showInvite = true;
+  /** NEW: emit when invite button clicked */
+  @Output() invite = new EventEmitter<void>();
+
   readonly ButtonSize = ButtonSize;
   readonly ButtonVariant = ButtonVariant;
 
@@ -27,5 +33,11 @@ export class ConsultationCardComponent {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  /** NEW */
+  onInviteClick() {
+    console.log('card: invite clicked');
+    this.invite.emit();
   }
 }

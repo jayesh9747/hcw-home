@@ -5,8 +5,13 @@
   @if (consultations.length === 0) {
   <div class="empty-state">
     <p>No consultations</p>
+    <!-- Properly open and close the button -->
+
   </div>
   }
+  <app-button *ngIf="showInvite" (click)="onInviteClick()" [variant]="ButtonVariant.Primary" [size]="ButtonSize.Medium">
+    Send new invite
+  </app-button>
 
   @if (consultations.length > 0) {
   <div class="consultation-list">

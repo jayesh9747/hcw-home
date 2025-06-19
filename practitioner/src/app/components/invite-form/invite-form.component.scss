@@ -1,0 +1,133 @@
+/* put this in styles.scss */
+.invite-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.invite-modal {
+    position: relative;
+    z-index: 10001;
+}
+/* Header */
+.invite-modal__header {
+    position: relative;
+    padding: 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+}
+
+.invite-modal__header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.invite-modal__close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* Body */
+.invite-modal__body {
+    display: flex;
+    flex: 1;
+    min-height: 300px;
+}
+
+/* Left & Right Panels */
+.form-section {
+    flex: 1;
+    padding: 2rem;
+}
+
+.form-section.left {
+    background: #fff;
+}
+
+.form-section.right {
+    background: #f6fbfa;
+    border-left: 1px solid #eee;
+}
+
+/* Rows */
+.row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.row.checkbox-row {
+    flex-direction: column;
+    margin-top: 1rem;
+}
+
+/* Fields */
+.field {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.field.full {
+    flex: 1 1 100%;
+}
+
+.field label {
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.field input,
+.field select {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 0.25rem;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #f0f0f0;
+}
+
+/* In-person intro text */
+.in-person-msg {
+    margin: 2rem 0;
+    font-size: 1rem;
+    text-align: center;
+}
+
+/* Guest checkboxes */
+.checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0 0.5rem;
+}
+
+.checkbox-list label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+}
+
+/* Footer */
+.invite-modal__footer {
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    background: #fff;
+    border-top: 1px solid #eee;
+}
+
