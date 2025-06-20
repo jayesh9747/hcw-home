@@ -25,22 +25,20 @@ export class DashboardComponent implements OnInit {
   waitingConsultations = signal<Consultation[]>([]);
   openConsultations = signal<Consultation[]>([]);
 
-  /** Controls the two‐step invite flow */
   isInviting = signal(false);
   selectedInviteType = signal<'remote' | 'inPerson' | null>(null);
 
   constructor(private consultationService: ConsultationService) {}
 
   ngOnInit(): void {
-    this.consultationService.getWaitingConsultations().subscribe((data) => {
-      this.waitingConsultations.set(data);
-    });
-    this.consultationService.getOpenConsultations().subscribe((data) => {
-      this.openConsultations.set(data);
-    });
+    this.consultationService
+      .getWaitingConsultations()
+      .subscribe((data) => this.waitingConsultations.set(data));
+    this.consultationService
+      .getOpenConsultations()
+      .subscribe((data) => this.openConsultations.set(data));
   }
 
-  /** Card config */
   cards = computed(() => [
     {
       title: 'WAITING ROOM',
@@ -58,26 +56,24 @@ export class DashboardComponent implements OnInit {
     },
   ]);
 
-  /** Step 1: open the invite‐link selector */
+  trackByTitle(_idx: number, card: { title: string }): string {
+    return card.title;
+  }
+
   openInviteSelector() {
-    console.log('dashboard: opening invite selector');
     this.isInviting.set(true);
     this.selectedInviteType.set(null);
   }
 
-  /** Step 2: user picked remote vs in-person */
   onTypeSelected(type: 'remote' | 'inPerson') {
     this.selectedInviteType.set(type);
   }
 
-  /** Handle final form submission payload */
   handleInvite(payload: any) {
     console.log('Invite payload:', payload);
-    // TODO: send payload to your backend/messageService here
     this.closeInvite();
   }
 
-  /** Cancel or finish invite flow */
   closeInvite() {
     this.isInviting.set(false);
     this.selectedInviteType.set(null);

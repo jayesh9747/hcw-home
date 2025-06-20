@@ -27,14 +27,13 @@ import { ViewEncapsulation } from '@angular/core';
   imports: [CommonModule, ReactiveFormsModule, ButtonComponent],
   templateUrl: './invite-form.component.html',
   styleUrls: ['./invite-form.component.scss'],
-  encapsulation: ViewEncapsulation.None, // <–– so our global styles actually apply
+  encapsulation: ViewEncapsulation.None, 
 })
 export class InviteFormComponent implements OnInit, OnDestroy {
   @Input() type: 'remote' | 'inPerson' = 'remote';
   @Output() close = new EventEmitter<void>();
   @Output() submit = new EventEmitter<any>();
 
-  // expose enums so templates can reference them
   readonly ButtonVariant = ButtonVariant;
   readonly ButtonSize = ButtonSize;
   readonly ButtonType = ButtonType;
@@ -52,7 +51,6 @@ export class InviteFormComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     document.body.classList.add('modal-open');
 
-    // build the form
     this.form =
       this.type === 'remote'
         ? this.buildRemoteForm()
@@ -79,7 +77,6 @@ export class InviteFormComponent implements OnInit, OnDestroy {
   }
 
   private buildInPersonForm(): FormGroup {
-    /* Only what we need for an on-site consultation */
     return this.fb.group({
       planLater: [false],
       guests: this.buildGuestsGroup(),
@@ -94,7 +91,6 @@ export class InviteFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // make sure to clean up if the component is ever destroyed
     document.body.classList.remove('modal-open');
   }
 

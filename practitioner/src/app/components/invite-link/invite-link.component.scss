@@ -1,23 +1,21 @@
+@use './variables' as *;
 
 .invite-overlay {
     position: fixed;
     inset: 0;
-    /* top/right/bottom/left = 0 */
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: $color-overlay-bg;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    /* sit above everything */
 }
 
-/* The white “modal” container */
 .invite-modal {
-    background: white;
+    background: $color-modal-bg;
     border-radius: 1rem;
     width: 90%;
     max-width: 800px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 16px $color-modal-shadow;
     overflow: hidden;
     /* clip rounded corners */
 
@@ -25,7 +23,7 @@
         position: relative;
         padding: 1.5rem;
         text-align: center;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid $color-modal-border;
 
         .invite-modal__close {
             position: absolute;
@@ -35,27 +33,35 @@
             border: none;
             font-size: 1.5rem;
             cursor: pointer;
+            color: $color-text-light;
+            transition: color 0.2s ease;
+
+            &:hover {
+                color: $color-text;
+            }
         }
     }
 
     &__cards {
         display: flex;
-        background: #eee;
+        background: $color-cards-bg;
     }
 
     .invite-card {
         flex: 1;
-        background: #f9fdfb;
+        background: $color-card-bg;
         padding: 2rem;
         text-align: center;
 
         h3 {
             margin-bottom: 0.5rem;
+            color: $color-heading;
         }
 
         p {
             margin: 1rem 0 1.5rem;
             line-height: 1.4;
+            color: $color-text;
         }
     }
 }

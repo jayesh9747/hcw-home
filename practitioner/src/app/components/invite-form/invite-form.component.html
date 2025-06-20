@@ -1,17 +1,13 @@
 <div class="invite-overlay" (click)="onCancel()">
     <div class="invite-modal" (click)="$event.stopPropagation()">
 
-        <!-- only the close button in the top bar -->
         <header class="invite-modal__header">
             <button (click)="onCancel()" class="invite-modal__close">×</button>
         </header>
 
-        <!-- single form wrapping both panels -->
         <form class="invite-modal__body" [formGroup]="form" (ngSubmit)="onSubmit()">
 
-            <!-- LEFT PANEL -->
             <div class="form-section left">
-                <!-- moved heading here -->
                 <h3 class="section-title">
                     {{ type === 'remote' ? 'PATIENT INVITATION' : 'PATIENT INFORMATION' }}
                 </h3>
@@ -77,7 +73,6 @@
                 </div>
             </div>
 
-            <!-- RIGHT PANEL -->
             <div class="form-section right">
                 <h3>GUESTS</h3>
                 <hr />
@@ -90,7 +85,6 @@
             </div>
         </form>
 
-        <!-- footer stays the same -->
         <footer class="invite-modal__footer">
             <app-button [variant]="ButtonVariant.Outline" [size]="ButtonSize.Medium" (click)="onCancel()">
                 Cancel
