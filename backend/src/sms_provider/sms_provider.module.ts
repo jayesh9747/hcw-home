@@ -8,6 +8,6 @@ import { AuthModule } from 'src/auth/auth.module';
 @Module({
   controllers: [SmsProviderController],
   providers: [SmsProviderService],
-  imports:[DatabaseModule,UserModule,AuthModule]
+  imports: [DatabaseModule, UserModule, AuthModule],
 })
 export class SmsProviderModule {}
