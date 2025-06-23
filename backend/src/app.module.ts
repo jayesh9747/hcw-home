@@ -18,6 +18,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { SmsProviderModule } from './sms_provider/sms_provider.module';
 import { LanguageModule } from './language/language.module';
 import { SpecialityModule } from './speciality/speciality.module';
+import { ExportModule } from './export/export.module';
 
 
 @Module({
@@ -34,6 +35,7 @@ import { SpecialityModule } from './speciality/speciality.module';
     SmsProviderModule,
     LanguageModule,
     SpecialityModule
+    ExportModule
   ],
   controllers: [AppController],
   providers: [
