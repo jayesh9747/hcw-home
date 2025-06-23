@@ -5,6 +5,7 @@ import {
   EventEmitter,
   OnChanges,
   SimpleChanges,
+  input,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConsultationDetail } from '../../models/consultations/consultation.model';
@@ -20,8 +21,8 @@ import { ButtonVariant, ButtonSize } from '../../constants/button.enums';
   styleUrls: ['./consultation-detail-panel.component.scss'],
 })
 export class ConsultationDetailPanelComponent implements OnChanges {
-  @Input() consultationId: number | null = null;
-  @Input() isOpen = false;
+  consultationId = input<number | null>(null);
+  isOpen = input<boolean>(false);
   @Output() close = new EventEmitter<void>();
   @Output() downloadPDF = new EventEmitter<number>();
 
@@ -35,19 +36,19 @@ export class ConsultationDetailPanelComponent implements OnChanges {
   constructor(private consultationService: ConsultationHistoryService) {}
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['consultationId'] && this.consultationId && this.isOpen) {
+    if (changes['consultationId'] && this.consultationId() && this.isOpen()) {
       this.loadConsultationDetail();
     }
   }
 
   loadConsultationDetail(): void {
-    if (!this.consultationId) return;
+    if (!this.consultationId()) return;
 
     this.loading = true;
     this.error = null;
 
     this.consultationService
-      .getConsultationDetail(this.consultationId)
+      .getConsultationDetail(this.consultationId()!)
       .subscribe({
         next: (detail) => {
           this.consultationDetail = detail;
@@ -66,12 +67,12 @@ export class ConsultationDetailPanelComponent implements OnChanges {
   }
 
   onDownloadPDF(): void {
-    if (this.consultationId) {
-      this.downloadPDF.emit(this.consultationId);
+    if (this.consultationId()) {
+      this.downloadPDF.emit(this.consultationId()!);
     }
   }
 
-  formatDate(date:Date | null): string {
+  formatDate(date: Date | null): string {
     if (!date) return '';
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
@@ -98,5 +99,4 @@ export class ConsultationDetailPanelComponent implements OnChanges {
 
     return `User ${userId}`;
   }
-
 }

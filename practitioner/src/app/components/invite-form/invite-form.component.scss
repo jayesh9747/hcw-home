@@ -173,18 +173,6 @@
     }
 }
 
-/* In-person message */
-.in-person-msg {
-    margin: 32px 0;
-    font-size: 16px;
-    text-align: center;
-    color: $color-header-text;
-    line-height: 1.6;
-    padding: 24px;
-    background: $color-section-bg;
-    border-radius: 8px;
-    border: 1px solid $color-section-border;
-}
 
 /* Checkbox styling */
 .checkbox-row label,
@@ -236,17 +224,6 @@
     background: $color-modal-bg;
     border-top: 1px solid $color-section-border;
     flex-shrink: 0;
-
-    button {
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        border: 2px solid transparent;
-        min-width: 100px;
-    }
 }
 
 /* Responsive design */

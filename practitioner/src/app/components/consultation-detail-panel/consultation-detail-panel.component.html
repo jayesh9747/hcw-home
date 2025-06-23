@@ -1,4 +1,4 @@
-<div class="detail-panel" [class.open]="isOpen">
+<div class="detail-panel" [class.open]="isOpen()">
     <div class="panel-header">
         <h2>Consultation Details</h2>
         <button class="close-button" (click)="onClose()" aria-label="Close panel">
@@ -6,7 +6,8 @@
         </button>
     </div>
 
-    <div class="panel-content" *ngIf="!loading && !error && consultationDetail">
+    @if (!loading && !error && consultationDetail) {
+    <div class="panel-content">
         <section class="detail-section">
             <h3>General Information</h3>
             <div class="info-grid">
@@ -68,15 +69,18 @@
                 <strong>Total Duration: {{ consultationDetail.duration }}</strong>
             </div>
         </section>
-
     </div>
+    }
 
-    <div class="panel-content loading-state" *ngIf="loading">
+    @if (loading) {
+    <div class="panel-content loading-state">
         <div class="loading-spinner"></div>
         <p>Loading consultation details...</p>
     </div>
+    }
 
-    <div class="panel-content error-state" *ngIf="error">
+    @if (error) {
+    <div class="panel-content error-state">
         <div class="error-message">
             <span class="error-icon">⚠️</span>
             <p>{{ error }}</p>
@@ -86,4 +90,5 @@
             </app-button>
         </div>
     </div>
+    }
 </div>

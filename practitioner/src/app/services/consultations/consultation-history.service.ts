@@ -3,10 +3,26 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+// Domain Models
 import {
   ConsultationHistoryItem,
   ConsultationDetail,
+  User,
+  Consultation,
+  Participant,
+  Message,
 } from '../../models/consultations/consultation.model';
+
+// DTOs
+import {
+  ConsultationHistoryResponseDto,
+  ConsultationDetailResponseDto,
+  ParticipantResponseDto,
+  MessageResponseDto,
+} from '../../dtos/consultations';
+import { UserResponseDto } from '../../dtos/users';
+
+// Constants
 import { ConsultationStatus } from '../../constants/consultation-status.enum';
 
 @Injectable({
@@ -25,7 +41,9 @@ export class ConsultationHistoryService {
       .set('status', ConsultationStatus.COMPLETED);
 
     return this.http
-      .get<any[]>(`${this.apiUrl}/history`, { params })
+      .get<ConsultationHistoryResponseDto[]>(`${this.apiUrl}/history`, {
+        params,
+      })
       .pipe(map((rows) => rows.map(this.mapToHistoryItem)));
   }
 
@@ -33,7 +51,9 @@ export class ConsultationHistoryService {
     consultationId: number
   ): Observable<ConsultationDetail> {
     return this.http
-      .get<any>(`${this.apiUrl}/${consultationId}/details`)
+      .get<ConsultationDetailResponseDto>(
+        `${this.apiUrl}/${consultationId}/details`
+      )
       .pipe(map(this.mapToDetailItem));
   }
 
@@ -43,71 +63,85 @@ export class ConsultationHistoryService {
     });
   }
 
-  private mapToHistoryItem = (data: any): ConsultationHistoryItem => {
+  private mapToHistoryItem = (
+    data: ConsultationHistoryResponseDto
+  ): ConsultationHistoryItem => {
     const start = data.startedAt ? new Date(data.startedAt) : undefined;
     const end = data.closedAt ? new Date(data.closedAt) : undefined;
     const duration = start && end ? this.calculateDuration(start, end) : '';
 
-    const participants = (data.participants || []).map((p: any) => ({
-      id: p.id,
-      consultationId: p.consultationId,
-      userId: p.userId,
-      isActive: p.isActive,
-      isBeneficiary: p.isBeneficiary,
-      token: p.token,
-      joinedAt: p.joinedAt ? new Date(p.joinedAt) : undefined,
-    }));
+    const participants: Participant[] = (data.participants || []).map(
+      (p: ParticipantResponseDto) => ({
+        id: p.id,
+        consultationId: p.consultationId,
+        userId: p.userId,
+        isActive: p.isActive,
+        isBeneficiary: p.isBeneficiary,
+        token: p.token,
+        joinedAt: p.joinedAt ? new Date(p.joinedAt) : null,
+      })
+    );
 
-    const participantCount = participants.length;
+    const consultation: Consultation = {
+      id: data.id,
+      scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+      createdAt: data.createdAt ? new Date(data.createdAt) : null,
+      startedAt: start || null,
+      closedAt: end || null,
+      createdBy: data.createdBy,
+      groupId: data.groupId,
+      owner: data.owner,
+      whatsappTemplateId: data.whatsappTemplateId,
+      status: data.status,
+    };
+
+    const patient: User = this.mapUserResponseToUser(data.patient);
 
     return {
-      consultation: {
-        id: data.id,
-        scheduledDate: data.scheduledDate
-          ? new Date(data.scheduledDate)
-          : undefined,
-        createdAt: data.createdAt ? new Date(data.createdAt) : undefined,
-        startedAt: start,
-        closedAt: end,
-        createdBy: data.createdBy,
-        groupId: data.groupId,
-        owner: data.owner,
-        whatsappTemplateId: data.whatsappTemplateId,
-        status: data.status,
-      },
-      patient: {
-        id: data.patient.id,
-        role: data.patient.role,
-        firstName: data.patient.firstName,
-        lastName: data.patient.lastName,
-        phoneNumber: data.patient.phoneNumber,
-        country: data.patient.country,
-        sex: data.patient.sex,
-        status: data.patient.status,
-        createdAt: new Date(data.patient.createdAt),
-        updatedAt: new Date(data.patient.updatedAt),
-      },
+      consultation,
+      patient,
       participants,
       duration,
     };
   };
 
-  private mapToDetailItem = (data: any): ConsultationDetail => {
+  private mapToDetailItem = (
+    data: ConsultationDetailResponseDto
+  ): ConsultationDetail => {
     const history = this.mapToHistoryItem(data);
 
-    const messages = (data.messages || []).map((m: any) => ({
-      id: m.id,
-      userId: m.userId,
-      content: m.content,
-      consultationId: m.consultationId,
-      createdAt: new Date(m.createdAt),
-    }));
+    const messages: Message[] = (data.messages || []).map(
+      (m: MessageResponseDto) => ({
+        id: m.id,
+        userId: m.userId,
+        content: m.content,
+        consultationId: m.consultationId,
+        createdAt: new Date(m.createdAt),
+      })
+    );
 
     return {
       ...history,
       messages,
     };
   };
+
+  private mapUserResponseToUser(userDto: UserResponseDto): User {
+    return {
+      id: userDto.id,
+      role: userDto.role,
+      firstName: userDto.firstName,
+      lastName: userDto.lastName,
+      email: userDto.email,
+      temporaryAccount: userDto.temporaryAccount,
+      phoneNumber: userDto.phoneNumber,
+      country: userDto.country,
+      sex: userDto.sex,
+      status: userDto.status,
+      createdAt: new Date(userDto.createdAt),
+      updatedAt: new Date(userDto.updatedAt),
+    };
+  }
 
   private calculateDuration(start: Date, end: Date): string {
     const diffMs = end.getTime() - start.getTime();

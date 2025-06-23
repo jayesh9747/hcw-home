@@ -27,10 +27,10 @@ import { ViewEncapsulation } from '@angular/core';
   imports: [CommonModule, ReactiveFormsModule, ButtonComponent],
   templateUrl: './invite-form.component.html',
   styleUrls: ['./invite-form.component.scss'],
-  encapsulation: ViewEncapsulation.None, 
+  encapsulation: ViewEncapsulation.None,
 })
 export class InviteFormComponent implements OnInit, OnDestroy {
-  @Input() type: 'remote' | 'inPerson' = 'remote';
+  @Input() type: 'remote' = 'remote';
   @Output() close = new EventEmitter<void>();
   @Output() submit = new EventEmitter<any>();
 
@@ -50,11 +50,7 @@ export class InviteFormComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     document.body.classList.add('modal-open');
-
-    this.form =
-      this.type === 'remote'
-        ? this.buildRemoteForm()
-        : this.buildInPersonForm();
+    this.form = this.buildRemoteForm();
   }
 
   private buildRemoteForm(): FormGroup {
@@ -71,13 +67,6 @@ export class InviteFormComponent implements OnInit, OnDestroy {
         ],
       ],
       manualSend: [false],
-      planLater: [false],
-      guests: this.buildGuestsGroup(),
-    });
-  }
-
-  private buildInPersonForm(): FormGroup {
-    return this.fb.group({
       planLater: [false],
       guests: this.buildGuestsGroup(),
     });

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConsultationHistoryItem } from '../../models/consultations/consultation.model';
 import { RouterLink } from '@angular/router';
@@ -14,12 +14,11 @@ import { ButtonSize, ButtonVariant } from '../../constants/button.enums';
   styleUrls: ['./consultations-card.component.scss'],
 })
 export class ConsultationCardComponent {
-  @Input() title = 'CONSULTATIONS';
-  @Input() description = 'List of consultations';
-  @Input() consultations: ConsultationHistoryItem[] = []; 
-  @Input() routerLink = RoutePaths.OpenConsultations;
-
-  @Input() showInvite = true;
+  title = input('CONSULTATIONS');
+  description = input('List of consultations');
+  consultations = input<ConsultationHistoryItem[]>([]);
+  routerLink = input(RoutePaths.OpenConsultations);
+  showInvite = input(true);
   @Output() invite = new EventEmitter<void>();
 
   readonly ButtonSize = ButtonSize;

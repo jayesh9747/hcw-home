@@ -9,12 +9,15 @@
 
     <div class="main-content">
         <div class="consultation-list" [class.with-panel]="isDetailPanelOpen">
-            <div class="loading-state" *ngIf="loading">
+            @if (loading) {
+            <div class="loading-state">
                 <div class="loading-spinner"></div>
                 <p>Loading consultation history...</p>
             </div>
+            }
 
-            <div class="error-state" *ngIf="error">
+            @if (error) {
+            <div class="error-state">
                 <div class="error-message">
                     <h3>Unable to Load Consultations</h3>
                     <p>{{ error }}</p>
@@ -24,33 +27,43 @@
                     </app-button>
                 </div>
             </div>
-            <div class="empty-state" *ngIf="!loading && !error && consultations.length === 0">
-                <div class="empty-message">
+            }
 
+            @if (!loading && !error && consultations.length === 0) {
+            <div class="empty-state">
+                <div class="empty-message">
                     <h3>No Consultation History</h3>
                     <p>
                         Your completed consultations will appear here once you finish your first session.
                     </p>
                 </div>
             </div>
-            <div class="consultations-grid" *ngIf="!loading && !error && paginatedConsultations.length > 0">
-                <app-consultation-history-card *ngFor="let consultation of paginatedConsultations"
-                    [consultation]="consultation" [isSelected]="consultation.consultation.id === selectedConsultationId"
-                    (cardClick)="onCardClick($event)"
-                    (downloadPDF)="onDownloadPDF($event)"></app-consultation-history-card>
-            </div>
+            }
 
-            <div class="pagination" *ngIf="totalPages > 1">
+            @if (!loading && !error && paginatedConsultations.length > 0) {
+            <div class="consultations-grid">
+                @for (consultation of paginatedConsultations; track consultation.consultation.id) {
+                <app-consultation-history-card [consultation]="consultation"
+                    [isSelected]="consultation.consultation.id === selectedConsultationId"
+                    (cardClick)="onCardClick($event)" (downloadPDF)="onDownloadPDF($event)">
+                </app-consultation-history-card>
+                }
+            </div>
+            }
+
+            @if (totalPages > 1) {
+            <div class="pagination">
                 <app-button [variant]="ButtonVariant.Secondary" [size]="ButtonSize.Small" [disabled]="currentPage === 1"
                     (click)="previousPage()">
                     Previous
                 </app-button>
 
                 <div class="page-numbers">
-                    <button *ngFor="let page of [].constructor(totalPages); let i = index" class="page-number"
-                        [class.active]="i + 1 === currentPage" (click)="goToPage(i + 1)">
+                    @for (page of [].constructor(totalPages); track $index; let i = $index) {
+                    <button class="page-number" [class.active]="i + 1 === currentPage" (click)="goToPage(i + 1)">
                         {{ i + 1 }}
                     </button>
+                    }
                 </div>
 
                 <app-button [variant]="ButtonVariant.Secondary" [size]="ButtonSize.Small"
@@ -58,12 +71,15 @@
                     Next
                 </app-button>
             </div>
+            }
         </div>
 
         <app-consultation-detail-panel [consultationId]="selectedConsultationId" [isOpen]="isDetailPanelOpen"
             (close)="onDetailPanelClose()" (downloadPDF)="onDownloadPDF($event)"></app-consultation-detail-panel>
     </div>
-    <div class="results-summary" *ngIf="!loading">
+
+    @if (!loading) {
+    <div class="results-summary">
         <button class="page-button" [disabled]="currentPage === 1" (click)="previousPage()" aria-label="Previous page">
             ‹
         </button>
@@ -74,5 +90,6 @@
             ›
         </button>
     </div>
+    }
 
 </div>

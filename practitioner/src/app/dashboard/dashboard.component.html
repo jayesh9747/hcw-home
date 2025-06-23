@@ -1,15 +1,12 @@
 <div class="dashboard-content">
-    <app-consultation-card *ngFor="let card of cards(); trackBy: trackByTitle" [title]="card.title"
-        [description]="card.description" [routerLink]="card.routerLink"
+    @for (card of cards(); track card.title) {
+    <app-consultation-card [title]="card.title" [description]="card.description" [routerLink]="card.routerLink"
         [showInvite]="card.showInvite" (invite)="openInviteSelector()">
     </app-consultation-card>
+    }
 </div>
 
-<app-invite-link *ngIf="isInviting() && !selectedInviteType()" (selectType)="onTypeSelected($event)"
-    (close)="closeInvite()">
-</app-invite-link>
-
-<app-invite-form *ngIf="isInviting() && selectedInviteType()" [type]="selectedInviteType()!" (close)="closeInvite()"
-    (submit)="handleInvite($event)">
+@if (isInviting()) {
+<app-invite-form type="remote" (close)="closeInvite()" (submit)="handleInvite($event)">
 </app-invite-form>
-  
+}

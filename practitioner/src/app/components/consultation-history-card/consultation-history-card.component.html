@@ -1,4 +1,4 @@
-<div class="consultation-row" [class.selected]="isSelected" (click)="onCardClick()">
+<div class="consultation-row" [class.selected]="isSelected()" (click)="onCardClick()">
 
     <div class="consultation-cell patient-cell">
         <div class="cell-header">Patient</div>
@@ -18,14 +18,14 @@
     <div class="consultation-cell datetime-cell">
         <div class="cell-header">Start date/time</div>
         <span class="start-datetime">
-            {{ consultation.consultation.startedAt
-            ? formatDateTime(consultation.consultation.startedAt) : '—' }}
+            {{ consultation().consultation.startedAt
+            ? formatDateTime(consultation().consultation.startedAt) : '—' }}
         </span>
     </div>
 
     <div class="consultation-cell duration-cell">
         <div class="cell-header">Duration</div>
-        <span class="duration">{{ consultation.duration }}</span>
+        <span class="duration">{{ consultation().duration }}</span>
     </div>
 
     <div class="consultation-cell">

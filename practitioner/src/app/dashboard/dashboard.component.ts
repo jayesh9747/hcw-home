@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConsultationCardComponent } from '../components/consultations-card/consultations-card.component';
-import { InviteLinkComponent } from '../components/invite-link/invite-link.component';
 import { InviteFormComponent } from '../components/invite-form/invite-form.component';
 import { RoutePaths } from '../constants/route-paths.enum';
 import { ConsultationService } from '../services/consultations/consultation.service';
@@ -10,12 +9,7 @@ import type { Consultation } from '../models/consultations/consultation.model';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [
-    CommonModule,
-    ConsultationCardComponent,
-    InviteLinkComponent,
-    InviteFormComponent,
-  ],
+  imports: [CommonModule, ConsultationCardComponent, InviteFormComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
 })
@@ -26,7 +20,6 @@ export class DashboardComponent implements OnInit {
   openConsultations = signal<Consultation[]>([]);
 
   isInviting = signal(false);
-  selectedInviteType = signal<'remote' | 'inPerson' | null>(null);
 
   constructor(private consultationService: ConsultationService) {}
 
@@ -62,11 +55,6 @@ export class DashboardComponent implements OnInit {
 
   openInviteSelector() {
     this.isInviting.set(true);
-    this.selectedInviteType.set(null);
-  }
-
-  onTypeSelected(type: 'remote' | 'inPerson') {
-    this.selectedInviteType.set(type);
   }
 
   handleInvite(payload: any) {
@@ -76,6 +64,5 @@ export class DashboardComponent implements OnInit {
 
   closeInvite() {
     this.isInviting.set(false);
-    this.selectedInviteType.set(null);
   }
 }

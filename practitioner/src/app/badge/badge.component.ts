@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input } from '@angular/core';
 
 @Component({
   selector: 'app-badge',
@@ -6,5 +6,5 @@ import { Component, Input } from '@angular/core';
   styleUrls: ['./badge.component.scss'],
 })
 export class BadgeComponent {
-  @Input() value: string | number = '';
+  value = input<string | number>('');
 }

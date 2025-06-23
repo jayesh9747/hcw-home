@@ -130,23 +130,6 @@ $grid-gap-xs: 4px;
     align-items: center;
     gap: $spacing-sm;
 }
-
-.invitation-btn {
-    background-color: $color-primary;
-    color: $color-background-card;
-    border: 1px solid $color-primary;
-    padding: $spacing-sm $spacing-md;
-    border-radius: $border-radius-sm;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-
-    &:hover {
-        background-color: color.adjust($color-primary, $lightness: -10%);
-        border-color: color.adjust($color-primary, $lightness: -10%);
-    }
-}
-
 .status-badge {
     padding: $spacing-xs $spacing-sm;
     border-radius: $border-radius-sm;
@@ -243,7 +226,7 @@ $grid-gap-xs: 4px;
         }
     }
 
-    .actions-cell .invitation-btn {
+    .actions-cell {
         display: none;
     }
 }

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ConsultationHistoryItem } from '../../models/consultations/consultation.model';
 import { ButtonComponent } from '../../components/ui/button/button.component';
@@ -12,8 +12,8 @@ import { ButtonVariant, ButtonSize } from '../../constants/button.enums';
   styleUrls: ['./consultation-history-card.component.scss'],
 })
 export class ConsultationHistoryCardComponent {
-  @Input() consultation!: ConsultationHistoryItem;
-  @Input() isSelected = false;
+  consultation = input.required<ConsultationHistoryItem>();
+  isSelected = input<boolean>(false);
   @Output() cardClick = new EventEmitter<number>();
   @Output() downloadPDF = new EventEmitter<number>();
   @Output() sendInvitation = new EventEmitter<number>();
@@ -24,38 +24,38 @@ export class ConsultationHistoryCardComponent {
   readonly ButtonSize = ButtonSize;
 
   onCardClick(): void {
-    this.cardClick.emit(this.consultation.consultation.id);
+    this.cardClick.emit(this.consultation().consultation.id);
   }
 
   onDownloadClick(event: Event): void {
     event.stopPropagation();
-    this.downloadPDF.emit(this.consultation.consultation.id);
+    this.downloadPDF.emit(this.consultation().consultation.id);
   }
 
   onSendInvitationClick(event: Event): void {
     event.stopPropagation();
-    this.sendInvitation.emit(this.consultation.consultation.id);
+    this.sendInvitation.emit(this.consultation().consultation.id);
   }
 
   onExportClick(event: Event): void {
     event.stopPropagation();
-    this.exportData.emit(this.consultation.consultation.id);
+    this.exportData.emit(this.consultation().consultation.id);
   }
 
   onMoreActionsClick(event: Event): void {
     event.stopPropagation();
-    this.cardClick.emit(this.consultation.consultation.id);
+    this.cardClick.emit(this.consultation().consultation.id);
   }
 
   getPatientDisplayName(): string {
-    const patient = this.consultation.patient;
+    const patient = this.consultation().patient;
 
     const consultationAge =
-      Date.now() - (this.consultation.consultation.closedAt?.getTime() || 0);
+      Date.now() - (this.consultation().consultation.closedAt?.getTime() || 0);
     const retentionPeriod = 90 * 24 * 60 * 60 * 1000; // 90 days in milliseconds
 
     if (consultationAge > retentionPeriod) {
-      return `Patient ${this.consultation.consultation.id}`;
+      return `Patient ${this.consultation().consultation.id}`;
     }
 
     return `${patient.firstName} ${patient.lastName}`;
@@ -63,7 +63,7 @@ export class ConsultationHistoryCardComponent {
 
   formatDateTime(date?: Date | null): string {
     if (!date) {
-      return '—';  
+      return '—';
     }
     return new Intl.DateTimeFormat('en-GB', {
       day: '2-digit',

@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import {
@@ -15,11 +15,11 @@ import {
   styleUrls: ['./button.component.scss'],
 })
 export class ButtonComponent {
-  @Input() variant: ButtonVariant | string = ButtonVariant.Primary;
-  @Input() size: ButtonSize | string = ButtonSize.Medium;
-  @Input() type: ButtonType | string = ButtonType.Button;
-  @Input() disabled = false;
-  @Input() routerLink?: string;
+  variant = input<ButtonVariant | string>(ButtonVariant.Primary);
+  size = input<ButtonSize | string>(ButtonSize.Medium);
+  type = input<ButtonType | string>(ButtonType.Button);
+  disabled = input<boolean>(false);
+  routerLink = input<string>();
 
   readonly ButtonVariant = ButtonVariant;
   readonly ButtonSize = ButtonSize;
