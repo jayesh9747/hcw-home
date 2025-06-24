@@ -6,7 +6,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from 'src/database/database.service';
 import { MediasoupSessionService } from './mediasoup-session.service';
 
 @WebSocketGateway({ namespace: '/mediasoup', cors: true })

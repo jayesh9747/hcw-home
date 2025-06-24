@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from 'src/database/database.service';
 
 @Injectable()
 export class MediasoupSessionService {

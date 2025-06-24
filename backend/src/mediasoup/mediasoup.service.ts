@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from 'src/database/database.service';
 import { CreateMediasoupServerDto } from './dto/create-mediasoup-server.dto';
 import { UpdateMediasoupServerDto } from './dto/update-mediasoup-server.dto';
 import { QueryMediasoupServerDto } from './dto/query-mediasoup-server.dto';
@@ -7,7 +7,7 @@ import { MediasoupServerResponseDto } from './dto/mediasoup-server-response.dto'
 import { plainToInstance } from 'class-transformer';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { HttpExceptionHelper } from '../common/helpers/execption/http-exception.helper';
+import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 
 @Injectable()
 export class MediasoupServerService {
