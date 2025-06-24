@@ -3,7 +3,7 @@ import { LoginResponseDto, LoginUserDto } from './dto/login-user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
-import { UserResponseDto } from 'src/user/dto/user-response.dto';
+import { UserResponseDto } from '../user/dto/user-response.dto';
 import { Role } from './enums/role.enum';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -175,7 +175,7 @@ export class AuthService {
       this.logger.warn(
         `User registration failed: Email ${email} already exists`,
       );
-      throw HttpExceptionHelper.confilct('Email is already in use');
+      throw HttpExceptionHelper.conflict('Email is already in use');
     }
 
     // Create new user
