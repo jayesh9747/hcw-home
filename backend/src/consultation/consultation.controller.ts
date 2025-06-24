@@ -6,7 +6,7 @@ import {
   Post,
   Query,
   UsePipes,
-  ValidationPipe
+  ValidationPipe,
 } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
 import {
@@ -22,18 +22,40 @@ import {
   AdmitPatientResponseDto,
 } from './dto/admit-patient.dto';
 import {
+  CreateConsultationDto,
+  ConsultationResponseDto,
+} from './dto/create-consultation.dto';
+import {
   ApiTags,
   ApiOperation,
   ApiParam,
   ApiBody,
   ApiQuery,
   ApiOkResponse,
+  ApiCreatedResponse,
 } from '@nestjs/swagger';
 
 @ApiTags('consultation')
 @Controller('consultation')
 export class ConsultationController {
   constructor(private readonly consultationService: ConsultationService) {}
+
+  @Post()
+  @ApiOperation({
+    summary: 'Create a new consultation (practitioner/admin only)',
+  })
+  @ApiBody({ type: CreateConsultationDto })
+  @ApiCreatedResponse({
+    description: 'Consultation created',
+    type: ApiResponseDto,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async createConsultation(
+    @Body() createDto: CreateConsultationDto,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<ApiResponseDto<ConsultationResponseDto>> {
+    return this.consultationService.createConsultation(createDto, userId);
+  }
 
   @Post(':id/join/patient')
   @ApiOperation({ summary: 'Patient joins a consultation' })
@@ -79,9 +101,8 @@ export class ConsultationController {
   @UsePipes(new ValidationPipe({ whitelist: true }))
   async admitPatient(
     @Body() dto: AdmitPatientDto,
-    @Query('userId', UserIdParamPipe) userId: number, // Pass userId as query or get from auth context
+    @Query('userId', UserIdParamPipe) userId: number,
   ): Promise<ApiResponseDto<AdmitPatientResponseDto>> {
-    // In production, get userId and role from JWT/auth context instead of query
     return this.consultationService.admitPatient(dto, userId);
   }
 
