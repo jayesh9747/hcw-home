@@ -1,21 +1,21 @@
 .consultation-card {
-  background-color: #f9f9f9;
-  color: #222;
-  border-radius: 12px;
+  background-color: var(--light-bg);
+  color: var(--text-color);
+  border-radius: var(--border-radius);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   margin-bottom: 20px;
 }
 
 .active-card {
-  border-top: 4px solid #10dc60;
+  border-top: 4px solid var(--success-color);
 }
 
 .completed-card {
-  border-top: 4px solid #0090ff;
+  border-top: 4px solid var(--primary-color);
 }
 
 .upcoming-card {
-  border-top: 4px solid #ff4961;
+  border-top: 4px solid var(--danger-color);
 }
 
 .consultation-item {
@@ -23,8 +23,8 @@
   --padding-end: 16px;
   --padding-top: 12px;
   --padding-bottom: 12px;
-  --background: #ffffff;
-  color: #222;
+  --background: var(--card-bg);
+  color: var(--text-color);
   padding: 12px 16px;
   margin-bottom: 8px;
   border-radius: 8px;
@@ -39,7 +39,7 @@
 .specialty {
   font-weight: 500;
   font-size: 14px;
-  color: #666;
+  color: var(--muted-text-color);
   margin-bottom: 4px;
 }
 
@@ -86,7 +86,7 @@
 }
 
 .empty-list-item p {
-  color: #666;
+  color: var(--muted-text-color);
 }
 
 ion-item {
@@ -95,7 +95,6 @@ ion-item {
   border-radius: 8px;
 }
 
-/* Updated Container Width */
 .dashboard-container {
   max-width: 1000px;
   width: 100%;
@@ -104,7 +103,7 @@ ion-item {
 }
 
 .dashboard-bg {
-  --background: white;
+  --background: var(--card-bg);
 }
 
 .no-padding {
@@ -114,8 +113,8 @@ ion-item {
 .consultation-header {
   background-color: #f4f5f8;
   padding: 12px 16px;
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
+  border-top-left-radius: var(--border-radius);
+  border-top-right-radius: var(--border-radius);
 }
 
 .consultation-title {
@@ -128,7 +127,7 @@ ion-item {
 }
 
 .consultation-list {
-  background-color: #f9f9f9;
+  background-color: var(--light-bg);
 }
 
 .consultation-end {

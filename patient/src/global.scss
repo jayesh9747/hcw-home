@@ -48,3 +48,16 @@
 body {
   font-family: 'Roboto', sans-serif;
 }
+
+:root {
+  --primary-color: #007bff;
+  --success-color: #2dd36f;
+  --danger-color: #ff4961;
+  --warning-color: #ffc107;
+  --text-color: #222;
+  --muted-text-color: #666;
+  --card-bg: #ffffff;
+  --light-bg: #f9f9f9;
+  --input-bg: #f8f9fa;
+  --border-radius: 12px;
+}
