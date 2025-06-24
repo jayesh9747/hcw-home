@@ -8,7 +8,7 @@
         <form class="invite-modal__body" [formGroup]="form" (ngSubmit)="onSubmit()">
 
             <div class="form-section left">
-                <h3 class="section-title">PATIENT INVITATION</h3>
+                <h3 class="section-title">{{ modalTitle }}</h3>
 
                 <div class="row">
                     <div class="field">
@@ -37,6 +37,18 @@
                             <option value="" disabled>Choose…</option>
                             @for (l of languages; track l) {
                             <option [value]="l">{{ l }}</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="field full">
+                        <label>Group (Optional)</label>
+                        <select formControlName="group">
+                            <option value="">No group selected</option>
+                            @for (group of groups; track group) {
+                            <option [value]="group">{{ group }}</option>
                             }
                         </select>
                     </div>
@@ -85,7 +97,7 @@
                 Cancel
             </app-button>
             <app-button [variant]="ButtonVariant.Primary" [size]="ButtonSize.Medium" [type]="ButtonType.Submit">
-                Send
+                {{ submitButtonText }}
             </app-button>
         </footer>
     </div>
