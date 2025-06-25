@@ -37,6 +37,7 @@ model User {
   specialities       UserSpeciality[]
 
   @@map("users")
+  Consultation Consultation[]
 }
 
 enum UserRole {
@@ -178,16 +179,22 @@ model Consultation {
   closedAt           DateTime?
   createdBy          Int?
   groupId            Int?
-  owner              Int?
+  ownerId            Int?
   messageService     MessageService?
   whatsappTemplateId Int?
   status             ConsultationStatus @default(SCHEDULED)
+  version            Int    @default(1)
 
-  // Relations
-  participants Participant[]
-  group        Group?        @relation(fields: [groupId], references: [id])
-  messages     Message[]
+  participants    Participant[]
+  group           Group?        @relation(fields: [groupId], references: [id])
+  messages        Message[]
+  owner           User?         @relation(fields: [ownerId], references: [id])
+  MediasoupRouter MediasoupRouter[]
+
+  @@index([status])
+  @@index([ownerId])
 }
+
 
 model MediasoupServer {
   id                  String   @id @default(cuid())
@@ -200,7 +207,23 @@ model MediasoupServer {
   updatedAt           DateTime @updatedAt
 
   @@map("mediasoup_servers")
+  MediasoupRouter MediasoupRouter[]
 }
+
+model MediasoupRouter {
+  id              String  @id @default(cuid())
+  consultationId  Int     @unique
+  routerId        String
+  serverId        String
+  
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  server       MediasoupServer @relation(fields: [serverId], references: [id])
+
+  @@unique([consultationId, serverId])
+  @@index([routerId])
+  @@map("mediasoup_routers")
+}
+
 
 model Participant {
   id             Int       @id @default(autoincrement())
@@ -210,6 +233,7 @@ model Participant {
   isBeneficiary  Boolean   @default(false)
   token          String?   @db.VarChar(255)
   joinedAt       DateTime?
+  language       String?   @db.VarChar(50)
 
   // Relations
   consultation Consultation @relation(fields: [consultationId], references: [id])

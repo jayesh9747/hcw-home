@@ -22,7 +22,6 @@ import { MediasoupServerService } from './mediasoup.service';
 import { CreateMediasoupServerDto } from './dto/create-mediasoup-server.dto';
 import { UpdateMediasoupServerDto } from './dto/update-mediasoup-server.dto';
 import { QueryMediasoupServerDto } from './dto/query-mediasoup-server.dto';
-import { ChangeMediasoupServerPasswordDto } from './dto/change-mediasoup-server-password.dto';
 import { MediasoupServerResponseDto } from './dto/mediasoup-server-response.dto';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import {
@@ -33,7 +32,6 @@ import {
   createMediasoupServerSchema,
   updateMediasoupServerSchema,
   queryMediasoupServerSchema,
-  changeMediasoupServerPasswordSchema,
 } from './validation/mediasoup.validation';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';

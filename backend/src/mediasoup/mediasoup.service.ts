@@ -1,18 +1,13 @@
-import {
-  Injectable,
-  ConflictException,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { Injectable } from '@nestjs/common';
+import { DatabaseService } from 'src/database/database.service';
 import { CreateMediasoupServerDto } from './dto/create-mediasoup-server.dto';
 import { UpdateMediasoupServerDto } from './dto/update-mediasoup-server.dto';
 import { QueryMediasoupServerDto } from './dto/query-mediasoup-server.dto';
-import { ChangeMediasoupServerPasswordDto } from './dto/change-mediasoup-server-password.dto';
 import { MediasoupServerResponseDto } from './dto/mediasoup-server-response.dto';
 import { plainToInstance } from 'class-transformer';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 
 @Injectable()
 export class MediasoupServerService {
@@ -21,7 +16,6 @@ export class MediasoupServerService {
   async create(
     createMediasoupServerDto: CreateMediasoupServerDto,
   ): Promise<MediasoupServerResponseDto> {
-    // Check if server URL already exists
     const existingServer = await this.databaseService.mediasoupServer.findFirst(
       {
         where: { url: createMediasoupServerDto.url },
@@ -29,16 +23,14 @@ export class MediasoupServerService {
     );
 
     if (existingServer) {
-      throw new ConflictException('Mediasoup server URL already exists');
+      throw HttpExceptionHelper.conflict('Mediasoup server URL already exists');
     }
 
-    // Hash password
-    const hashedPassword: string = await bcrypt.hash(
+    const hashedPassword = await bcrypt.hash(
       createMediasoupServerDto.password,
       10,
     );
 
-    // Create server
     const serverData = {
       ...createMediasoupServerDto,
       password: hashedPassword,
@@ -66,23 +58,12 @@ export class MediasoupServerService {
     } = query;
     const skip = (page - 1) * limit;
 
-    // Build where clause
     const where: Prisma.MediasoupServerWhereInput = {};
 
     if (search) {
       where.OR = [
-        {
-          url: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
-        {
-          username: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
+        { url: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -90,11 +71,9 @@ export class MediasoupServerService {
       where.active = active;
     }
 
-    // Build orderBy clause
     const orderBy: Prisma.MediasoupServerOrderByWithRelationInput = {};
     orderBy[sortBy] = sortOrder;
 
-    // Execute queries in parallel
     const [servers, total] = await Promise.all([
       this.databaseService.mediasoupServer.findMany({
         where,
@@ -105,7 +84,6 @@ export class MediasoupServerService {
       this.databaseService.mediasoupServer.count({ where }),
     ]);
 
-    // Transform servers to response DTOs
     const transformedServers = servers.map((server) =>
       plainToInstance(MediasoupServerResponseDto, server, {
         excludeExtraneousValues: true,
@@ -113,10 +91,11 @@ export class MediasoupServerService {
     );
 
     return {
-      servers: transformedServers,
+      servers: transformedServers, // Changed from 'servers' to 'items'
       total,
       page,
       limit,
+      totalPages: Math.ceil(total / limit), // Added totalPages
     };
   }
 
@@ -126,7 +105,7 @@ export class MediasoupServerService {
     });
 
     if (!server) {
-      throw new NotFoundException('Mediasoup server not found');
+      throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
     return plainToInstance(MediasoupServerResponseDto, server, {
@@ -138,7 +117,6 @@ export class MediasoupServerService {
     id: string,
     updateMediasoupServerDto: UpdateMediasoupServerDto,
   ): Promise<MediasoupServerResponseDto> {
-    // Check if server exists
     const existingServer =
       await this.databaseService.mediasoupServer.findUnique({
         where: { id },
@@ -146,10 +124,9 @@ export class MediasoupServerService {
       });
 
     if (!existingServer) {
-      throw new NotFoundException('Mediasoup server not found');
+      throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
-    // Check URL uniqueness if URL is being updated
     if (
       updateMediasoupServerDto.url &&
       updateMediasoupServerDto.url !== existingServer.url
@@ -163,7 +140,9 @@ export class MediasoupServerService {
       });
 
       if (urlExists) {
-        throw new ConflictException('Mediasoup server URL already exists');
+        throw HttpExceptionHelper.conflict(
+          'Mediasoup server URL already exists',
+        );
       }
     }
 
@@ -178,7 +157,6 @@ export class MediasoupServerService {
   }
 
   async toggleActive(id: string): Promise<MediasoupServerResponseDto> {
-    // Check if server exists
     const existingServer =
       await this.databaseService.mediasoupServer.findUnique({
         where: { id },
@@ -186,10 +164,9 @@ export class MediasoupServerService {
       });
 
     if (!existingServer) {
-      throw new NotFoundException('Mediasoup server not found');
+      throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
-    // Toggle active status
     const server = await this.databaseService.mediasoupServer.update({
       where: { id },
       data: { active: !existingServer.active },
@@ -201,7 +178,6 @@ export class MediasoupServerService {
   }
 
   async remove(id: string): Promise<MediasoupServerResponseDto> {
-    // Check if server exists
     const existingServer =
       await this.databaseService.mediasoupServer.findUnique({
         where: { id },
@@ -209,7 +185,7 @@ export class MediasoupServerService {
       });
 
     if (!existingServer) {
-      throw new NotFoundException('Mediasoup server not found');
+      throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
     const server = await this.databaseService.mediasoupServer.delete({
@@ -219,5 +195,18 @@ export class MediasoupServerService {
     return plainToInstance(MediasoupServerResponseDto, server, {
       excludeExtraneousValues: true,
     });
+  }
+
+  async getAvailableServer(): Promise<MediasoupServerResponseDto | null> {
+    const server = await this.databaseService.mediasoupServer.findFirst({
+      where: { active: true },
+      orderBy: { maxNumberOfSessions: 'desc' },
+    });
+
+    return server
+      ? plainToInstance(MediasoupServerResponseDto, server, {
+          excludeExtraneousValues: true,
+        })
+      : null;
   }
 }

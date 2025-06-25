@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Inject,
-  forwardRef,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { Server } from 'socket.io';
@@ -15,16 +10,100 @@ import {
   AdmitPatientDto,
   AdmitPatientResponseDto,
 } from './dto/admit-patient.dto';
+import {
+  CreateConsultationDto,
+  ConsultationResponseDto,
+} from './dto/create-consultation.dto';
 import { ConsultationHistoryItemDto } from './dto/consultation-history-item.dto';
 import { ConsultationDetailDto } from './dto/consultation-detail.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class ConsultationService {
   constructor(
     private readonly db: DatabaseService,
     @Inject(forwardRef(() => 'CONSULTATION_GATEWAY'))
-    private readonly wsServer: Server, // Provided by gateway
+    private readonly wsServer: Server,
   ) {}
+
+  /**
+   * Create a new consultation (practitioner/admin only).
+   * A patient can have only one active consultation at a time.
+   */
+  async createConsultation(
+    createDto: CreateConsultationDto,
+    userId: number,
+  ): Promise<ApiResponseDto<ConsultationResponseDto>> {
+    const creator = await this.db.user.findUnique({ where: { id: userId } });
+    if (!creator) throw HttpExceptionHelper.notFound('Creator user not found');
+    if (
+      creator.role !== UserRole.PRACTITIONER &&
+      creator.role !== UserRole.ADMIN
+    ) {
+      throw HttpExceptionHelper.forbidden(
+        'Only practitioners or admins can create consultations',
+      );
+    }
+
+    const patient = await this.db.user.findUnique({
+      where: { id: createDto.patientId },
+    });
+    if (!patient) throw HttpExceptionHelper.notFound('Patient does not exist');
+    if (patient.role !== UserRole.PATIENT)
+      throw HttpExceptionHelper.badRequest('Target user is not a patient');
+
+    let ownerId = createDto.ownerId ?? userId;
+    const practitioner = await this.db.user.findUnique({
+      where: { id: ownerId },
+    });
+    if (!practitioner || practitioner.role !== UserRole.PRACTITIONER)
+      throw HttpExceptionHelper.badRequest(
+        'Owner must be a valid practitioner',
+      );
+
+    const existing = await this.db.consultation.findFirst({
+      where: {
+        participants: {
+          some: { userId: createDto.patientId },
+        },
+        status: {
+          in: [
+            ConsultationStatus.SCHEDULED,
+            ConsultationStatus.WAITING,
+            ConsultationStatus.ACTIVE,
+          ],
+        },
+      },
+    });
+    if (existing)
+      throw HttpExceptionHelper.conflict(
+        'Patient already has an active consultation',
+      );
+
+    const consultation = await this.db.consultation.create({
+      data: {
+        ownerId,
+        scheduledDate: createDto.scheduledDate,
+        createdBy: userId,
+        status: ConsultationStatus.SCHEDULED,
+        groupId: createDto.groupId,
+        participants: {
+          create: {
+            userId: createDto.patientId,
+            isActive: false,
+            isBeneficiary: true,
+          },
+        },
+      },
+      include: { participants: true },
+    });
+
+    return ApiResponseDto.success(
+      plainToInstance(ConsultationResponseDto, consultation),
+      'Consultation created',
+      201,
+    );
+  }
 
   /**
    * Patient joins a consultation (enters waiting room).
@@ -39,18 +118,48 @@ export class ConsultationService {
     if (!consultation)
       throw HttpExceptionHelper.notFound('Consultation not found');
 
+    if (consultation.status === ConsultationStatus.COMPLETED) {
+      throw HttpExceptionHelper.badRequest(
+        'Cannot join completed consultation',
+      );
+    }
+
     const patient = await this.db.user.findUnique({ where: { id: patientId } });
     if (!patient) throw HttpExceptionHelper.notFound('Patient does not exist');
+    if (patient.role !== UserRole.PATIENT)
+      throw HttpExceptionHelper.badRequest('User is not a patient');
 
-    await this.db.participant.upsert({
+    const isAssigned = await this.db.participant.findUnique({
       where: { consultationId_userId: { consultationId, userId: patientId } },
-      create: {
-        consultationId,
-        userId: patientId,
-        isActive: true,
-        joinedAt: new Date(),
+    });
+    if (!isAssigned)
+      throw HttpExceptionHelper.forbidden(
+        'Patient is not assigned to this consultation',
+      );
+
+    const activeConsultation = await this.db.consultation.findFirst({
+      where: {
+        id: { not: consultationId },
+        participants: {
+          some: { userId: patientId, isActive: true },
+        },
+        status: {
+          in: [
+            ConsultationStatus.SCHEDULED,
+            ConsultationStatus.WAITING,
+            ConsultationStatus.ACTIVE,
+          ],
+        },
       },
-      update: { isActive: true, joinedAt: new Date() },
+    });
+    if (activeConsultation)
+      throw HttpExceptionHelper.conflict(
+        'Patient is already active in another consultation',
+      );
+
+    await this.db.participant.update({
+      where: { consultationId_userId: { consultationId, userId: patientId } },
+      data: { isActive: true, joinedAt: new Date() },
     });
 
     if (consultation.status === ConsultationStatus.SCHEDULED) {
@@ -60,10 +169,9 @@ export class ConsultationService {
       });
     }
 
-    // Real-time notification to practitioner
-    if (consultation.owner && this.wsServer) {
+    if (consultation.ownerId && this.wsServer) {
       this.wsServer
-        .to(`practitioner:${consultation.owner}`)
+        .to(`practitioner:${consultation.ownerId}`)
         .emit('patient_waiting', {
           consultationId,
           patientInitials: `${patient.firstName?.[0] ?? ''}${patient.lastName?.[0] ?? ''}`,
@@ -105,9 +213,15 @@ export class ConsultationService {
     if (!practitioner)
       throw HttpExceptionHelper.notFound('Practitioner does not exist');
 
-    if (consultation.owner !== practitionerId) {
+    if (consultation.ownerId !== practitionerId) {
       throw HttpExceptionHelper.forbidden(
         'Not the practitioner for this consultation',
+      );
+    }
+
+    if (consultation.status === ConsultationStatus.COMPLETED) {
+      throw HttpExceptionHelper.badRequest(
+        'Cannot join completed consultation',
       );
     }
 
@@ -175,7 +289,7 @@ export class ConsultationService {
       );
     }
 
-    if (consultation.owner !== userId && user.role !== UserRole.ADMIN) {
+    if (consultation.ownerId !== userId && user.role !== UserRole.ADMIN) {
       throw HttpExceptionHelper.forbidden(
         'Not authorized to admit patient to this consultation',
       );
@@ -187,32 +301,55 @@ export class ConsultationService {
       );
     }
 
-    await this.db.consultation.update({
-      where: { id: dto.consultationId },
-      data: { status: ConsultationStatus.ACTIVE },
-    });
+    try {
+      const updatedConsultation = await this.db.consultation.update({
+        where: {
+          id: dto.consultationId,
+          version: consultation.version, // Optimistic concurrency
+        },
+        data: {
+          status: ConsultationStatus.ACTIVE,
+          version: consultation.version + 1,
+        },
+      });
 
-    if (this.wsServer) {
-      this.wsServer
-        .to(`consultation:${dto.consultationId}`)
-        .emit('consultation_status', {
-          status: 'ACTIVE',
-          initiatedBy: user.role,
-        });
+      if (this.wsServer) {
+        try {
+          this.wsServer
+            .to(`consultation:${dto.consultationId}`)
+            .emit('consultation_status', {
+              status: 'ACTIVE',
+              initiatedBy: user.role,
+            });
+        } catch (socketError) {
+          // Log but do not throw
+          console.error('WebSocket emission failed:', socketError);
+        }
+      }
+
+      return ApiResponseDto.success(
+        {
+          success: true,
+          statusCode: 200,
+          message: 'Patient admitted and consultation activated.',
+          consultationId: dto.consultationId,
+        },
+        'Patient admitted successfully',
+        200,
+      );
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw HttpExceptionHelper.conflict(
+          'Consultation state changed. Please refresh and retry.',
+          error,
+        );
+      }
+      console.error('Admission failed:', error);
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to admit patient',
+        error,
+      );
     }
-
-    const responsePayload: AdmitPatientResponseDto = {
-      success: true,
-      statusCode: 200,
-      message: 'Patient admitted and consultation activated.',
-      consultationId: dto.consultationId,
-    };
-
-    return ApiResponseDto.success(
-      responsePayload,
-      responsePayload.message,
-      responsePayload.statusCode,
-    );
   }
 
   /**
@@ -222,10 +359,17 @@ export class ConsultationService {
   async getWaitingRoomConsultations(
     practitionerId: number,
   ): Promise<ApiResponseDto<WaitingRoomPreviewResponseDto>> {
+    const practitioner = await this.db.user.findUnique({
+      where: { id: practitionerId },
+    });
+    if (!practitioner) {
+      throw HttpExceptionHelper.notFound('User not found');
+    }
+
     const consultations = await this.db.consultation.findMany({
       where: {
         status: ConsultationStatus.WAITING,
-        owner: practitionerId,
+        ownerId: practitionerId,
         participants: {
           some: {
             isActive: true,
@@ -290,11 +434,14 @@ export class ConsultationService {
     );
   }
 
+  /**
+   * Fetch closed consultations for a practitioner.
+   */
   async getConsultationHistory(
     practitionerId: number,
     status?: ConsultationStatus,
   ): Promise<ConsultationHistoryItemDto[]> {
-    const whereClause: any = { owner: practitionerId };
+    const whereClause: any = { ownerId: practitionerId };
     if (status) {
       whereClause.status = status;
     } else {
@@ -310,10 +457,12 @@ export class ConsultationService {
       },
       orderBy: { closedAt: 'desc' },
     });
-
     return consults.map((c) => this.mapToHistoryItem(c));
   }
 
+  /**
+   * Fetch full details of one consultation.
+   */
   async getConsultationDetails(id: number): Promise<ConsultationDetailDto> {
     const c = await this.db.consultation.findUnique({
       where: { id },
@@ -322,7 +471,7 @@ export class ConsultationService {
         messages: true,
       },
     });
-    if (!c) throw new NotFoundException('Consultation not found');
+    if (!c) throw HttpExceptionHelper.notFound('Consultation not found');
     const base = this.mapToHistoryItem(c);
     return {
       ...base,
@@ -335,13 +484,19 @@ export class ConsultationService {
     };
   }
 
+  /**
+   * Download consultation PDF (dummy implementation).
+   */
   async downloadConsultationPdf(id: number): Promise<Buffer> {
     const c = await this.db.consultation.findUnique({ where: { id } });
-    if (!c) throw new NotFoundException('Consultation not found');
+    if (!c) throw HttpExceptionHelper.notFound('Consultation not found');
     const dummyPdf = Buffer.from('%PDF-1.4\n%…', 'utf8');
     return dummyPdf;
   }
 
+  /**
+   * Internal: Map consultation to history item DTO.
+   */
   private mapToHistoryItem(c: any): ConsultationHistoryItemDto {
     const start = c.startedAt || c.createdAt;
     const end = c.closedAt || new Date();
@@ -368,7 +523,7 @@ export class ConsultationService {
         closedAt: c.closedAt,
         createdBy: c.createdBy,
         groupId: c.groupId,
-        owner: c.owner,
+        owner: c.ownerId,
         messageService: c.messageService,
         whatsappTemplateId: c.whatsappTemplateId,
         status: c.status,

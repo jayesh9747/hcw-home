@@ -196,7 +196,7 @@ export class AuthService {
       this.logger.warn(
         `User registration failed: Email ${email} already exists`,
       );
-      throw HttpExceptionHelper.confilct('Email is already in use');
+      throw HttpExceptionHelper.conflict('Email is already in use');
     }
     // Hash password
     const saltRounds = 12;

@@ -4,6 +4,21 @@ import { HttpStatus } from '@nestjs/common';
 import { CustomHttpException } from './http-exception';
 
 export class HttpExceptionHelper {
+  static conflict(
+    message = 'Conflict Ocurred',
+    requestId?: string,
+    path?: string,
+    error?: any,
+  ) {
+    throw new CustomHttpException(
+      message,
+      HttpStatus.CONFLICT,
+      error,
+      requestId,
+      path,
+    );
+  }
+
   static notFound(
     message = 'Resource not found',
     requestId?: string,
@@ -73,20 +88,6 @@ export class HttpExceptionHelper {
     return new CustomHttpException(
       message,
       HttpStatus.INTERNAL_SERVER_ERROR,
-      error,
-      requestId,
-      path,
-    );
-  }
-  static confilct(
-    message = 'conflict ocure',
-    requestId?: string,
-    path?: string,
-    error?: any,
-  ) {
-    return new CustomHttpException(
-      message,
-      HttpStatus.CONFLICT,
       error,
       requestId,
       path,

@@ -25,22 +25,45 @@ import {
   AdmitPatientResponseDto,
 } from './dto/admit-patient.dto';
 import {
+  CreateConsultationDto,
+  ConsultationResponseDto,
+} from './dto/create-consultation.dto';
+import {
   ApiTags,
   ApiOperation,
   ApiParam,
   ApiBody,
   ApiQuery,
   ApiOkResponse,
+  ApiCreatedResponse,
 } from '@nestjs/swagger';
 import { HistoryQueryDto } from './dto/history-query.dto';
 import { ConsultationHistoryItemDto } from './dto/consultation-history-item.dto';
 import { ConsultationDetailDto } from './dto/consultation-detail.dto';
 import { Response } from 'express';
+import { ResponseStatus } from 'src/common/helpers/response/response-status.enum'; 
 
 @ApiTags('consultation')
 @Controller('consultation')
 export class ConsultationController {
   constructor(private readonly consultationService: ConsultationService) {}
+
+  @Post()
+  @ApiOperation({
+    summary: 'Create a new consultation (practitioner/admin only)',
+  })
+  @ApiBody({ type: CreateConsultationDto })
+  @ApiCreatedResponse({
+    description: 'Consultation created',
+    type: ApiResponseDto,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async createConsultation(
+    @Body() createDto: CreateConsultationDto,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<ApiResponseDto<ConsultationResponseDto>> {
+    return this.consultationService.createConsultation(createDto, userId);
+  }
 
   @Post(':id/join/patient')
   @ApiOperation({ summary: 'Patient joins a consultation' })
@@ -86,9 +109,8 @@ export class ConsultationController {
   @UsePipes(new ValidationPipe({ whitelist: true }))
   async admitPatient(
     @Body() dto: AdmitPatientDto,
-    @Query('userId', UserIdParamPipe) userId: number, // Pass userId as query or get from auth context
+    @Query('userId', UserIdParamPipe) userId: number,
   ): Promise<ApiResponseDto<AdmitPatientResponseDto>> {
-    // In production, get userId and role from JWT/auth context instead of query
     return this.consultationService.admitPatient(dto, userId);
   }
 
@@ -104,6 +126,7 @@ export class ConsultationController {
   ): Promise<ApiResponseDto<WaitingRoomPreviewResponseDto>> {
     return this.consultationService.getWaitingRoomConsultations(userId);
   }
+
   @Get('/history')
   @ApiOperation({ summary: 'Fetch closed consultations for a practitioner' })
   @ApiQuery({
@@ -116,30 +139,51 @@ export class ConsultationController {
     enum: ['COMPLETED', 'CANCELLED'],
     required: false,
   })
-  @ApiOkResponse({ type: ConsultationHistoryItemDto, isArray: true })
+  @ApiOkResponse({ type: ApiResponseDto })
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async getHistory(
     @Query() query: HistoryQueryDto,
-  ): Promise<ConsultationHistoryItemDto[]> {
-    return this.consultationService.getConsultationHistory(
+  ): Promise<ApiResponseDto<ConsultationHistoryItemDto[]>> {
+    const data = await this.consultationService.getConsultationHistory(
       query.practitionerId,
       query.status,
     );
+    return {
+      success: true,
+      status: ResponseStatus.SUCCESS,
+      statusCode: HttpStatus.OK,
+      message: 'Consultation history fetched successfully',
+      timestamp: new Date().toISOString(),
+      data,
+    };
   }
 
   @Get(':id/details')
   @ApiOperation({ summary: 'Fetch full details of one consultation' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiOkResponse({ type: ConsultationDetailDto })
-  async getDetails(@Param('id') id: number): Promise<ConsultationDetailDto> {
-    return this.consultationService.getConsultationDetails(id);
+  @ApiOkResponse({ type: ApiResponseDto })
+  async getDetails(
+    @Param('id', ConsultationIdParamPipe) id: number,
+  ): Promise<ApiResponseDto<ConsultationDetailDto>> {
+    const data = await this.consultationService.getConsultationDetails(id);
+    return {
+      success: true,
+      status: ResponseStatus.SUCCESS,
+      statusCode: HttpStatus.OK,
+      message: 'Consultation details fetched successfully',
+      timestamp: new Date().toISOString(),
+      data,
+    };
   }
 
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Download consultation PDF' })
   @ApiParam({ name: 'id', type: Number })
   @Header('Content-Type', 'application/pdf')
-  async downloadPdf(@Param('id') id: number, @Res() res: Response) {
+  async downloadPdf(
+    @Param('id', ConsultationIdParamPipe) id: number,
+    @Res() res: Response,
+  ) {
     const pdfBuffer =
       await this.consultationService.downloadConsultationPdf(id);
     res
