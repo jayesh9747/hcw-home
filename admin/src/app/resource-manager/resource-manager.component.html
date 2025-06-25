@@ -1,47 +1,55 @@
 <mat-tab-group [(selectedIndex)]="selectedTabIndex" (selectedIndexChange)="onTabChange($event)">
-  <mat-tab *ngFor="let tab of tabs; let i = index" [label]="tab.label">
-    <div class="tab-content">
-      <div *ngIf="tab.type === 'group'" class="org-select">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Select Organization</mat-label>
-          <mat-select [(ngModel)]="selectedOrganizationId" name="organizationSelect" (selectionChange)="onOrganizationChange()" required>
-            <mat-option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</mat-option>
-          </mat-select>
-        </mat-form-field>
+  @for (tab of tabs; track tab.label; let i = $index) {
+    <mat-tab [label]="tab.label">
+      <div class="tab-content">
+        @if (tab.type === 'group') {
+          <div class="org-select">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Select Organization</mat-label>
+              <mat-select [(ngModel)]="selectedOrganizationId" name="organizationSelect" (selectionChange)="onOrganizationChange()" required>
+                @for (org of organizations; track org.id) {
+                  <mat-option [value]="org.id">{{ org.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        }
+
+        <form [formGroup]="resourceForm" (ngSubmit)="onSubmit()">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ tab.label }} Name</mat-label>
+            <input matInput formControlName="name" [placeholder]="'Enter ' + tab.label + ' Name'" />
+          </mat-form-field>
+          <button mat-raised-button color="primary" type="submit">
+            {{ isEditMode ? 'Update' : 'Add' }}
+          </button>
+          @if (isEditMode) {
+            <button mat-button type="button" (click)="resetForm()">Cancel</button>
+          }
+        </form>
+
+        <table mat-table [dataSource]="resources" class="mat-elevation-z8">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>{{ tab.label }}</th>
+            <td mat-cell *matCellDef="let element">{{ element.name }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let element">
+              <button mat-icon-button (click)="editResource(element)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteResource(element.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
       </div>
-
-      <form [formGroup]="resourceForm" (ngSubmit)="onSubmit()">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ tab.label }} Name</mat-label>
-          <input matInput formControlName="name" [placeholder]="'Enter ' + tab.label + ' Name'" />
-        </mat-form-field>
-        <button mat-raised-button color="primary" type="submit">
-          {{ isEditMode ? 'Update' : 'Add' }}
-        </button>
-        <button *ngIf="isEditMode" mat-button type="button" (click)="resetForm()">Cancel</button>
-      </form>
-
-      <table mat-table [dataSource]="resources" class="mat-elevation-z8">
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>{{ tab.label }}</th>
-          <td mat-cell *matCellDef="let element">{{ element.name }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Actions</th>
-          <td mat-cell *matCellDef="let element">
-            <button mat-icon-button (click)="editResource(element)">
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button mat-icon-button color="warn" (click)="deleteResource(element.id)">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
-    </div>
-  </mat-tab>
+    </mat-tab>
+  }
 </mat-tab-group>

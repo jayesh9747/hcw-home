@@ -12,9 +12,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
-import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { SnackbarService } from '../services/snackbar.service';
 
 @Component({
   selector: 'app-users',
@@ -58,7 +59,8 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   constructor(
     private userService: UserService,
-    private router: Router
+    private router: Router,
+    private snackBarService: SnackbarService,
   ) {}
 
   ngOnInit(): void {
@@ -100,8 +102,7 @@ export class UsersComponent implements OnInit, OnDestroy {
           this.loading = false;
         },
         error: (error: any) => {
-          console.error('Error loading users:', error);
-          alert(`Failed to load users: ${error.message || 'Unknown error'}`);
+          this.snackBarService.showError(`Failed to load users: ${error.message || 'Unknown error'}`);
           this.users = [];
           this.totalUsers = 0;
           this.loading = false;
@@ -116,7 +117,7 @@ export class UsersComponent implements OnInit, OnDestroy {
     this.searchSubject.next(filterValue);
   }
 
-  pageChange(event: { pageIndex: number; pageSize: number; length: number }): void {
+  pageChange(event: PageEvent): void {
     this.currentPage = event.pageIndex + 1;
     this.pageSize = event.pageSize;
     this.loadUsers();
@@ -128,12 +129,11 @@ export class UsersComponent implements OnInit, OnDestroy {
       this.subscriptions.add(
         this.userService.deleteUser(user.id).subscribe({
           next: () => {
-            alert('User deleted successfully!');
+            this.snackBarService.showSuccess('User deleted successfully!');
             this.loadUsers();
           },
           error: (error: any) => {
-            console.error('Error deleting user:', error);
-            alert(`Failed to delete user: ${error.message || 'Unknown error'}`);
+            this.snackBarService.showError(`Failed to delete user: ${error.message || 'Unknown error'}`);
             this.loading = false;
           }
         })

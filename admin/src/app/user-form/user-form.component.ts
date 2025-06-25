@@ -152,8 +152,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.loading = false;
         },
         error: (error: any) => {
-          console.error('Error loading form data:', error);
-          alert(`Failed to load form data: ${error.message || 'Unknown error'}`);
+          this.snackBarService.showError(`Failed to load form data: ${error.message || 'Unknown error'}`);
           this.loading = false;
         }
       })
@@ -178,7 +177,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
           this.groups = uniqueGroups;
         },
         error: err => {
-          console.error('Failed to load groups for selected organizations', err);
+          this.snackBarService.showError('Failed to load groups for selected organizations. Please try again.');
           this.groups = [];
         }
       })
@@ -188,7 +187,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
   onSubmit(): void {
     if (this.userForm.invalid) {
       this.userForm.markAllAsTouched();
-      alert('Please fill out all required fields and correct any errors.');
+      this.snackBarService.showError('Please fill out all required fields and correct any errors.');
       return;
     }
 
