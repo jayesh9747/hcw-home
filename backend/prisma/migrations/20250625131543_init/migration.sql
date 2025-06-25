@@ -125,10 +125,11 @@ CREATE TABLE "Consultation" (
     "closedAt" TIMESTAMP(3),
     "createdBy" INTEGER,
     "groupId" INTEGER,
-    "owner" INTEGER,
+    "ownerId" INTEGER,
     "messageService" "MessageService",
     "whatsappTemplateId" INTEGER,
     "status" "ConsultationStatus" NOT NULL DEFAULT 'SCHEDULED',
+    "version" INTEGER NOT NULL DEFAULT 1,
 
     CONSTRAINT "Consultation_pkey" PRIMARY KEY ("id")
 );
@@ -148,6 +149,16 @@ CREATE TABLE "mediasoup_servers" (
 );
 
 -- CreateTable
+CREATE TABLE "mediasoup_routers" (
+    "id" TEXT NOT NULL,
+    "consultationId" INTEGER NOT NULL,
+    "routerId" TEXT NOT NULL,
+    "serverId" TEXT NOT NULL,
+
+    CONSTRAINT "mediasoup_routers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Participant" (
     "id" SERIAL NOT NULL,
     "consultationId" INTEGER NOT NULL,
@@ -156,6 +167,7 @@ CREATE TABLE "Participant" (
     "isBeneficiary" BOOLEAN NOT NULL DEFAULT false,
     "token" VARCHAR(255),
     "joinedAt" TIMESTAMP(3),
+    "language" VARCHAR(50),
 
     CONSTRAINT "Participant_pkey" PRIMARY KEY ("id")
 );
@@ -206,6 +218,19 @@ CREATE TABLE "sms_providers" (
     CONSTRAINT "sms_providers_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "terms" (
+    "id" SERIAL NOT NULL,
+    "language" TEXT NOT NULL,
+    "country" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "isLatest" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "terms_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -231,7 +256,22 @@ CREATE UNIQUE INDEX "Speciality_name_key" ON "Speciality"("name");
 CREATE UNIQUE INDEX "UserSpeciality_userId_specialityId_key" ON "UserSpeciality"("userId", "specialityId");
 
 -- CreateIndex
+CREATE INDEX "Consultation_status_idx" ON "Consultation"("status");
+
+-- CreateIndex
+CREATE INDEX "Consultation_ownerId_idx" ON "Consultation"("ownerId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "mediasoup_servers_url_key" ON "mediasoup_servers"("url");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mediasoup_routers_consultationId_key" ON "mediasoup_routers"("consultationId");
+
+-- CreateIndex
+CREATE INDEX "mediasoup_routers_routerId_idx" ON "mediasoup_routers"("routerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "mediasoup_routers_consultationId_serverId_key" ON "mediasoup_routers"("consultationId", "serverId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Participant_consultationId_userId_key" ON "Participant"("consultationId", "userId");
@@ -268,6 +308,15 @@ ALTER TABLE "UserSpeciality" ADD CONSTRAINT "UserSpeciality_specialityId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "Consultation" ADD CONSTRAINT "Consultation_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Consultation" ADD CONSTRAINT "Consultation_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mediasoup_routers" ADD CONSTRAINT "mediasoup_routers_consultationId_fkey" FOREIGN KEY ("consultationId") REFERENCES "Consultation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "mediasoup_routers" ADD CONSTRAINT "mediasoup_routers_serverId_fkey" FOREIGN KEY ("serverId") REFERENCES "mediasoup_servers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Participant" ADD CONSTRAINT "Participant_consultationId_fkey" FOREIGN KEY ("consultationId") REFERENCES "Consultation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
