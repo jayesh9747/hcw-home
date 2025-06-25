@@ -1,4 +1,9 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+} from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { Server } from 'socket.io';
@@ -10,20 +15,13 @@ import {
   AdmitPatientDto,
   AdmitPatientResponseDto,
 } from './dto/admit-patient.dto';
-import {
-  CreateConsultationDto,
-  ConsultationResponseDto,
-} from './dto/create-consultation.dto';
-import { ConsultationHistoryItemDto } from './dto/consultation-history-item.dto';
-import { ConsultationDetailDto } from './dto/consultation-detail.dto';
-import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class ConsultationService {
   constructor(
     private readonly db: DatabaseService,
     @Inject(forwardRef(() => 'CONSULTATION_GATEWAY'))
-    private readonly wsServer: Server,
+    private readonly wsServer: Server, 
   ) {}
 
   /**
@@ -34,6 +32,7 @@ export class ConsultationService {
     createDto: CreateConsultationDto,
     userId: number,
   ): Promise<ApiResponseDto<ConsultationResponseDto>> {
+    // Auth check: Only practitioner or admin can create
     const creator = await this.db.user.findUnique({ where: { id: userId } });
     if (!creator) throw HttpExceptionHelper.notFound('Creator user not found');
     if (
@@ -45,6 +44,7 @@ export class ConsultationService {
       );
     }
 
+    // Patient existence check
     const patient = await this.db.user.findUnique({
       where: { id: createDto.patientId },
     });
@@ -52,6 +52,7 @@ export class ConsultationService {
     if (patient.role !== UserRole.PATIENT)
       throw HttpExceptionHelper.badRequest('Target user is not a patient');
 
+    // Practitioner existence check 
     let ownerId = createDto.ownerId ?? userId;
     const practitioner = await this.db.user.findUnique({
       where: { id: ownerId },
@@ -61,6 +62,7 @@ export class ConsultationService {
         'Owner must be a valid practitioner',
       );
 
+    // Prevent patient from having multiple active consultations
     const existing = await this.db.consultation.findFirst({
       where: {
         participants: {
@@ -80,6 +82,7 @@ export class ConsultationService {
         'Patient already has an active consultation',
       );
 
+    // Create consultation and initial patient participant 
     const consultation = await this.db.consultation.create({
       data: {
         ownerId,
@@ -98,6 +101,7 @@ export class ConsultationService {
       include: { participants: true },
     });
 
+    // 6. Return response
     return ApiResponseDto.success(
       plainToInstance(ConsultationResponseDto, consultation),
       'Consultation created',
@@ -129,6 +133,7 @@ export class ConsultationService {
     if (patient.role !== UserRole.PATIENT)
       throw HttpExceptionHelper.badRequest('User is not a patient');
 
+    // Patient can only join if assigned as participant
     const isAssigned = await this.db.participant.findUnique({
       where: { consultationId_userId: { consultationId, userId: patientId } },
     });
@@ -137,6 +142,7 @@ export class ConsultationService {
         'Patient is not assigned to this consultation',
       );
 
+    // Patient cannot join if already active in another consultation
     const activeConsultation = await this.db.consultation.findFirst({
       where: {
         id: { not: consultationId },
@@ -169,6 +175,7 @@ export class ConsultationService {
       });
     }
 
+    // Real-time notification to practitioner
     if (consultation.ownerId && this.wsServer) {
       this.wsServer
         .to(`practitioner:${consultation.ownerId}`)
@@ -277,12 +284,16 @@ export class ConsultationService {
     const consultation = await this.db.consultation.findUnique({
       where: { id: dto.consultationId },
     });
-    if (!consultation)
+    if (!consultation) {
       throw HttpExceptionHelper.notFound('Consultation not found');
+    }
 
     const user = await this.db.user.findUnique({ where: { id: userId } });
-    if (!user) throw HttpExceptionHelper.notFound('User not found');
+    if (!user) {
+      throw HttpExceptionHelper.notFound('User not found');
+    }
 
+    // Authorization checks
     if (user.role !== UserRole.PRACTITIONER && user.role !== UserRole.ADMIN) {
       throw HttpExceptionHelper.forbidden(
         'Only practitioners or admins can admit patients',
@@ -295,6 +306,7 @@ export class ConsultationService {
       );
     }
 
+    // State validation
     if (consultation.status !== ConsultationStatus.WAITING) {
       throw HttpExceptionHelper.badRequest(
         'Consultation is not in waiting state',
@@ -302,10 +314,11 @@ export class ConsultationService {
     }
 
     try {
+      // Optimistic concurrency control
       const updatedConsultation = await this.db.consultation.update({
         where: {
           id: dto.consultationId,
-          version: consultation.version, // Optimistic concurrency
+          version: consultation.version, // Ensure we only update if the version matches
         },
         data: {
           status: ConsultationStatus.ACTIVE,
@@ -313,6 +326,7 @@ export class ConsultationService {
         },
       });
 
+      // Safe WebSocket notification
       if (this.wsServer) {
         try {
           this.wsServer
@@ -322,7 +336,6 @@ export class ConsultationService {
               initiatedBy: user.role,
             });
         } catch (socketError) {
-          // Log but do not throw
           console.error('WebSocket emission failed:', socketError);
         }
       }
@@ -434,14 +447,11 @@ export class ConsultationService {
     );
   }
 
-  /**
-   * Fetch closed consultations for a practitioner.
-   */
   async getConsultationHistory(
     practitionerId: number,
     status?: ConsultationStatus,
   ): Promise<ConsultationHistoryItemDto[]> {
-    const whereClause: any = { ownerId: practitionerId };
+    const whereClause: any = { owner: practitionerId };
     if (status) {
       whereClause.status = status;
     } else {
@@ -457,12 +467,10 @@ export class ConsultationService {
       },
       orderBy: { closedAt: 'desc' },
     });
+
     return consults.map((c) => this.mapToHistoryItem(c));
   }
 
-  /**
-   * Fetch full details of one consultation.
-   */
   async getConsultationDetails(id: number): Promise<ConsultationDetailDto> {
     const c = await this.db.consultation.findUnique({
       where: { id },
@@ -471,7 +479,7 @@ export class ConsultationService {
         messages: true,
       },
     });
-    if (!c) throw HttpExceptionHelper.notFound('Consultation not found');
+    if (!c) throw new NotFoundException('Consultation not found');
     const base = this.mapToHistoryItem(c);
     return {
       ...base,
@@ -484,19 +492,13 @@ export class ConsultationService {
     };
   }
 
-  /**
-   * Download consultation PDF (dummy implementation).
-   */
   async downloadConsultationPdf(id: number): Promise<Buffer> {
     const c = await this.db.consultation.findUnique({ where: { id } });
-    if (!c) throw HttpExceptionHelper.notFound('Consultation not found');
+    if (!c) throw new NotFoundException('Consultation not found');
     const dummyPdf = Buffer.from('%PDF-1.4\n%…', 'utf8');
     return dummyPdf;
   }
 
-  /**
-   * Internal: Map consultation to history item DTO.
-   */
   private mapToHistoryItem(c: any): ConsultationHistoryItemDto {
     const start = c.startedAt || c.createdAt;
     const end = c.closedAt || new Date();
@@ -523,7 +525,7 @@ export class ConsultationService {
         closedAt: c.closedAt,
         createdBy: c.createdBy,
         groupId: c.groupId,
-        owner: c.ownerId,
+        owner: c.owner,
         messageService: c.messageService,
         whatsappTemplateId: c.whatsappTemplateId,
         status: c.status,

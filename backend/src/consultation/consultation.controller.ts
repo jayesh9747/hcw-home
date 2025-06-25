@@ -41,7 +41,6 @@ import { HistoryQueryDto } from './dto/history-query.dto';
 import { ConsultationHistoryItemDto } from './dto/consultation-history-item.dto';
 import { ConsultationDetailDto } from './dto/consultation-detail.dto';
 import { Response } from 'express';
-import { ResponseStatus } from 'src/common/helpers/response/response-status.enum'; 
 
 @ApiTags('consultation')
 @Controller('consultation')
@@ -126,7 +125,6 @@ export class ConsultationController {
   ): Promise<ApiResponseDto<WaitingRoomPreviewResponseDto>> {
     return this.consultationService.getWaitingRoomConsultations(userId);
   }
-
   @Get('/history')
   @ApiOperation({ summary: 'Fetch closed consultations for a practitioner' })
   @ApiQuery({
@@ -139,51 +137,30 @@ export class ConsultationController {
     enum: ['COMPLETED', 'CANCELLED'],
     required: false,
   })
-  @ApiOkResponse({ type: ApiResponseDto })
+  @ApiOkResponse({ type: ConsultationHistoryItemDto, isArray: true })
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async getHistory(
     @Query() query: HistoryQueryDto,
-  ): Promise<ApiResponseDto<ConsultationHistoryItemDto[]>> {
-    const data = await this.consultationService.getConsultationHistory(
+  ): Promise<ConsultationHistoryItemDto[]> {
+    return this.consultationService.getConsultationHistory(
       query.practitionerId,
       query.status,
     );
-    return {
-      success: true,
-      status: ResponseStatus.SUCCESS,
-      statusCode: HttpStatus.OK,
-      message: 'Consultation history fetched successfully',
-      timestamp: new Date().toISOString(),
-      data,
-    };
   }
 
   @Get(':id/details')
   @ApiOperation({ summary: 'Fetch full details of one consultation' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiOkResponse({ type: ApiResponseDto })
-  async getDetails(
-    @Param('id', ConsultationIdParamPipe) id: number,
-  ): Promise<ApiResponseDto<ConsultationDetailDto>> {
-    const data = await this.consultationService.getConsultationDetails(id);
-    return {
-      success: true,
-      status: ResponseStatus.SUCCESS,
-      statusCode: HttpStatus.OK,
-      message: 'Consultation details fetched successfully',
-      timestamp: new Date().toISOString(),
-      data,
-    };
+  @ApiOkResponse({ type: ConsultationDetailDto })
+  async getDetails(@Param('id') id: number): Promise<ConsultationDetailDto> {
+    return this.consultationService.getConsultationDetails(id);
   }
 
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Download consultation PDF' })
   @ApiParam({ name: 'id', type: Number })
   @Header('Content-Type', 'application/pdf')
-  async downloadPdf(
-    @Param('id', ConsultationIdParamPipe) id: number,
-    @Res() res: Response,
-  ) {
+  async downloadPdf(@Param('id') id: number, @Res() res: Response) {
     const pdfBuffer =
       await this.consultationService.downloadConsultationPdf(id);
     res
