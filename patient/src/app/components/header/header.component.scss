@@ -1,4 +1,6 @@
-.custom-toolbar {
+::ng-deep ion-toolbar.custom-toolbar {
+  --background: var(--primary-color);
+  --color: white;
   min-height: 80px;
   display: flex;
   align-items: center;
@@ -12,7 +14,7 @@
 }
 
 .consultation-btn {
-  --background: #2dd36f;
+  --background: var(--success-color);
   --color: #f5f6fa;
   font-weight: 600;
   font-size: 1.2rem;
