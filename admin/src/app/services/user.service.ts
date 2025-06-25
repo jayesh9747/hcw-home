@@ -10,7 +10,6 @@ import { ApiResponse, PaginatedApiResponse, PaginationResult } from '../models/a
   providedIn: 'root'
 })
 export class UserService {
-  private apiUrl = `${environment.apiUrl}/v1/user`;
 
   constructor(private http: HttpClient) {}
 
@@ -34,7 +33,7 @@ export class UserService {
     if (sortBy) params = params.append('sortBy', sortBy);
     if (sortOrder) params = params.append('sortOrder', sortOrder);
 
-    return this.http.get<ApiResponse<User[]>>(this.apiUrl, {
+    return this.http.get<ApiResponse<User[]>>(`${environment.apiUrl}/v1/user`, {
       params
     }).pipe(
       map(response => ({
@@ -47,22 +46,22 @@ export class UserService {
   }
 
   getUserById(id: number): Observable<User> {
-    return this.http.get<ApiResponse<User>>(`${this.apiUrl}/${id}`, { 
+    return this.http.get<ApiResponse<User>>(`${environment.apiUrl}/v1/user/${id}`, {
     }).pipe(map(response => response.data));
   }
 
   createUser(userDto: CreateUserDto): Observable<User> {
-    return this.http.post<ApiResponse<User>>(this.apiUrl, userDto, {
+    return this.http.post<ApiResponse<User>>(`${environment.apiUrl}/v1/user`, userDto, {
     }).pipe(map(response => response.data));
   }
 
   updateUser(id: number, userDto: UpdateUserDto): Observable<User> {
-    return this.http.patch<ApiResponse<User>>(`${this.apiUrl}/${id}`, userDto, {
+    return this.http.patch<ApiResponse<User>>(`${environment.apiUrl}/v1/user/${id}`, userDto, {
     }).pipe(map(response => response.data));
   }
 
   deleteUser(id: number): Observable<User> {
-    return this.http.delete<ApiResponse<User>>(`${this.apiUrl}/${id}`, {
+    return this.http.delete<ApiResponse<User>>(`${environment.apiUrl}/v1/user/${id}`, {
     }).pipe(map(response => response.data));
   }
 }

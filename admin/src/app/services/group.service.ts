@@ -10,14 +10,33 @@ import { ApiResponse } from '../models/api-response.model';
   providedIn: 'root'
 })
 export class GroupService {
-  private baseUrl = `${environment.apiUrl}/v1/organization`;
 
   constructor(private http: HttpClient) {}
 
   getGroupsByOrganization(organizationId: number): Observable<Group[]> {
-    const url = `${this.baseUrl}/${organizationId}/groups`;
+    const url = `${environment.apiUrl}/v1/organization/${organizationId}/groups`;
     return this.http.get<ApiResponse<Group[]>>(url).pipe(
       map(response => response.data)
     );
   }
+
+  createGroup(organizationId: number, group: { name: string; description?: string; sharedOnlyIncomingConsultation?: boolean }): Observable<Group> {
+    const url = `${environment.apiUrl}/v1/organization/${organizationId}/groups`;
+    return this.http.post<ApiResponse<Group>>(url, group).pipe(
+      map(response => response.data)
+    );
+  }
+
+  updateGroup(organizationId: number, groupId: number, group: { name: string; description?: string; sharedOnlyIncomingConsultation?: boolean }): Observable<Group> {
+    const url = `${environment.apiUrl}/v1/organization/${organizationId}/groups/${groupId}`;
+    return this.http.patch<ApiResponse<Group>>(url, group).pipe(
+      map(response => response.data)
+    );
+  }
+
+  deleteGroup(organizationId: number, groupId: number): Observable<any> {
+    const url = `${environment.apiUrl}/v1/organization/${organizationId}/groups/${groupId}`;
+    return this.http.delete<ApiResponse<any>>(url);
+  }
+
 }

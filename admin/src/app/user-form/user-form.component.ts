@@ -18,6 +18,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { SnackbarService } from '../services/snackbar.service';
 
 @Component({
   selector: 'app-user-form',
@@ -63,7 +64,7 @@ export class UserFormComponent implements OnInit, OnDestroy {
     private groupService: GroupService,
     private languageService: LanguageService,
     private specialityService: SpecialityService,
-    private snackBar: MatSnackBar
+    private snackBarService: SnackbarService
   ) {}
 
   ngOnInit(): void {
@@ -134,13 +135,13 @@ export class UserFormComponent implements OnInit, OnDestroy {
               phoneNumber: userData.phoneNumber,
               country: userData.country,
               sex: userData.sex,
-              organisationIds: userData.organizations.map(org => org.id),
-              groupIds: userData.groups.map(group => group.id),
-              languageIds: userData.spokenLanguages.map(lang => lang.id),
-              specialityIds: userData.userSpecialities.map(spec => spec.id)
+              organisationIds: (userData.OrganizationMember ?? []).map(member => member.organization.id),
+              groupIds: (userData.GroupMember ?? []).map(member => member.group.id),
+              languageIds: (userData.languages ?? []).map(lang => lang.language.id),
+              specialityIds: (userData.specialities ?? []).map(spec => spec.speciality.id)
             });
 
-            const orgIds = userData.organizations.map(org => org.id);
+            const orgIds = userData.OrganizationMember.map(org => org.organization.id);
             this.loadGroupsForOrganizations(orgIds);
           }
 
@@ -212,20 +213,12 @@ export class UserFormComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       operation.subscribe({
         next: (user: User) => {
-          this.snackBar.open(`User ${this.isEditMode ? 'updated' : 'created'} successfully!`, 'Close', {
-            duration: 3000,
-            horizontalPosition: 'end',
-            verticalPosition: 'top',
-            panelClass: ['snackbar-success'],
-          });
+          this.snackBarService.showSuccess(`User ${this.isEditMode ? 'updated' : 'created'} successfully!`);
           this.router.navigate(['/user']);
         },
         error: (error: any) => {
           console.error(`Error ${this.isEditMode ? 'updating' : 'creating'} user:`, error);
-          this.snackBar.open(`Failed: ${error?.message || 'Unknown error'}`, 'Close', {
-            duration: 3000,
-            panelClass: ['snackbar-error'],
-          });
+          this.snackBarService.showError(`Failed: ${error?.message || 'Unknown error'}`);
           this.loading = false;
         }
       })

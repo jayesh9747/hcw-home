@@ -1,4 +1,5 @@
 export enum RoutePaths {
   Users = 'user',
-  NewUser = 'user-form',
+  NewUser = 'user/new',
+  ResourceManager = 'resources'
 }

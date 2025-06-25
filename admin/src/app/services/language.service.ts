@@ -10,13 +10,29 @@ import { ApiResponse } from '../models/api-response.model';
   providedIn: 'root'
 })
 export class LanguageService {
-  private apiUrl = `${environment.apiUrl}/v1/language`; // Adjust endpoint
 
   constructor(private http: HttpClient) {}
 
   getAllLanguages(): Observable<Language[]> {
-    return this.http.get<ApiResponse<Language[]>>(this.apiUrl).pipe(
+    return this.http.get<ApiResponse<Language[]>>(`${environment.apiUrl}/v1/language`).pipe(
       map(response => response.data)
     );
   }
+  
+  createLanguage(language: { name: string }): Observable<Language> {
+  return this.http.post<ApiResponse<Language>>(`${environment.apiUrl}/v1/language`, language).pipe(
+    map(response => response.data)
+  );
+}
+
+updateLanguage(id: number, language: { name: string }): Observable<Language> {
+  return this.http.patch<ApiResponse<Language>>(`${environment.apiUrl}/v1/language/${id}`, language).pipe(
+    map(response => response.data)
+  );
+}
+
+deleteLanguage(id: number): Observable<any> {
+  return this.http.delete<ApiResponse<any>>(`${environment.apiUrl}/v1/language/${id}`);
+}
+
 }

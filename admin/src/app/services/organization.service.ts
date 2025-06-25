@@ -10,13 +10,29 @@ import { ApiResponse } from '../models/api-response.model';
   providedIn: 'root'
 })
 export class OrganizationService {
-  private apiUrl = `${environment.apiUrl}/v1/organization`; // Adjust endpoint
 
   constructor(private http: HttpClient) {}
 
   getAllOrganizations(): Observable<Organization[]> {
-    return this.http.get<ApiResponse<Organization[]>>(this.apiUrl).pipe(
+    return this.http.get<ApiResponse<Organization[]>>(`${environment.apiUrl}/v1/organization`).pipe(
       map(response => response.data)
     );
   }
+
+  createOrganization(organization: { name: string; logo?: string; primaryColor?: string; footerMarkdown?: string }): Observable<Organization> {
+    return this.http.post<ApiResponse<Organization>>(`${environment.apiUrl}/v1/organization`, organization).pipe(
+      map(response => response.data)
+    );
+  }
+
+  updateOrganization(id: number, organization: { name: string; logo?: string; primaryColor?: string; footerMarkdown?: string }): Observable<Organization> {
+    return this.http.patch<ApiResponse<Organization>>(`${environment.apiUrl}/v1/organization/${id}`, organization).pipe(
+      map(response => response.data)
+    );
+  }
+
+  deleteOrganization(id: number): Observable<any> {
+    return this.http.delete<ApiResponse<any>>(`${environment.apiUrl}/v1/organization/${id}`);
+  }
+
 }

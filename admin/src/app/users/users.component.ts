@@ -142,14 +142,10 @@ export class UsersComponent implements OnInit, OnDestroy {
   }
 
   addNewUser(): void {
-    this.router.navigate(['/user-form']);
+    this.router.navigate(['/user/new']);
   }
 
   editUser(userId: number): void {
-    this.router.navigate(['/users', userId, 'edit']);
-  }
-
-  formatColumnHeader(col: string): string {
-    return col.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
+    this.router.navigate([`/user/${userId}`]);
   }
 }

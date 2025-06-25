@@ -58,11 +58,10 @@ export interface User {
   status: UserStatus;
   createdAt: string | Date;
   updatedAt: string | Date;
-
-  organizations: Organization[];
-  groups: Group[];
-  spokenLanguages: Language[];
-  userSpecialities: Speciality[];
+  OrganizationMember: { organization: { id: number } }[];
+  GroupMember: { group: { id: number } }[];
+  languages: { language: { id: number } }[];
+  specialities: { speciality: { id: number } }[];
 }
 
 export interface CreateUserDto {
