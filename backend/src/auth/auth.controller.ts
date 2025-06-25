@@ -85,6 +85,7 @@ export class AuthController {
   @ApiQuery({ name: 'role', required: false, type: String, example: 'admin' })
   loginOidc(@Req() req: Request, @Res() res: Response) {
     const { role } = req.query;
+    
     const Reqrole = (role as string)?.toUpperCase() as Role;
     if (!Reqrole){
 
@@ -136,10 +137,9 @@ async oidcCallback(
   @Req() req: Request,
   @Param('provider') provider: string,
 ): Promise<any> {
-  const user = req.user;
-  console.log(user);
-  
-  const { role } = req.query;
+  const { role } = req.query;  
+  console.log(role);
+
   return new Promise((resolve) => {
     passport.authenticate(provider, async (err, user, info) => {
       if (err) {

@@ -1,4 +1,3 @@
-// src/terms/dto/terms.schema.ts
 import { z } from 'zod';
 
 export const CreateTermSchema = z.object({

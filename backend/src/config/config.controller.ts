@@ -1,4 +1,3 @@
-// src/config/config.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from './config.service';
 ConfigService

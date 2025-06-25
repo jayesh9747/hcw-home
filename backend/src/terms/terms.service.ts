@@ -3,7 +3,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { CreatetermDto, UpdateTermDto } from './dto/terms.dto';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import {  Terms } from '@prisma/client';
-import { time } from 'console';
+
 
 @Injectable()
 export class TermsService {

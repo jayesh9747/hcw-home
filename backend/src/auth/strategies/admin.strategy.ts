@@ -43,9 +43,7 @@ export class AdminStrategy extends PassportStrategy(OpenIDConnectStrategy, 'open
         firstName,
         lastName,
         role:Role.ADMIN,
-      };
-      console.log(user);
-      
+      };      
        const data = await this.authService.loginUserValidate(user)
        const response =ApiResponseDto.success(data, "user-registration successfull", 200)
       return done (null ,response);
