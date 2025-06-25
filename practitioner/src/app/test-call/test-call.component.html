@@ -13,9 +13,11 @@
                 A properly tuned microphone should put the VU meter in the green center area when speaking.
             </p>
 
-            <app-device-selection *ngIf="audioInputDevices.length > 1" [devices]="audioInputDevices"
-                [selectedDeviceId]="selectedAudioDeviceId"
-                (deviceChange)="switchAudioInput($event)"></app-device-selection>
+            @if (audioInputDevices.length > 1) {
+            <app-device-selection [devices]="audioInputDevices" [selectedDeviceId]="selectedAudioDeviceId"
+                (deviceChange)="switchAudioInput($event)">
+            </app-device-selection>
+            }
         </div>
 
         <div class="test-section camera-test">

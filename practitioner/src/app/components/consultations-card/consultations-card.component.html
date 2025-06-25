@@ -1,25 +1,41 @@
 <div class="card consultation-card">
-  <h2>{{ title }}</h2>
-  <p class="card-description">{{ description }}</p>
+  <h2>{{ title() }}</h2>
+  <p class="card-description">{{ description() }}</p>
 
-  @if (consultations.length === 0) {
+  @if (consultations().length === 0) {
   <div class="empty-state">
     <p>No consultations</p>
   </div>
   }
 
-  @if (consultations.length > 0) {
+  @if (showInvite()) {
+  <app-button (click)="onInviteClick()" [variant]="ButtonVariant.Primary" [size]="ButtonSize.Medium">
+    Send new invite
+  </app-button>
+  }
+
+  @if (consultations().length > 0) {
   <div class="consultation-list">
-    @for (consultation of consultations; track consultation.id) {
+    @for (history of consultations(); track trackByConsultationId($index, history)) {
     <div class="consultation-item">
       <div class="patient-info">
         <div class="label">Patient</div>
-        <div class="value">{{ consultation.patientName }}</div>
+        <div class="value">
+          {{ history.patient.firstName }} {{ history.patient.lastName }}
+        </div>
       </div>
+
       <div class="time-info">
         <div class="label">Time</div>
-        <div class="value">{{ formatTime(consultation.joinTime) }}</div>
+        <div class="value">
+          {{
+          history.consultation.startedAt
+          ? formatTime(history.consultation.startedAt)
+          : '—'
+          }}
+        </div>
       </div>
+
       <div class="action">
         <i class="fas fa-chevron-right"></i>
       </div>
@@ -28,8 +44,9 @@
   </div>
   }
 
-  @if (consultations.length > 3) {
-  <app-button [variant]="ButtonVariant.Outline" [routerLink]="routerLink" [size]="ButtonSize.Medium">
+  <!-- View all -->
+  @if (consultations().length > 3) {
+  <app-button [variant]="ButtonVariant.Outline" [routerLink]="routerLink()" [size]="ButtonSize.Medium">
     View all
   </app-button>
   }

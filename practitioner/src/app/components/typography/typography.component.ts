@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, input, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -9,5 +9,5 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./typography.component.scss'],
 })
 export class TypographyComponent {
-  @Input() level: 1 | 2 | 3 | 4 | 5 | 6 = 2;
+  level = input<1 | 2 | 3 | 4 | 5 | 6>(2);
 }
