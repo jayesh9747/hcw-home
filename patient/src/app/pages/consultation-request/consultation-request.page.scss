@@ -1,22 +1,16 @@
-$primary-color: var(--ion-color-primary);
-$success-color: var(--ion-color-success);
-$light-bg: #f8f9fa;
-$card-bg: #ffffff;
-$text-color: #333333;
-$border-radius: 12px;
-$shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-
+.black-text{
+  color: var(--text-color);
+}
 .custom-toolbar {
   min-height: 80px;
-  --background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-primary-shade));
+  --background: linear-gradient(135deg, var(--primary-color), var(--primary-color));
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-
 ion-content {
-  --background: $light-bg !important;
+  --background: var(--input-bg) !important;
 }
 
 .custom-content {
@@ -25,6 +19,7 @@ ion-content {
   align-items: center;
   padding-top: 20px;
 }
+
 .custom-title {
   text-align: center;
   width: 100%;
@@ -37,9 +32,9 @@ ion-content {
   max-width: 650px;
   margin: 0 auto 30px;
   padding: 24px;
-  border-radius: $border-radius;
-  background-color: $card-bg;
-  box-shadow: $shadow;
+  border-radius: var(--border-radius);
+  background-color: var(--card-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .form-title {
@@ -47,29 +42,30 @@ ion-content {
   margin-bottom: 24px;
   font-weight: 600;
   text-align: center;
-  color: $primary-color;
+  color: var(--primary-color);
 }
 
 .section-title {
   font-size: 1.3rem;
   margin: 30px 0 20px;
   font-weight: 600;
-  color: $text-color;
+  color: var(--text-color);
   padding-left: 10px;
-  border-left: 4px solid $primary-color;
+  border-left: 4px solid var(--primary-color);
 }
 
 .input-item {
-  --background: $light-bg;
-  border-radius: $border-radius;
+  --background: var(--input-bg);
+  border-radius: var(--border-radius);
   margin-bottom: 16px;
   padding: 8px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   transition: all 0.3s ease;
-  
-  &:hover, &:focus-within {
+
+  &:hover,
+  &:focus-within {
     --background: rgba(var(--ion-color-primary-rgb), 0.05);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
@@ -78,12 +74,14 @@ ion-content {
     margin-bottom: 8px;
     font-size: 0.95rem;
     font-weight: 600;
-    color: $text-color;
+    color: var(--text-color);
   }
 
-  ion-input, ion-select, ion-textarea {
+  ion-input,
+  ion-select,
+  ion-textarea {
     width: 100%;
-    color: $text-color;
+    color: var(--text-color);
     --padding-start: 10px;
     --padding-end: 10px;
   }
@@ -91,7 +89,7 @@ ion-content {
   ion-input::part(native),
   ion-select::part(text),
   ion-textarea::part(native) {
-    color: $text-color;
+    color: var(--text-color);
     padding: 10px 0;
     font-size: 1rem;
   }
@@ -108,32 +106,32 @@ ion-content {
 
 .submit-button {
   margin-top: 10px;
-  --border-radius: $border-radius;
+  --border-radius: var(--border-radius);
   --box-shadow: 0 4px 12px rgba(var(--ion-color-success-rgb), 0.35);
   height: 48px;
   font-weight: 600;
   font-size: 1rem;
-  
+
   ion-icon {
     margin-right: 8px;
   }
 }
 
 @media (max-width: 576px) {
-
-  .form-title, .section-title {
+  .form-title,
+  .section-title {
     font-size: 1.2rem;
   }
-  
+
   .input-item ion-label {
     font-size: 0.9rem;
   }
 }
+
 ion-content {
-  --background: #ffffff !important;
+  --background: var(--card-bg) !important;
 }
 
 :root {
-  --ion-background-color: #ffffff;
+  --ion-background-color: var(--card-bg);
 }
-$card-bg: #ffffff;

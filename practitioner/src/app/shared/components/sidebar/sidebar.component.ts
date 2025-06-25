@@ -1,4 +1,4 @@
-import { Component, Input, HostListener } from '@angular/core';
+import { Component, Input, HostListener, input } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,13 +20,13 @@ import { BadgeComponent } from '../../../badge/badge.component';
     MatIconModule,
     MatListModule,
     MatBadgeModule,
-    BadgeComponent
-  ]
+    BadgeComponent,
+  ],
 })
 export class SidebarComponent {
-  @Input() isLoggedIn: boolean = true;
-  @Input() pendingConsultations: number | undefined = 0;
-  @Input() activeConsultations: number | undefined = 0;
+  isLoggedIn = input<boolean>(true);
+  pendingConsultations = input<number | undefined>(0);
+  activeConsultations = input<number | undefined>(0);
 
   isMobile = false;
   isSidebarOpen = true;
@@ -37,12 +37,26 @@ export class SidebarComponent {
     this.checkMobileView();
 
     this.sidebarItems = [
-      { icon: "icon-dashboard.svg", label: "Dashboard", route: "/dashboard" },
-      { icon: "icon-queue.svg", label: "Waiting Room", route: "/waiting-room", badge: this.pendingConsultations },
-      { icon: "icon-open.svg", label: "Opened Consultations", route: "/open-consultations", badge: this.activeConsultations },
-      { icon: "icon-history.svg", label: "Consultation history", route: "/closed-consultations" },
-      { icon: "icon-invite.svg", label: "Invites", route: "/invites" },
-      { icon: "self-check.svg", label: "Test", route: "/test" },
+      { icon: 'icon-dashboard.svg', label: 'Dashboard', route: '/dashboard' },
+      {
+        icon: 'icon-queue.svg',
+        label: 'Waiting Room',
+        route: '/waiting-room',
+        badge: this.pendingConsultations(),
+      },
+      {
+        icon: 'icon-open.svg',
+        label: 'Opened Consultations',
+        route: '/open-consultations',
+        badge: this.activeConsultations(),
+      },
+      {
+        icon: 'icon-history.svg',
+        label: 'Consultation history',
+        route: '/closed-consultations',
+      },
+      { icon: 'icon-invite.svg', label: 'Invites', route: '/invites' },
+      { icon: 'self-check.svg', label: 'Test', route: '/test' },
     ];
   }
 

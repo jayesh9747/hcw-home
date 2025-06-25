@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface MediaDevice {
@@ -14,8 +14,8 @@ export interface MediaDevice {
   styleUrls: ['./device-selection.component.scss'],
 })
 export class DeviceSelectionComponent {
-  @Input() devices: MediaDevice[] = [];
-  @Input() selectedDeviceId?: string;
+  devices = input<MediaDevice[]>([]);
+  selectedDeviceId = input<string>();
   @Output() deviceChange = new EventEmitter<string>();
 
   onChange(event: Event) {

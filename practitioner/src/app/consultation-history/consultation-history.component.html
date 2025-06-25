@@ -1,0 +1,95 @@
+<div class="consultation-history-page">
+    <div class="page-header">
+        <div class="header-content">
+            <h2>CONSULTATIONS HISTORY</h2>
+        </div>
+
+    </div>
+
+
+    <div class="main-content">
+        <div class="consultation-list" [class.with-panel]="isDetailPanelOpen">
+            @if (loading) {
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Loading consultation history...</p>
+            </div>
+            }
+
+            @if (error) {
+            <div class="error-state">
+                <div class="error-message">
+                    <h3>Unable to Load Consultations</h3>
+                    <p>{{ error }}</p>
+                    <app-button [variant]="ButtonVariant.Primary" [size]="ButtonSize.Medium"
+                        (click)="loadConsultations()">
+                        Try Again
+                    </app-button>
+                </div>
+            </div>
+            }
+
+            @if (!loading && !error && consultations.length === 0) {
+            <div class="empty-state">
+                <div class="empty-message">
+                    <h3>No Consultation History</h3>
+                    <p>
+                        Your completed consultations will appear here once you finish your first session.
+                    </p>
+                </div>
+            </div>
+            }
+
+            @if (!loading && !error && paginatedConsultations.length > 0) {
+            <div class="consultations-grid">
+                @for (consultation of paginatedConsultations; track consultation.consultation.id) {
+                <app-consultation-history-card [consultation]="consultation"
+                    [isSelected]="consultation.consultation.id === selectedConsultationId"
+                    (cardClick)="onCardClick($event)" (downloadPDF)="onDownloadPDF($event)">
+                </app-consultation-history-card>
+                }
+            </div>
+            }
+
+            @if (totalPages > 1) {
+            <div class="pagination">
+                <app-button [variant]="ButtonVariant.Secondary" [size]="ButtonSize.Small" [disabled]="currentPage === 1"
+                    (click)="previousPage()">
+                    Previous
+                </app-button>
+
+                <div class="page-numbers">
+                    @for (page of [].constructor(totalPages); track $index; let i = $index) {
+                    <button class="page-number" [class.active]="i + 1 === currentPage" (click)="goToPage(i + 1)">
+                        {{ i + 1 }}
+                    </button>
+                    }
+                </div>
+
+                <app-button [variant]="ButtonVariant.Secondary" [size]="ButtonSize.Small"
+                    [disabled]="currentPage === totalPages" (click)="nextPage()">
+                    Next
+                </app-button>
+            </div>
+            }
+        </div>
+
+        <app-consultation-detail-panel [consultationId]="selectedConsultationId" [isOpen]="isDetailPanelOpen"
+            (close)="onDetailPanelClose()" (downloadPDF)="onDownloadPDF($event)"></app-consultation-detail-panel>
+    </div>
+
+    @if (!loading) {
+    <div class="results-summary">
+        <button class="page-button" [disabled]="currentPage === 1" (click)="previousPage()" aria-label="Previous page">
+            ‹
+        </button>
+
+        <span class="page-indicator">{{ currentPage }}</span>
+
+        <button class="page-button" [disabled]="currentPage === totalPages" (click)="nextPage()" aria-label="Next page">
+            ›
+        </button>
+    </div>
+    }
+
+</div>
