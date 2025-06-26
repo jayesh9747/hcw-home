@@ -3,11 +3,13 @@ import { UsersComponent } from './users/users.component';
 import { RoutePaths } from './constants/route-path.enum';
 import { UserFormComponent } from './user-form/user-form.component';
 import { ResourceManagerComponent } from './resource-manager/resource-manager.component';
+import { DashboardComponent } from './dashboard/dashboard.component';
 
 export const routes: Routes = [
-    { path: '', redirectTo: RoutePaths.Users, pathMatch: 'full' },
-    { path: RoutePaths.NewUser, component: UserFormComponent},
+    { path: '', redirectTo: RoutePaths.Dashboard, pathMatch: 'full' },
+    { path: RoutePaths.Dashboard, component: DashboardComponent},
     { path: RoutePaths.Users, component: UsersComponent },
+    { path: RoutePaths.NewUser, component: UserFormComponent},
     { path: 'user/:id', component:UserFormComponent },
     { path: RoutePaths.ResourceManager, component: ResourceManagerComponent },
 ];

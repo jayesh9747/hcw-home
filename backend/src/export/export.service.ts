@@ -89,7 +89,7 @@ export class ExportService {
     if (filters.practitionerId) {
       where.participants = {
         some: {
-          userId: filters.practitionerId,
+          userId: Number(filters.practitionerId),
           user: {
             role: UserRole.PRACTITIONER,
           },

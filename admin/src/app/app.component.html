@@ -1,1 +1,7 @@
-<router-outlet></router-outlet>
+<app-sidebar
+  [isLoggedIn]="isLoggedIn"
+>
+  <router-outlet></router-outlet>
+</app-sidebar>
+
+@if(!isLoggedIn){<router-outlet></router-outlet>}

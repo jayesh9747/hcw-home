@@ -34,7 +34,7 @@ import { ExportModule } from './export/export.module';
     MediasoupModule,
     SmsProviderModule,
     LanguageModule,
-    SpecialityModule
+    SpecialityModule,
     ExportModule
   ],
   controllers: [AppController],
