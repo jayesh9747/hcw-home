@@ -69,6 +69,7 @@ model Organization {
   // Relations
   members OrganizationMember[]
   groups  Group[]
+  terms   Terms[] 
 
   @@map("organizations")
 }
@@ -293,6 +294,11 @@ model Terms {
   version   Float     @default(1.00)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  // Relation to Organization
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId Int
+
 
   @@map("terms")
 }

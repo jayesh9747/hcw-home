@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, Min, IsString, MinLength } from 'class-validator';
 
 export class CreatetermDto {
   @ApiProperty({
@@ -50,3 +50,27 @@ export class UpdateTermDto {
       @MinLength(10)
       content?: string;
   }
+
+
+
+export class QueryTermsDto {
+
+
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  limit?: number = 10;
+}

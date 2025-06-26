@@ -19,7 +19,6 @@ import { SmsProviderModule } from './sms_provider/sms_provider.module';
 import { LanguageModule } from './language/language.module';
 import { SpecialityModule } from './speciality/speciality.module';
 import { ExportModule } from './export/export.module';
-import { TermsModule } from './terms/terms.module';
 
 
 @Module({
@@ -37,7 +36,6 @@ import { TermsModule } from './terms/terms.module';
     LanguageModule,
     SpecialityModule,
     ExportModule,
-    TermsModule
   ],
   controllers: [AppController],
   providers: [
