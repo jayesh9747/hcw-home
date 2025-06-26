@@ -25,6 +25,5 @@ export default () => ({
     loginMethod: process.env.LOGIN_METHOD || 'password',
     branding: process.env.BRANDING || '@HOME',
     logo: process.env.LOGO || '',
-    doctorTermsVersion: process.env.DOCTOR_TERMS_VERSION || '1.0',
   },
 });
