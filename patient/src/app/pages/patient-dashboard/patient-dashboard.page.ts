@@ -3,7 +3,7 @@ import { HeaderComponent } from 'src/app/components/header/header.component';
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
-   AlertController, ToastController,
+   AlertController, ToastController, IonContent
 } from '@ionic/angular/standalone';
 
 import { addIcons } from 'ionicons';
@@ -32,6 +32,7 @@ interface Consultation {
     CardComponentComponent,
     HeaderComponent,
     CommonModule,
+    IonContent
   ],
 })
 

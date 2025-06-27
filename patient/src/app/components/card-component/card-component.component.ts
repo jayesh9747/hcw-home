@@ -2,7 +2,6 @@ import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { 
-  IonContent, 
   IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
   IonList, IonItem, IonLabel, IonButton, IonIcon, 
   IonChip, IonText, AlertController, ToastController,
@@ -32,7 +31,6 @@ interface Consultation {
   standalone: true,
   imports: [
     CommonModule,
-    IonContent, 
     IonCard, 
     IonCardHeader, 
     IonCardTitle, 

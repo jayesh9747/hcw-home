@@ -49,11 +49,9 @@ export class AuthService {
   async validateUser(
     loginUserDto: LoginUserDto,
   ): Promise<{ userId: number; userEmail: string, userRole: string }> {
-    const user = await this.findByEmail(loginUserDto.email);
-
-
+    const user = await this.findByEmail(loginUserDto.email);       
     if (!user || user.temporaryAccount) {
-      this.logger.warn(`No valid user found for email ${user.email}`);
+      this.logger.warn(`No valid user found for email ${loginUserDto.email}`);
       throw HttpExceptionHelper.notFound('user not found/user not valid');
     }
     if (user.status !== UserStatus.APPROVED) {
@@ -67,7 +65,7 @@ export class AuthService {
 
     if (!passwordMatch) {
       this.logger.warn(`LocalStrategy: Incorrect password for user ${user.id}`);
-      throw HttpExceptionHelper.unauthorized('password or email is incorrect');
+      throw HttpExceptionHelper.unauthorized('Incorrect Password');
     }
     this.logger.log(`validateUser: ${user.email} validate successfully`)
     return {
@@ -233,6 +231,7 @@ export class AuthService {
 
     if (!user) {
       this.logger.log(`user not found with email:${email}`);
+      return 
     }
     this.logger.log(`user found with email:${email}`);
     return user;
@@ -247,6 +246,7 @@ export class AuthService {
     });
     if (!user) {
       this.logger.log(`user not found with email:${email} and role:${role}`);
+      return 
     }
     this.logger.log(`user found with email:${email}`);
     return plainToInstance(UserResponseDto, user, {

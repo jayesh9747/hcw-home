@@ -1,0 +1,50 @@
+.terms-container {
+    padding: 16px;
+    font-family: "Helvetica Neue", sans-serif;
+  }
+  
+  .terms-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  
+  .filter-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .table-container {
+    max-width: 600px;
+    margin: 0 auto;
+    overflow-x: auto;
+    padding-bottom: 24px;
+  }
+  
+  .full-width-table {
+    width: 100%;
+    min-width: 500px;
+  }
+  
+  .spinner-center {
+    display: flex;
+    justify-content: center;
+    margin: 32px 0;
+  }
+  .action-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .action-buttons button {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+  }
+  
