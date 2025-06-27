@@ -19,6 +19,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SnackbarService } from '../services/snackbar.service';
+import { AngularSvgIconModule } from 'angular-svg-icon';
 
 @Component({
   selector: 'app-user-form',
@@ -34,6 +35,7 @@ import { SnackbarService } from '../services/snackbar.service';
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    AngularSvgIconModule,
   ],
   templateUrl: './user-form.component.html',
   styleUrls: ['./user-form.component.scss']

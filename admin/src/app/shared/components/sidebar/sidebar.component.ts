@@ -6,6 +6,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatBadgeModule } from '@angular/material/badge';
 import { CommonModule } from '@angular/common';
 import { SidebarItem } from '../../../models/sidebar.model';
+import { AngularSvgIconModule } from 'angular-svg-icon';
 
 @Component({
   selector: 'app-sidebar',
@@ -19,6 +20,7 @@ import { SidebarItem } from '../../../models/sidebar.model';
     MatIconModule,
     MatListModule,
     MatBadgeModule,
+    AngularSvgIconModule,
   ]
 })
 export class SidebarComponent {

@@ -125,7 +125,12 @@
   &.home {
     background-color: white;
     border-bottom: 1px solid #e0e0e0;
-    padding: 5px 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+    width: 100%;
 
     .icon {
       font-size: 30px;

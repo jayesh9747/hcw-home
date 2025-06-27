@@ -16,6 +16,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { SnackbarService } from '../services/snackbar.service';
+import { AngularSvgIconModule } from 'angular-svg-icon';
 
 @Component({
   selector: 'app-users',
@@ -32,7 +33,8 @@ import { SnackbarService } from '../services/snackbar.service';
     MatTableModule,
     MatPaginatorModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    AngularSvgIconModule
   ],
   templateUrl: './users.component.html',
   styleUrls: ['./users.component.scss']

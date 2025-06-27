@@ -9,15 +9,7 @@
   >
     <div class="sidebar">
       <div class="sidebar-item home">
-        <a routerLink="/" (click)="closeSidebarOnMobile()">
-          <img
-        src="assets/svg/HCW-Home.svg"
-        alt="HCW@Home"
-        width="75"
-        height="50"
-        class="img img-fluid"
-        />
-        </a>
+        <a routerLink="/" (click)="closeSidebarOnMobile()"></a>
       </div>
 
       @for (item of sidebarItems; track item){
@@ -30,7 +22,7 @@
           (click)="closeSidebarOnMobile()"
         >
         <div class="icon">
-            <img [src]="'assets/svg/' + item.icon" [alt]="item.label + ' icon'" />
+            <svg-icon [src]="'assets/svg/' + item.icon" [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
         </div>
           <div class="label">{{ item.label }}</div>
         </a>

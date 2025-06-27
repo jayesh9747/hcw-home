@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ExportService } from '../services/export.service';
 import { UserService } from '../services/user.service';
-import { saveAs } from 'file-saver-es';
+import { saveAs } from 'file-saver';
 import { FormsModule } from '@angular/forms';
 import { UserRole } from '../models/user.model';
 import { MatFormFieldModule } from '@angular/material/form-field';

@@ -13,6 +13,7 @@ import { LanguageService } from '../services/language.service';
 import { OrganizationService } from '../services/organization.service';
 import { GroupService } from '../services/group.service';
 import { SnackbarService } from '../services/snackbar.service';
+import { AngularSvgIconModule } from 'angular-svg-icon';
 
 @Component({
   selector: 'app-resource-manager',
@@ -28,6 +29,7 @@ import { SnackbarService } from '../services/snackbar.service';
     MatIconModule,
     MatButtonModule,
     MatSelectModule,
+    AngularSvgIconModule,
   ],
   templateUrl: './resource-manager.component.html',
   styleUrls: ['./resource-manager.component.scss']
