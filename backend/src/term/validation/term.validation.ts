@@ -21,5 +21,15 @@ export const CreateTermSchema = z.object({
       invalid_type_error: 'Content must be a string.',
     })
     .min(10, { message: 'Content must be at least 10 characters long.' }),
+    
+    organizationId: z
+    .number({
+      required_error: 'organization id is required.',
+      invalid_type_error: 'Content must be a number.',
+    })
+    .min(1, { message: 'Content must be at least 1 characters long.' }),
+
+
+
 });
 

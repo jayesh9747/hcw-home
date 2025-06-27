@@ -11,7 +11,7 @@ export default () => ({
     refreshExpiresIn: process.env.REFRESH_TOKEN_LIFE || '7d',
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
   },
   swagger: {
     enabled: process.env.NODE_ENV === 'development',

@@ -42,9 +42,6 @@ import { QueryMembersDto } from './dto/query-members.dto';
 import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AddMemberDto } from './dto/add-member.dto';
-import { TermsService } from './terms/terms.service';
-import { CreateTermSchema } from './terms/validation/term.validation';
-import { CreatetermDto, QueryTermsDto, UpdateTermDto } from './terms/dto/terms.dto';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -61,7 +58,6 @@ import { Role } from 'src/auth/enums/role.enum';
 export class OrganizationController {
   constructor(
     private readonly organizationService: OrganizationService,
-    private readonly termsService:TermsService
   ) {}
 
   @Post()
@@ -422,81 +418,4 @@ console.log(result);
       path: req.path,
     });
   }
-
-
-
-  // term management 
-
-  @Roles(Role.ADMIN)
-  @Post(':id/terms')
-  @ApiOperation({ summary: 'Create new terms for an organization' })
-  @ApiParam({ name: 'id', description: 'Organization ID', type: Number })
-  @ApiResponse({ status: 201, description: 'Terms created successfully' })
-  async createTerm(
-    @Param('id') orgId: string,
-    @Body(new ZodValidationPipe(CreateTermSchema)) dto: CreatetermDto,
-  ) {
-    const data = await this.termsService.create(+orgId, dto);
-    return ApiResponseDto.success(data, 'Term created successfully',HttpStatus.CREATED);
-  }
-
-  @Roles(Role.ADMIN)
-  @Patch(':id/terms/:termId')
-  @ApiOperation({ summary: 'Update terms by ID for an organization' })
-  @ApiParam({ name: 'termId', description: 'Term ID', type: Number })
-  async updateTerm(
-    @Param('id') orgId: string,
-    @Param('termId') termId: string,
-    @Body() dto: UpdateTermDto,
-  ) {
-    const data = await this.termsService.update(+termId, +orgId, dto);
-    return ApiResponseDto.success(data, 'Term updated successfully',HttpStatus.OK);
-  }
-
-  @Roles(Role.ADMIN)
-  @Delete(':id/terms/:termId')
-  @ApiOperation({ summary: 'Delete terms by ID for an organization' })
-  async delete(@Param('id') orgId: string, @Param('termId') termId: string) {
-    const data = await this.termsService.delete(+termId, +orgId);
-    return ApiResponseDto.success(data, 'Term deleted successfully',HttpStatus.OK);
-  }
-  @Roles(Role.ADMIN)
-  @Get(':id/terms')
-  @ApiOperation({ summary: 'List all terms for an organization' })
-  @ApiQuery({ name: 'language', required: false })
-  @ApiQuery({ name: 'country', required: false })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  async list(
-    @Param('id') orgId: string,
-    @Query() query: QueryTermsDto,
-  ) {
-    const data = await this.termsService.findAll(query, +orgId);
-   console.log(data);
-   
-   return PaginatedApiResponseDto.paginatedSuccess(
-      data.terms,
-      data.total,
-      data.page,
-      data.limit,
-      "Terms list retrieved"
-    )
-    }
-
-  @Roles(Role.ADMIN)
-  @Get(':id/terms/latest')
-  @ApiOperation({ summary: 'Get latest terms for language and country in org' })
-  @ApiQuery({ name: 'language', required: true })
-  @ApiQuery({ name: 'country', required: true })
-  async getLatest(
-    @Param('id') orgId: string,
-    @Query() query: QueryTermsDto,
-  ) {
-    const data = await this.termsService.getLatest(+orgId, query);
-    return ApiResponseDto.success(data, 'Latest term retrieved');
-  }
-
-
-
-
 }

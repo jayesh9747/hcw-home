@@ -52,7 +52,7 @@ export class ConfigService {
   get corsOrigin(): string {
     return this.configService.get<string>(
       'CORS_ORIGIN',
-      'http://localhost:3000',
+      'http://localhost:4200',
     );
   }
 

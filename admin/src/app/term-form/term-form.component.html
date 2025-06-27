@@ -1,0 +1,66 @@
+<div class="form-wrapper">
+    <h2 class="form-header">
+      {{ isEditMode ? 'Edit Term' : 'Add Term' }}
+      <button (click)="cancel()" mat-icon-button class="back-button">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+    </h2>
+  
+    <div *ngIf="loading" class="spinner-container">
+      <mat-spinner diameter="36"></mat-spinner>
+    </div>
+  
+    <form [formGroup]="termForm" (ngSubmit)="onSubmit()" *ngIf="!loading">
+      <div class="form-grid multi-selects">
+        <!-- Organization -->
+        <mat-form-field appearance="fill">
+          <mat-label>Organization</mat-label>
+          <mat-select formControlName="organisationId" [disabled]="isEditMode">
+            <mat-option *ngFor="let org of organizations" [value]="org.id">
+              {{ org.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+  
+        <!-- Country -->
+        <mat-form-field appearance="fill">
+          <mat-label>Country</mat-label>
+          <mat-select formControlName="country">
+            <mat-option *ngFor="let c of countries" [value]="c.name">
+              {{ c.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+  
+        <!-- Language -->
+        <mat-form-field appearance="fill">
+          <mat-label>Language</mat-label>
+          <mat-select formControlName="language">
+            <mat-option *ngFor="let l of languages" [value]="l.name">
+              {{ l.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+  
+      <!-- Content Editor -->
+      <div class="form-grid full-width">
+        <label class="editor-label">Content</label>
+        <div class="editor-container">
+          <app-md-editor
+            [initialContent]="termForm.get('content')?.value"
+            (contentChange)="termForm.get('content')?.setValue($event)">
+          </app-md-editor>
+        </div>
+      </div>
+  
+      <!-- Buttons -->
+      <div class="form-actions">
+        <button type="button" mat-stroked-button color="warn" (click)="cancel()">Cancel</button>
+        <button type="submit" mat-raised-button color="primary" [disabled]="termForm.invalid || loading">
+          {{ isEditMode ? 'Update' : 'Create' }}
+        </button>
+      </div>
+    </form>
+  </div>
+  

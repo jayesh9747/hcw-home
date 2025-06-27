@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { CreatetermDto, QueryTermsDto, UpdateTermDto } from './dto/terms.dto';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { Prisma, Terms } from '@prisma/client';
+import { CreatetermDto,QueryTermsDto, UpdateTermDto } from 'src/term/dto/terms.dto';
 
 @Injectable()
-export class TermsService {
-  private readonly logger = new Logger(TermsService.name);
+export class TermService {
+  private readonly logger = new Logger(TermService.name);
 
   constructor(private readonly databaseService: DatabaseService) {}
 
@@ -15,6 +15,7 @@ export class TermsService {
   }
 
   async create(organizationId: number, dto: CreatetermDto): Promise<Terms> {
+    this.logger.log('create term called')
     const latest = await this.databaseService.terms.findFirst({
       where: {
         organizationId,
@@ -35,14 +36,16 @@ export class TermsService {
     });
   }
 
-  async update(id: number, organizationId: number, dto: UpdateTermDto): Promise<Terms> {
+  async update(id: number, dto: UpdateTermDto): Promise<Terms> {
+    this.logger.log('update term called')
+
     const exists = await this.databaseService.terms.findFirst({
-      where: { id, organizationId },
+      where: { id },
     });
 
     if (!exists) {
-      this.logger.warn(`Terms with id ${id} not found for organization ${organizationId}`);
-      throw HttpExceptionHelper.notFound(`Term with id:${id} not found for this organization`);
+      this.logger.warn(`Terms with id ${id} not found `);
+      throw HttpExceptionHelper.notFound(`Term with id:${id} not found `);
     }
 
     const newVersion = this.bumpVersion(exists.version);
@@ -58,13 +61,14 @@ export class TermsService {
     });
   }
 
-  async delete(id: number, organizationId: number): Promise<Terms> {
+  async delete(id: number): Promise<Terms> {
+    this.logger.log('delete term called')
     const exists = await this.databaseService.terms.findFirst({
-      where: { id, organizationId },
+      where: { id },
     });
 
     if (!exists) {
-      this.logger.warn(`Terms with id ${id} not found for org ${organizationId}`);
+      this.logger.warn(`Terms with id ${id} not found `);
       throw HttpExceptionHelper.notFound(`Terms with id ${id} not found`);
     }
 
@@ -73,7 +77,8 @@ export class TermsService {
     });
   }
 
-  async findAll(query: QueryTermsDto, organizationId: number) {
+  async findAllunderOrg(query: QueryTermsDto, organizationId: number) {
+    this.logger.log('find term with orgs called')
     const { language, country, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
@@ -101,8 +106,58 @@ export class TermsService {
     };
   }
 
-  async getLatest(organizationId: number, query: QueryTermsDto): Promise<Terms> {
-    const { language, country } = query;
+
+  async findAll(query: QueryTermsDto) {
+    this.logger.log('terms find all function called')
+    const { language, country, page = 1, limit = 10, organizationId } = query;
+    const skip = (page - 1) * limit;
+    const pageNumber = Number(page) || 1;
+
+  
+    const where: Prisma.TermsWhereInput = {
+      ...(organizationId &&{organizationId}),
+      ...(language && { language }),
+      ...(country && { country }),
+    };
+  
+    const [terms, total] = await Promise.all([
+      this.databaseService.terms.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { version: 'desc' },
+      }),
+      this.databaseService.terms.count({ where }),
+    ]);
+  
+    return {
+      terms,
+      total,
+      page,
+      limit,
+    };
+  }
+  
+
+  async findById(id: number) {
+    this.logger.log('find term by id called')
+
+    const term = await this.databaseService.terms.findUnique({
+      where: { id },
+    });
+  
+    if (!term) {
+      throw HttpExceptionHelper.notFound(`Term with ID ${id} not found`);
+    }
+  
+    return term;
+  }
+  
+
+  async getLatest( query: QueryTermsDto): Promise<Terms> {
+    this.logger.log('latest term called')
+
+    const { language, country,organizationId } = query;
 
     const term = await this.databaseService.terms.findFirst({
       where: {
@@ -121,4 +176,8 @@ export class TermsService {
 
     return term;
   }
+
+
+
+
 }
