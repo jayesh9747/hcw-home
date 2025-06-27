@@ -69,6 +69,7 @@ model Organization {
   // Relations
   members OrganizationMember[]
   groups  Group[]
+  terms   Terms[] 
 
   @@map("organizations")
 }
@@ -283,4 +284,21 @@ model SmsProvider {
   updatedAt   DateTime @updatedAt
 
   @@map("sms_providers")
+}
+
+model Terms {
+  id        Int      @id @default(autoincrement())
+  language  String
+  country   String
+  content   String
+  version   Float     @default(1.00)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relation to Organization
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  organizationId Int
+
+
+  @@map("terms")
 }

@@ -52,7 +52,7 @@ export class ConfigService {
   get corsOrigin(): string {
     return this.configService.get<string>(
       'CORS_ORIGIN',
-      'http://localhost:3000',
+      'http://localhost:4200',
     );
   }
 
@@ -83,6 +83,10 @@ export class ConfigService {
     return this.isProduction;
   }
 
+  get frontendConfig() {
+    return this.configService.get('frontend');
+  }
+  
   // Additional helper methods for getting optional values
   getOptional<T = string>(key: string): T | undefined {
     return this.configService.get<T>(key);

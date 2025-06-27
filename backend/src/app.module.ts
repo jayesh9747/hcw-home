@@ -19,6 +19,7 @@ import { SmsProviderModule } from './sms_provider/sms_provider.module';
 import { LanguageModule } from './language/language.module';
 import { SpecialityModule } from './speciality/speciality.module';
 import { ExportModule } from './export/export.module';
+import { TermModule } from './term/term.module';
 
 
 @Module({
@@ -34,8 +35,9 @@ import { ExportModule } from './export/export.module';
     MediasoupModule,
     SmsProviderModule,
     LanguageModule,
-    SpecialityModule
-    ExportModule
+    SpecialityModule,
+    ExportModule,
+    TermModule,
   ],
   controllers: [AppController],
   providers: [

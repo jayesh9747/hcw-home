@@ -79,69 +79,69 @@ export class AuthController {
     }
   }
 
-  @Get('openid/login') // example: api/v1/auth/oidc/login?role=admin
-  @ApiOperation({ summary: 'Initiate OpenID login via a provider (e.g., Google, openidconnect)' })
-  @ApiQuery({ name: 'provider', required: true, type: String, example: 'google' })
-  @ApiQuery({ name: 'role', required: false, type: String, example: 'admin' })
+  @Get('openid/login') // e.g., /api/v1/auth/oidc/login?role=admin
+  @ApiOperation({ summary: 'Initiate OpenID login' })
+  @ApiQuery({ name: 'role', required: true, type: String, example: 'admin' })
   loginOidc(@Req() req: Request, @Res() res: Response) {
     const { role } = req.query;
     const Reqrole = (role as string)?.toUpperCase() as Role;
-    if (!Reqrole){
 
-    this.logger.log(`role missing in the request url`);
-    throw HttpExceptionHelper.badRequest('role missing in the request query ')
-
+    if (!Reqrole || !(Reqrole in Role)) {
+      this.logger.warn('Invalid or missing role in login URL');
+      throw HttpExceptionHelper.badRequest('Missing or invalid role in query param');
     }
-    this.logger.log(`Incoming login request  for ${Reqrole}`);
 
+    this.logger.log(`Login request for ${Reqrole}`);
+
+    const strategyMap = {
+      [Role.ADMIN]: 'openidconnect_admin',
+      [Role.PRACTITIONER]: 'openidconnect_practitioner',
+    };
   
-     switch (Reqrole){
-     case Role.ADMIN :{
-      try {        
-        return passport.authenticate("openidconnect_admin", {
-          scope: ['openid', 'profile', 'email'],
-        })(req, res, (err) => {
-          if (err) {
-            this.logger.error('Authentication middleware error', err);
-            throw HttpExceptionHelper.internalServerError("Passport middleware failed");
-          }
-        });
-      } catch (error) {
-        this.logger.error("Authentication setup error", error);
-        throw HttpExceptionHelper.internalServerError("Passport setup failed");
+    const strategy = strategyMap[Reqrole];
+  
+    return passport.authenticate(strategy, {
+      scope: ['openid', 'profile', 'email'],
+    })(req, res, (err) => {
+      if (err) {
+        this.logger.error('Passport middleware failed during login', err);
+        throw HttpExceptionHelper.internalServerError("Passport login failed");
       }
-     }
-     case Role.PRACTITIONER: {      
-      try {
-        return passport.authenticate("openidconnect_practitioner", {
-          scope: ['openid', 'profile', 'email'],
-        })(req, res, (err) => {
-          if (err) {
-            this.logger.error('Authentication middleware error', err);
-            throw HttpExceptionHelper.internalServerError("Passport middleware failed");
-          }
-        });
-      } catch (error) {
-        this.logger.error("Authentication setup error", error);
-        throw HttpExceptionHelper.internalServerError("Passport setup failed");
-      }
-
-     }
-    }
+    });
   }
+  
   
 
 @Get('callback/:provider') // Example: /api/v1/auth/callback/:{}?role
 async oidcCallback(
   @Req() req: Request,
   @Param('provider') provider: string,
+  // @Res() res:Response
 ): Promise<any> {
-  const user = req.user;
-  console.log(user);
-  
   const { role } = req.query;
+  const ReqRole = (role as string)?.toUpperCase() as Role;
+
+  if (!ReqRole || !(ReqRole in Role)) {
+    this.logger.warn(`Missing or invalid role in callback`);
+    throw HttpExceptionHelper.badRequest('Missing or invalid role in query param');
+  }
+
+
+  const strategyMap = {
+    [Role.ADMIN]: 'openidconnect_admin',
+    [Role.PRACTITIONER]: 'openidconnect_practitioner',
+  };
+
+  const redirectMap = {
+    [Role.ADMIN]: process.env.ADMIN_URL,
+    [Role.PRACTITIONER]: process.env.PRACTITIONER_URL,
+  };
+  const strategy = strategyMap[ReqRole];
+  const redirectTo = redirectMap[ReqRole];
+
+
   return new Promise((resolve) => {
-    passport.authenticate(provider, async (err, user, info) => {
+    passport.authenticate(strategy, async (err, user, info) => {
       if (err) {
         return resolve({
           success: false,
@@ -157,8 +157,11 @@ async oidcCallback(
         });
       }
 
-      // redirect urls (AdminUI, PractitionerUI) 
-      return resolve(user);
+      const tokens= user.data.tokens
+      const finalRedirect = `${redirectTo}?aT=${tokens.accessToken}&rT=${tokens.refreshToken}`;
+      this.logger.log(`Redirecting ${ReqRole} to ${finalRedirect}`);
+      return resolve(user)
+      // return resolve(res.redirect(finalRedirect)); // redirect to frontend with tokens
     })(req, null as any, (authErr) => {
       if (authErr) {
         return resolve({

@@ -9,6 +9,8 @@ import {
   Query,
   ParseIntPipe,
   Req,
+  HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -40,11 +42,23 @@ import { QueryMembersDto } from './dto/query-members.dto';
 import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/auth/enums/role.enum';
+
+
+
+
+
 
 @ApiTags('organizations')
 @Controller('organization')
+@UseGuards(AuthGuard,RolesGuard)
 export class OrganizationController {
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(
+    private readonly organizationService: OrganizationService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new organization' })
@@ -121,6 +135,7 @@ export class OrganizationController {
     @Req() req: Request,
   ) {
     const result = await this.organizationService.findAll(query);
+console.log(result);
 
     return PaginatedApiResponseDto.paginatedSuccess(
       result.organizations,
