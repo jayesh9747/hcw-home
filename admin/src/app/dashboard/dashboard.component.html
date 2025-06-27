@@ -1,0 +1,60 @@
+<div class="export-container">
+  <h2 class="export-header">
+    Export Consultations
+  </h2>
+
+  @if (loading) {
+    <div class="spinner-center">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  }
+
+  @if (!loading) {
+    <div class="filter-container">
+      <mat-form-field appearance="outline">
+        <mat-label>From</mat-label>
+        <input matInput [matDatepicker]="pickerFrom" [(ngModel)]="filters.dateFrom" name="dateFrom">
+        <mat-datepicker-toggle matSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+        <mat-datepicker #pickerFrom></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>To</mat-label>
+        <input matInput [matDatepicker]="pickerTo" [(ngModel)]="filters.dateTo" name="dateTo">
+        <mat-datepicker-toggle matSuffix [for]="pickerTo"></mat-datepicker-toggle>
+        <mat-datepicker #pickerTo></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Practitioner</mat-label>
+        <mat-select [(ngModel)]="filters.practitionerId" name="practitionerId">
+          <mat-option value="">All Practitioners</mat-option>
+          @for (practitioner of practitioners; track practitioner.id) {
+            <mat-option [value]="practitioner.id">
+              {{ practitioner.firstName }} {{ practitioner.lastName }}
+            </mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="filters.status" name="status">
+          <mat-option value="">All Statuses</mat-option>
+          @for (status of statuses; track status) {
+            <mat-option [value]="status">{{ status }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="export-actions">
+      <button mat-stroked-button color="primary" type="button" (click)="resetForm()" class="reset-btn">
+        Reset
+      </button>
+      <button mat-raised-button color="primary" type="button" (click)="exportCsv()" [disabled]="loading" class="export-btn">
+        @if (loading) { Exporting... } @else { Export CSV }
+      </button>
+    </div>
+  }
+</div>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="762 0 436.7 650" style="enable-background:new 762 0 436.7 650;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:url(#SVGID_1_);}
+	.st1{fill:url(#XMLID_3_);}
+</style>
+<g>
+	
+		<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="626.6951" y1="707.4962" x2="1641.942" y2="-578.4814" gradientTransform="matrix(1 0 0 -1 0 650)">
+		<stop  offset="0" style="stop-color:#00C6FF"/>
+		<stop  offset="1" style="stop-color:#0072FF"/>
+	</linearGradient>
+	<path class="st0" d="M1147.1,526.4V150.1c0-17.9-8.9-34.6-23.8-44.7L984.7,11.9c-18.3-12.3-41.9-12.3-60.2,0l-138.7,93.6
+		c-14.9,10-23.8,26.7-23.8,44.6v399.1c0,55.6,45.2,100.8,100.8,100.8c55.6,0,100.8-45.2,100.8-100.8V436.5
+		c61.3-4.6,109.7-55.9,109.7-118.3V192.4c0-4.9-4-8.9-8.9-8.9v-1.2H1048c-6.6,0-11.9,5.3-11.9,11.9v24.5c0,6.6,5.3,11.9,11.9,11.9
+		h7.4v87.6c0,55.6-45.2,100.8-100.8,100.8c-55.6,0-100.8-45.2-100.8-100.8v-87.6h7.4c6.6,0,11.9-5.3,11.9-11.9v-24.5
+		c0-6.6-5.3-11.9-11.9-11.9h-16.4v1.2c-4.9,0-8.9,4-8.9,8.9v125.8c0,62.4,48.5,113.7,109.7,118.3v112.8c0,45.7-37.2,82.9-82.9,82.9
+		s-82.9-37.2-82.9-82.9V150.1c0-12,5.9-23.1,15.9-29.8l138.7-93.5c12.2-8.2,28-8.2,40.2,0l138.7,93.5c9.9,6.7,15.9,17.9,15.9,29.8
+		v376.2c-29.7,4.1-52.7,29.7-52.7,60.5c0,33.7,27.4,61.1,61.1,61.1s61.1-27.4,61.1-61.1C1198.7,556.3,1176.3,531,1147.1,526.4z
+		 M1137.6,630c-23.8,0-43.2-19.4-43.2-43.2s19.4-43.2,43.2-43.2c23.8,0,43.2,19.4,43.2,43.2C1180.9,610.6,1161.5,630,1137.6,630z"/>
+	
+		<linearGradient id="XMLID_3_" gradientUnits="userSpaceOnUse" x1="628.0806" y1="708.5904" x2="1643.3307" y2="-577.3914" gradientTransform="matrix(1 0 0 -1 0 650)">
+		<stop  offset="0" style="stop-color:#00C6FF"/>
+		<stop  offset="1" style="stop-color:#0072FF"/>
+	</linearGradient>
+	<circle id="XMLID_1_" class="st1" cx="1137.6" cy="586.8" r="25"/>
+</g>
+</svg>
