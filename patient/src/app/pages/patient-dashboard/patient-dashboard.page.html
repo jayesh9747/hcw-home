@@ -1,8 +1,10 @@
-<div>
+<div class="dashboard-wrapper">
   <app-header [showConsultationRequest]="true" [title]="'My Consultations'"></app-header>
-  <card-component 
-  [activeConsultations]="activeConsultations"
-  [completedConsultations]="completedConsultations"
-  [upcomingConsultations]="upcomingConsultations">
-</card-component>
+  <ion-content [fullscreen]="true" class="ion-padding dashboard-bg">
+    <card-component 
+      [activeConsultations]="activeConsultations"
+      [completedConsultations]="completedConsultations"
+      [upcomingConsultations]="upcomingConsultations">
+    </card-component>
+  </ion-content>
 </div>

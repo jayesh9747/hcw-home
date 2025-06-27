@@ -21,5 +21,9 @@ export const routes: Routes = [
   {
     path: 'post-consultation-feedback',
     loadComponent: () => import('./pages/post-consultation-feedback/post-consultation-feedback.page').then( m => m.PostConsultationFeedbackPage)
+  },  {
+    path: 'choose-consultation-timeslot',
+    loadComponent: () => import('./pages/choose-consultation-timeslot/choose-consultation-timeslot.page').then( m => m.ChooseConsultationTimeslotPage)
   },
+
 ];
