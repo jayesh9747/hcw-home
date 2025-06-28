@@ -1,0 +1,58 @@
+<div class="auth-page d-flex">
+  <div class="banner"></div>
+
+  <div class="auth-main">
+    <ng-container>
+      <div class="wrap">
+        <div class="container white-box">
+          <div class="at">&#64; <span>Home</span></div>
+          <p class="saml-login" *ngIf="showOpenIdLogin()">
+            <a [href]="openIdLoginUrl" class="redirect-btn" mat-button>
+              Login with Openid
+            </a>
+          </p>
+          <form [formGroup]="loginForm" (ngSubmit)="loginLocal()" class="form-wrapper">
+            <h4 class="login-local-header">Login with a Local Account</h4>
+            <mat-form-field class="example-full-width">
+              <mat-label>Email Address</mat-label>
+              <input matInput formControlName="email" />
+              <mat-error *ngIf="email?.touched || email?.dirty">
+                <span *ngIf="email.hasError('required')">Email is required</span>
+                <span *ngIf="email.hasError('email')">Enter a valid email</span>
+              </mat-error>
+            </mat-form-field>
+            <mat-form-field class="example-full-width">
+              <mat-label>Password</mat-label>
+              <input matInput type="password" formControlName="password" />
+              <mat-error *ngIf="password?.touched || password?.dirty">
+                <span *ngIf="password.hasError('required')">Password is required</span>
+              </mat-error>
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" type="submit">
+              Login
+            </button>
+
+
+            <div class="row center">
+              <a class="forgot-password-link" routerLink="/forgot-password">
+                I forgot my password
+              </a>
+            </div>
+
+            <div *ngIf="loading()" class="loading">
+              <mat-spinner [diameter]="35"></mat-spinner>
+            </div>
+
+          
+          </form>
+          <div *ngIf="error" class="error">
+            {{ error }}
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</div>
+
+

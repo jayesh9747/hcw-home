@@ -37,7 +37,18 @@
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
       </button>
+
+      <div class="admin-logo-wrapper" *ngIf="isLoggedIn"[matMenuTriggerFor]="menu">
+        <svg-icon src="assets/svg/icon-admin.svg" [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
+        <div class="admin-name">Hi,<span> {{ currentUser?.firstName || 'Admin' }}</span></div>
+      </div>
+      
     </div>
+    <mat-menu #menu="matMenu">
+      <button mat-menu-item >Profile</button>
+
+      <button mat-menu-item class="logout" (click)="logout()">Logout</button>
+    </mat-menu>
 
     <div class="content">
       <ng-content></ng-content>

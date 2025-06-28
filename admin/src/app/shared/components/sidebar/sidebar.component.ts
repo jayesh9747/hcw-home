@@ -1,4 +1,4 @@
-import { Component, Input, HostListener } from '@angular/core';
+import { Component, Input, HostListener, computed, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,19 +22,25 @@ import { RoutePaths } from '../../../constants/route-path.enum';
     MatListModule,
     MatBadgeModule,
     AngularSvgIconModule,
+    MatMenuModule
   ]
 })
 export class SidebarComponent {
   @Input() isLoggedIn: boolean = true;
+  private authService = inject(AuthService);
 
   isMobile = false;
   isSidebarOpen = true;
   isSidebarVisible = true;
   sidebarItems: SidebarItem[] = [];
+  currentUser: LoginUser | null = null;
+
 
   ngOnInit() {
     this.checkMobileView();
-
+    this.currentUser=this.authService.getCurrentUser()
+    console.log(this.currentUser);
+    
     this.sidebarItems = [
       { icon: "icon-dashboard.svg", label: "Dashboard", route: RoutePaths.Dashboard },
       { icon: "icon-user.svg", label: "Users", route: RoutePaths.Users },
@@ -65,5 +71,10 @@ export class SidebarComponent {
     if (this.isMobile) {
       this.isSidebarOpen = false;
     }
+  }
+  
+  showDropdown=false
+  logout(){
+    this.authService.logout()
   }
 }

@@ -48,13 +48,16 @@ export class ConfigService {
   get jwtExpiresIn(): string {
     return this.configService.get<string>('JWT_EXPIRES_IN', '24h');
   }
-
-  get corsOrigin(): string {
-    return this.configService.get<string>(
-      'CORS_ORIGIN',
-      'http://localhost:4200',
-    );
+  get corsOrigin(): string[] {
+    return [
+      this.configService.get<string>('ADMIN_URL'),
+      this.configService.get<string>('PRACTITIONER_URL'),
+      this.configService.get<string>('PATIENT_URL'),
+    ].filter(Boolean) as string[];
   }
+  
+  
+  
 
   get swaggerConfig() {
     return {
