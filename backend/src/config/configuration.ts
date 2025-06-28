@@ -22,6 +22,11 @@ export default () => ({
     path: 'api/docs',
   },
   whatsapp: {
-    templatesPath: process.env.WHATSAPP_TEMPLATES_PATH || 'src/json/whatsapp-templates.json',
+    templatesPath:
+      process.env.WHATSAPP_TEMPLATES_PATH || 'src/json/whatsapp-templates.json',
+  },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
   },
 });

@@ -91,6 +91,14 @@ export class ConfigService {
     );
   }
 
+  get twilioAuthToken(): string {
+    return this.configService.get<string>('twilio.authToken', 'twilio-auth');
+  }
+
+  get twilioAccountSid(): string {
+    return this.configService.get<string>('twilio.accountSid', 'twilio-account-sid');
+  }
+
   // Alternative method to get the raw WHATSAPP_TEMPLATES_PATH env variable
   get whatsappTemplatesPathFromEnv(): string | undefined {
     return this.configService.get<string>('WHATSAPP_TEMPLATES_PATH');

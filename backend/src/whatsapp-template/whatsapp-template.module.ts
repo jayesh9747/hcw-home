@@ -5,6 +5,7 @@ import { DatabaseModule } from 'src/database/database.module';
 import { WhatsappTemplateSeederService } from './whatsapp-template-seeder.service';
 import { ConfigModule } from 'src/config/config.module';
 import { AuthModule } from 'src/auth/auth.module';
+import { TwilioWhatsappService } from './twilio-template.service';
 
 @Module({
   imports: [DatabaseModule , ConfigModule , AuthModule],
@@ -12,7 +13,8 @@ import { AuthModule } from 'src/auth/auth.module';
   providers: [
     WhatsappTemplateService,
     WhatsappTemplateSeederService,
+    TwilioWhatsappService
   ],
-  exports: [WhatsappTemplateService, WhatsappTemplateSeederService],
+  exports: [WhatsappTemplateService, WhatsappTemplateSeederService , TwilioWhatsappService],
 })
 export class WhatsappTemplateModule {}
