@@ -15,7 +15,7 @@
         <!-- Organization -->
         <mat-form-field appearance="fill">
           <mat-label>Organization</mat-label>
-          <mat-select formControlName="organisationId">
+          <mat-select formControlName="organisationId" (selectionChange)="onFilterChange()">
             <mat-option *ngFor="let org of organizations" [value]="org.id">
               {{ org.name }}
             </mat-option>
@@ -25,7 +25,7 @@
         <!-- Country -->
         <mat-form-field appearance="fill">
           <mat-label>Country</mat-label>
-          <mat-select formControlName="country">
+          <mat-select formControlName="country" (selectionChange)="onFilterChange()">
             <mat-option *ngFor="let c of countries" [value]="c.name">
               {{ c.name }}
             </mat-option>
@@ -35,7 +35,7 @@
         <!-- Language -->
         <mat-form-field appearance="fill">
           <mat-label>Language</mat-label>
-          <mat-select formControlName="language">
+          <mat-select formControlName="language" (selectionChange)="onFilterChange()">
             <mat-option *ngFor="let l of languages" [value]="l.name">
               {{ l.name }}
             </mat-option>

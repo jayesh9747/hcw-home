@@ -40,7 +40,7 @@ export interface Language {
   name: string;
 }
 export interface Country {
-  id: number;
+  code: string;
   name: string;
 }
 
