@@ -14,7 +14,7 @@
       <div class="filter-container">
         <mat-form-field appearance="outline">
           <mat-label>Country</mat-label>
-          <mat-select [(value)]="filterCountry" (selectionChange)="loadTerms()">
+          <mat-select [(value)]="filterCountry" (selectionChange)="onFilterChange()">
             <mat-option value="">All</mat-option>
             <mat-option *ngFor="let c of countryOptions" [value]="c">{{ c }}</mat-option>
           </mat-select>
@@ -22,7 +22,7 @@
   
         <mat-form-field appearance="outline">
           <mat-label>Language</mat-label>
-          <mat-select [(value)]="filterLanguage" (selectionChange)="loadTerms()">
+          <mat-select [(value)]="filterLanguage" (selectionChange)="onFilterChange()">
             <mat-option value="">All</mat-option>
             <mat-option *ngFor="let l of languageOptions" [value]="l">{{ l }}</mat-option>
           </mat-select>
@@ -30,7 +30,7 @@
           
         <mat-form-field appearance="outline">
             <mat-label>organization</mat-label>
-            <mat-select [(value)]="filterOrganization" (selectionChange)="loadTerms()">
+            <mat-select [(value)]="filterOrganization" (selectionChange)="onFilterChange()">
               <mat-option value="">All</mat-option>
               @for (org of organizations; track org.id) {
                 <mat-option [value]="org.id">{{ org.name }}</mat-option>

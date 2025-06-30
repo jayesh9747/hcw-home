@@ -2,7 +2,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { UserService } from '../services/user.service';
 import { Subscription, Subject, debounceTime, distinctUntilChanged } from 'rxjs';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -22,6 +22,7 @@ import { OrganizationService } from '../services/organization.service';
 import { Organization } from "../models/user.model"
 import { AngularSvgIconModule } from 'angular-svg-icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+
 @Component({
   selector: 'app-terms',
   standalone: true,
@@ -71,13 +72,40 @@ export class TermsComponent implements OnInit, OnDestroy {
     private router: Router,
     private snackBarService: SnackbarService,
     private termService: TermsService,
-    private organizationService: OrganizationService
+    private organizationService: OrganizationService,
+    private route: ActivatedRoute, 
   ) { }
 
   ngOnInit(): void {
-    this.loadOrganizations()
+    this.loadOrganizations();
     this.findOptions();
-    this.loadTerms();
+    this.route.queryParams.subscribe(params => {
+      this.filterCountry = params['country'] || '';
+      this.filterLanguage = params['language'] || '';
+      this.filterOrganization = params['organization'] !== undefined ? +params['organization'] : '';
+      this.currentPage = +params['page'] || 1;
+      this.pageSize=+params['limit']||10;
+      this.loadTerms();  
+    });
+  }
+
+
+  updateQueryParams(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        country: this.filterCountry || null,
+        language: this.filterLanguage || null,
+        organization: this.filterOrganization || null,
+        page: this.currentPage,
+        limit:this.pageSize
+      },
+      queryParamsHandling: 'merge'
+    });
+  }
+  onFilterChange(): void {
+    this.currentPage = 1;
+    this.updateQueryParams();
   }
 
   ngOnDestroy(): void {
@@ -89,7 +117,7 @@ export class TermsComponent implements OnInit, OnDestroy {
     const query: TermQuery = {
       language: this.filterLanguage || undefined,
       country: this.filterCountry || undefined,
-      organizationId: this.filterOrganization === '' ? undefined : +this.filterOrganization,
+      organizationId: this.filterOrganization|| undefined,
       page: this.currentPage,
       limit: this.pageSize
     };
@@ -100,16 +128,14 @@ export class TermsComponent implements OnInit, OnDestroy {
           this.terms = (response.data as Term[]).map((term): Term => ({
             ...term,
             organizationName: this.organizations.find(org => org.id === term.organizationId)?.name || 'Unknown'
-          }));
-          console.log(response);
-          
+          }));          
           this.totalTerms = response.pagination.total;
           this.currentPage = response.pagination.page;
           this.pageSize = response.pagination.limit;
           this.loading = false;
         },
         error: (error: any) => {
-          this.snackBarService.showError(`Failed to load users: ${error.message || 'Unknown error'}`);
+          this.snackBarService.showError(`Failed to load Terms: ${error.message || 'Unknown error'}`);
           this.terms = [];
           this.totalTerms = 0;
           this.loading = false;
@@ -158,6 +184,7 @@ export class TermsComponent implements OnInit, OnDestroy {
   pageChange(event: PageEvent): void {
     this.currentPage = event.pageIndex + 1;
     this.pageSize = event.pageSize;
+    this.updateQueryParams();
     this.loadTerms();
   }
 
