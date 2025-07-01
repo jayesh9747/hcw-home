@@ -16,8 +16,9 @@ export interface TermQuery {
     page?: number;
     limit?: number;
     organizationId?: number;
-}
-
+    sortBy?: 'version' | 'id';  
+    order?: 'asc' | 'desc';
+  }
 export interface CreatetermDto {
 
     language: string;

@@ -108,16 +108,28 @@ export class TermService {
 
 
   async findAll(query: QueryTermsDto) {
-    this.logger.log('terms find all function called')
-    const { language, country, page = 1, limit = 10, organizationId } = query;
+    this.logger.log('terms findAll function called');
+  
+    const {
+      language,
+      country,
+      page = 1,
+      limit = 10,
+      organizationId,
+      sortBy = 'version',
+      order = 'desc',
+    } = query;
+  
     const skip = (page - 1) * limit;
-    const pageNumber = Number(page) || 1;
-
   
     const where: Prisma.TermsWhereInput = {
-      ...(organizationId &&{organizationId}),
+      ...(organizationId && { organizationId }),
       ...(language && { language }),
       ...(country && { country }),
+    };
+  
+    const orderBy: Prisma.TermsOrderByWithRelationInput = {
+      [sortBy]: order,
     };
   
     const [terms, total] = await Promise.all([
@@ -125,7 +137,7 @@ export class TermService {
         where,
         skip,
         take: limit,
-        orderBy: { version: 'desc' },
+        orderBy,
       }),
       this.databaseService.terms.count({ where }),
     ]);
@@ -137,6 +149,7 @@ export class TermService {
       limit,
     };
   }
+  
   
 
   async findById(id: number) {
