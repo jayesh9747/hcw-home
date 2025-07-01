@@ -129,6 +129,9 @@ export class LoginComponent implements OnInit {
     }
   }
 
-
+  loginWithOpenID() {
+    window.location.href = this.openIdLoginUrl;
+    this.loading.set(true)
+  }
 
 }
