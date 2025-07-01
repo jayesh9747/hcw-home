@@ -8,6 +8,9 @@ import { CommonModule } from '@angular/common';
 import { SidebarItem } from '../../../models/sidebar.model';
 import { AngularSvgIconModule } from 'angular-svg-icon';
 import { RoutePaths } from '../../../constants/route-path.enum';
+import { AuthService } from '../../../auth/auth.service';
+import { LoginUser } from '../../../models/user.model';
+import { MatMenuModule } from '@angular/material/menu';
 
 @Component({
   selector: 'app-sidebar',

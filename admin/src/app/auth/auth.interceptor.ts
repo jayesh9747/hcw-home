@@ -28,7 +28,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
       const isRefreshRequest = req.url.includes('/refresh-token');
 
-      // 🔁 Attempt to refresh token if access token expired
+      // Attempt to refresh token if access token expired
       if (
         isUnauthorized &&
         tokenExpired &&
