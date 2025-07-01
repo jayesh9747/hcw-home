@@ -224,28 +224,25 @@
         }
 
         <div class="form-actions">
-          <button 
-            mat-raised-button 
-            type="button" 
+          <app-button 
+            [type]="ButtonType.Button"
+            [variant]="ButtonVariant.Secondary"
+            [size]="ButtonSize.Medium"
             (click)="onReset()"
-            [disabled]="isSaving()"
-            class="reset-button"
-            aria-label="Reset form to original values">
+            [disabled]="isSaving()">
             Reset Changes
-          </button>
+          </app-button>
           
-          <button 
-            mat-raised-button 
-            color="primary" 
-            type="submit"
-            [disabled]="!isFormValid() || isSaving()"
-            class="save-button"
-            [attr.aria-label]="isSaving() ? 'Saving profile changes' : 'Save profile changes'">
+          <app-button 
+            [type]="ButtonType.Submit"
+            [variant]="ButtonVariant.Primary"
+            [size]="ButtonSize.Medium"
+            [disabled]="!isFormValid() || isSaving()">
             @if (isSaving()) {
               <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
             }
             <span>{{ isSaving() ? 'Saving...' : 'Save Changes' }}</span>
-          </button>
+          </app-button>
         </div>
       </form>
     </div>
@@ -257,13 +254,12 @@
       <mat-icon class="error-icon" aria-hidden="true">error_outline</mat-icon>
       <h2>Unable to load profile</h2>
       <p>There was an error loading your profile information. Please try refreshing the page.</p>
-      <button 
-        mat-raised-button 
-        color="primary" 
-        (click)="loadProfileData()"
-        aria-label="Retry loading profile data">
+      <app-button 
+        [variant]="ButtonVariant.Primary"
+        [size]="ButtonSize.Medium"
+        (click)="loadProfileData()">
         Retry
-      </button>
+      </app-button>
     </div>
   }
 </div>

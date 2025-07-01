@@ -4,7 +4,6 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormControl } 
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
@@ -17,6 +16,8 @@ import { LanguageService } from '../../services/language.service';
 import { SpecialityService } from '../../services/speciality.service';
 import { ToastService } from '../../services/toast/toast.service';
 import { User, UserSex, Language, Speciality, UpdateUserProfileDto } from '../../models/user.model';
+import { ButtonComponent } from '../../components/ui/button/button.component';
+import { ButtonVariant, ButtonSize, ButtonType } from '../../constants/button.enums';
 
 const PHONE_NUMBER_REGEX = /^[+]?[1-9][\d\s\-\(\)]{7,15}$/;
 const MIN_NAME_LENGTH = 2;
@@ -70,11 +71,11 @@ interface GenderOption {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatButtonModule,
     MatCardModule,
     MatProgressSpinnerModule,
     MatChipsModule,
-    MatIconModule
+    MatIconModule,
+    ButtonComponent
   ],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss']
@@ -99,6 +100,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   readonly isFormValid = computed(() => this.profileForm?.valid ?? false);
   readonly hasUnsavedChanges = computed(() => this.profileForm?.dirty && !this.isSaving());
+
+  readonly ButtonVariant = ButtonVariant;
+  readonly ButtonSize = ButtonSize;
+  readonly ButtonType = ButtonType;
 
   constructor() {
     this.profileForm = this.createProfileForm();
