@@ -87,6 +87,10 @@ export class ConfigService {
     return this.configService.get('frontend');
   }
 
+  get logFormat(): string {
+    return this.configService.get<string>('LOGFORMAT', 'default');
+  }
+
   // Additional helper methods for getting optional values
   getOptional<T = string>(key: string): T | undefined {
     return this.configService.get<T>(key);

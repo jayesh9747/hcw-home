@@ -26,4 +26,7 @@ export default () => ({
     branding: process.env.BRANDING || '@HOME',
     logo: process.env.LOGO || '',
   },
+  log_formatter: {
+    format: process.env.LOGFORMAT || 'default',
+  },
 });

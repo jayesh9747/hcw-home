@@ -20,11 +20,13 @@ import { LanguageModule } from './language/language.module';
 import { SpecialityModule } from './speciality/speciality.module';
 import { ExportModule } from './export/export.module';
 import { TermModule } from './term/term.module';
+import { LoggerModule } from './logger/logger.module';
 
 
 @Module({
   imports: [
     ConfigModule,
+    LoggerModule,
     DatabaseModule,
     HealthModule,
     AuthModule,
