@@ -90,6 +90,7 @@ export class TermsComponent implements OnInit, OnDestroy {
       this.currentPage = +params['page'] || 1;
       this.pageSize = +params['limit'] || 10;
       this.loadTerms();
+      this.updateQueryParams()
     });
   }
 
@@ -127,7 +128,7 @@ export class TermsComponent implements OnInit, OnDestroy {
       page: this.currentPage,
       limit: this.pageSize,
       order: this.order === 'asc' || this.order === 'desc' ? this.order : 'desc',
-      sortBy: this.sortBy === 'version' || this.sortBy === 'id' ? this.sortBy : undefined
+      sortBy: this.sortBy === 'version' || this.sortBy === 'id' ? this.sortBy : 'version'
     };
 
 
