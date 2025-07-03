@@ -5,24 +5,8 @@ import { environment } from '../../environments/environment.development';
 import { ApiResponse, PaginatedApiResponse, PaginationResult } from '../models/api-response.model';
 import { map } from 'rxjs/operators';
 import { CreatetermDto } from '../models/term.model';
+ import { TermQuery,Term } from '../models/term.model';
 
-export interface Term {
-  id: number;
-  language: string;
-  country: string;
-  content: string;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TermQuery {
-  language?: string;
-  country?: string;
-  page?: number;
-  limit?: number;
-  organizationId?:number
-}
 
 @Injectable({
   providedIn: 'root',

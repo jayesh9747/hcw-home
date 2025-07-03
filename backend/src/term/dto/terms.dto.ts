@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, Min, IsString, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, Min, IsString, MinLength, IsIn } from 'class-validator';
 export class CreatetermDto {
   @ApiProperty({
     description: 'Language of the terms',
@@ -56,6 +56,7 @@ export class UpdateTermDto {
   }
 
 
+  
   export class QueryTermsDto {
     @IsOptional()
     @IsString()
@@ -81,5 +82,16 @@ export class UpdateTermDto {
     @Type(() => Number)
     @IsNumber()
     organizationId?: number;
+  
+    @IsOptional()
+    @IsString()
+    @IsIn(['version', 'id'], { message: 'sortBy must be either "version" or "id"' })
+    sortBy?: 'version' | 'id';
+  
+    @IsOptional()
+    @IsString()
+    @IsIn(['asc', 'desc'], { message: 'order must be either "asc" or "desc"' })
+    order?: 'asc' | 'desc';
   }
+  
   

@@ -2,7 +2,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { UserService } from '../services/user.service';
 import { Subscription, Subject, debounceTime, distinctUntilChanged } from 'rxjs';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -16,10 +16,12 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { SnackbarService } from '../services/snackbar.service';
-import { Term,TermQuery } from '../models/term.model';
+import { Term, TermQuery } from '../models/term.model';
 import { TermsService } from '../services/term.service';
 import { OrganizationService } from '../services/organization.service';
-import { Organization } from "../models/user.model"
+import { Organization,Country,Language } from "../models/user.model"
+import { AngularSvgIconModule } from 'angular-svg-icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-terms',
@@ -36,7 +38,9 @@ import { Organization } from "../models/user.model"
     MatTableModule,
     MatPaginatorModule,
     MatIconModule,
-    MatChipsModule
+    MatChipsModule,
+    AngularSvgIconModule,
+    MatTooltipModule
   ],
   templateUrl: './terms.component.html',
   styleUrls: ['./terms.component.scss']
@@ -47,13 +51,15 @@ export class TermsComponent implements OnInit, OnDestroy {
   currentPage: number = 1;
   pageSize: number = 10;
   loading: boolean = false;
-  
+
   displayedColumns: string[] = ['termId', 'country', 'language', 'version', 'organizationName', 'actions'];
 
 
   filterCountry: string = ''
-  filterLanguage:string = '';
+  filterLanguage: string = '';
   filterOrganization: number | '' = '';
+  sortBy: 'version' | 'id' = 'version';
+  order: 'asc' | 'desc' = 'desc';
 
   countryOptions: string[] = [];
   languageOptions: string[] = [];
@@ -61,20 +67,51 @@ export class TermsComponent implements OnInit, OnDestroy {
 
 
 
-  
+
   private subscriptions: Subscription = new Subscription();
 
   constructor(
     private router: Router,
     private snackBarService: SnackbarService,
     private termService: TermsService,
-    private organizationService: OrganizationService
+    private organizationService: OrganizationService,
+    private route: ActivatedRoute,
   ) { }
 
   ngOnInit(): void {
-    this.loadOrganizations()
+    this.loadOrganizations();
     this.findOptions();
-    this.loadTerms();
+    this.route.queryParams.subscribe(params => {
+      this.filterCountry = params['country'] || '';
+      this.filterLanguage = params['language'] || '';
+      this.filterOrganization = params['organization'] !== undefined ? +params['organization'] : '';
+      this.sortBy = params['sortBy'] === 'version' || params['sortBy'] === 'id' ? params['sortBy'] : 'version';
+      this.order = params['order'] === 'asc' || params['order'] === 'desc' ? params['order'] : 'desc';
+      this.currentPage = +params['page'] || 1;
+      this.pageSize = +params['limit'] || 10;
+      this.loadTerms();
+    });
+  }
+
+
+  updateQueryParams(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        country: this.filterCountry || null,
+        language: this.filterLanguage || null,
+        organization: this.filterOrganization || null,
+        page: this.currentPage,
+        limit: this.pageSize,
+        order: this.order || null,
+        sortBy: this.sortBy || null
+      },
+      queryParamsHandling: 'merge'
+    });
+  }
+  onFilterChange(): void {
+    this.currentPage = 1;
+    this.updateQueryParams();
   }
 
   ngOnDestroy(): void {
@@ -86,11 +123,14 @@ export class TermsComponent implements OnInit, OnDestroy {
     const query: TermQuery = {
       language: this.filterLanguage || undefined,
       country: this.filterCountry || undefined,
-      organizationId: this.filterOrganization === '' ? undefined : +this.filterOrganization,
+      organizationId: this.filterOrganization || undefined,
       page: this.currentPage,
-      limit: this.pageSize
+      limit: this.pageSize,
+      order: this.order === 'asc' || this.order === 'desc' ? this.order : 'desc',
+      sortBy: this.sortBy === 'version' || this.sortBy === 'id' ? this.sortBy : undefined
     };
-  
+
+
     this.subscriptions.add(
       this.termService.getAll(query).subscribe({
         next: (response) => {
@@ -98,15 +138,13 @@ export class TermsComponent implements OnInit, OnDestroy {
             ...term,
             organizationName: this.organizations.find(org => org.id === term.organizationId)?.name || 'Unknown'
           }));
-          console.log(response);
-          
           this.totalTerms = response.pagination.total;
           this.currentPage = response.pagination.page;
           this.pageSize = response.pagination.limit;
           this.loading = false;
         },
         error: (error: any) => {
-          this.snackBarService.showError(`Failed to load users: ${error.message || 'Unknown error'}`);
+          this.snackBarService.showError(`Failed to load Terms: ${error.message || 'Unknown error'}`);
           this.terms = [];
           this.totalTerms = 0;
           this.loading = false;
@@ -114,19 +152,19 @@ export class TermsComponent implements OnInit, OnDestroy {
       })
     );
   }
-  
+
   findOptions(): void {
     this.termService.getAll({}).subscribe({
       next: (response) => {
         const terms = response.data as Term[];
         const countriesSet = new Set<string>();
         const languagesSet = new Set<string>();
-  
+
         terms.forEach(term => {
           if (term.country) countriesSet.add(term.country);
           if (term.language) languagesSet.add(term.language);
         });
-  
+
         this.countryOptions = Array.from(countriesSet).sort();
         this.languageOptions = Array.from(languagesSet).sort();
       },
@@ -135,7 +173,7 @@ export class TermsComponent implements OnInit, OnDestroy {
       }
     });
   }
-  
+
 
 
 
@@ -155,6 +193,7 @@ export class TermsComponent implements OnInit, OnDestroy {
   pageChange(event: PageEvent): void {
     this.currentPage = event.pageIndex + 1;
     this.pageSize = event.pageSize;
+    this.updateQueryParams();
     this.loadTerms();
   }
 

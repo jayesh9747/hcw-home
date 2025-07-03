@@ -1,7 +1,6 @@
-// term-form.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { Observable, Subscription, forkJoin } from 'rxjs';
+import { Observable, Subscription, forkJoin, take } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { CommonModule } from '@angular/common';
@@ -17,7 +16,11 @@ import { OrganizationService } from '../services/organization.service';
 import { SnackbarService } from '../services/snackbar.service';
 import { Country, Language, Organization } from '../models/user.model';
 import { TermsService } from '../services/term.service';
-import { Term } from "../models/term.model"
+import { Term } from "../models/term.model";
+import { AngularSvgIconModule } from 'angular-svg-icon';
+import { ConfigService } from '../services/config.service';
+import { LanguageService } from '../services/language.service';
+import { RoutePaths } from '../constants/route-path.enum';
 
 @Component({
   selector: 'app-term-form',
@@ -31,7 +34,8 @@ import { Term } from "../models/term.model"
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MdEditorComponent
+    MdEditorComponent,
+    AngularSvgIconModule
   ],
   templateUrl: './term-form.component.html',
   styleUrl: './term-form.component.scss'
@@ -40,8 +44,8 @@ export class TermFormComponent implements OnInit, OnDestroy {
   termForm!: FormGroup;
   loading = false;
   isEditMode = false;
-  organizations: Organization[] = [];
   termId: number | null = null;
+  organizations: Organization[] = [];
   languages: Language[] = [];
   countries: Country[] = [];
   private subscriptions = new Subscription();
@@ -52,54 +56,59 @@ export class TermFormComponent implements OnInit, OnDestroy {
     private router: Router,
     private organizationService: OrganizationService,
     private snackBarService: SnackbarService,
-    private termService: TermsService
+    private termService: TermsService,
+    private configService: ConfigService,
+    private languageService: LanguageService
   ) {}
 
   ngOnInit(): void {
+    this.initializeForm();
+    this.parseRouteParams();
+    this.loadInitialData();
+  }
+
+  private initializeForm(): void {
     this.termForm = this.fb.group({
       organisationId: ['', Validators.required],
       language: ['', Validators.required],
       country: ['', Validators.required],
-      content: ['', Validators.required]
+      content: ['', Validators.required],
     });
+  }
 
-    this.route.paramMap.subscribe(params => {
+  private parseRouteParams(): void {
+    this.route.paramMap.pipe(take(1)).subscribe(params => {
       const id = params.get('id');
       this.termId = id ? +id : null;
       this.isEditMode = !!this.termId;
-      this.loadFormData();
     });
-    console.log(this.isEditMode,this.termId);
 
-
-    this.loadLanguages();
-    this.loadCountries();
+    const params = this.route.snapshot.queryParams;
+    if (params['organization']) this.termForm.patchValue({ organisationId: +params['organization'] });
+    if (params['language']) this.termForm.patchValue({ language: params['language'] });
+    if (params['country']) this.termForm.patchValue({ country: params['country'] });
   }
 
-  loadFormData(): void {
-    this.loading = true;
+  private loadInitialData(): void {
     const orgs$ = this.organizationService.getAllOrganizations();
     const observables: Observable<any>[] = [orgs$];
 
     if (this.isEditMode && this.termId !== null) {
-      observables.push(this.termService.getById(this.termId)); // Use dynamic org ID if needed
+      observables.push(this.termService.getById(this.termId));
+      this.termForm.get('organisationId')?.disable();
     }
 
+    this.loading = true;
     this.subscriptions.add(
       forkJoin(observables).subscribe({
-        next: (results: any[]) => {
-          this.organizations = results[0];
-          if (this.isEditMode && results[1]) {
-            const termdata: Term = results[1];
-            console.log(termdata);
-            
-            this.termForm.patchValue({
-              organisationId: termdata.organizationId,
-              language: termdata.language,
-              country: termdata.country,
-              content: termdata.content
-            });
+        next: ([orgs, termData]) => {
+          this.organizations = orgs;
+
+          if (this.isEditMode && termData) {
+            this.populateForm(termData);
+            this.updateQueryParamsFromForm();
           }
+
           this.loading = false;
         },
         error: (error) => {
@@ -108,26 +117,36 @@ export class TermFormComponent implements OnInit, OnDestroy {
         }
       })
     );
+
+    this.loadLanguages();
+    this.loadCountries();
   }
 
-  loadLanguages(): void {
-    this.languages = [
-      { id: 1, name: 'English' },
-      { id: 2, name: 'Hindi' },
-      { id: 3, name: 'German' },
-      { id: 4, name: 'Japanese' },
-      { id: 5, name: 'Portuguese' }
-    ];
+  private populateForm(term: Term): void {
+    this.termForm.patchValue({
+      organisationId: term.organizationId,
+      language: term.language,
+      country: term.country,
+      content: term.content
+    });
   }
 
-  loadCountries(): void {
-    this.countries = [
-      { id: 1, name: 'India' },
-      { id: 2, name: 'United States' },
-      { id: 3, name: 'Germany' },
-      { id: 4, name: 'Japan' },
-      { id: 5, name: 'Brazil' }
-    ];
+  private updateQueryParamsFromForm(): void {
+    const form = this.termForm.getRawValue();
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        organization: form.organisationId || null,
+        language: form.language || null,
+        country: form.country || null,
+        isEditMode: this.isEditMode || null
+      },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  onFilterChange(): void {
+    this.updateQueryParamsFromForm();
   }
 
   onSubmit(): void {
@@ -137,30 +156,25 @@ export class TermFormComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const formValue = this.termForm.value;
     const payload = {
-      organizationId: formValue.organisationId,
-      language: formValue.language,
-      country: formValue.country,
-      content: formValue.content,
+      organizationId: this.termForm.get('organisationId')?.value,
+      language: this.termForm.get('language')?.value,
+      country: this.termForm.get('country')?.value,
+      content: this.termForm.get('content')?.value
     };
 
     this.loading = true;
-    console.log(this.isEditMode,this.termId);
-    
-
     const operation = this.isEditMode && this.termId
-      ? this.termService.update(payload.organizationId,this.termId, payload)
+      ? this.termService.update(payload.organizationId, this.termId, payload)
       : this.termService.create(payload);
 
     this.subscriptions.add(
       operation.subscribe({
         next: () => {
           this.snackBarService.showSuccess(`Term ${this.isEditMode ? 'updated' : 'created'} successfully!`);
-          this.router.navigate(['/terms']);
+          this.router.navigate([RoutePaths.Terms]);
         },
         error: (error) => {
-          console.error('Error saving term:', error);
           this.snackBarService.showError(`Failed: ${error.message || 'Unknown error'}`);
           this.loading = false;
         }
@@ -169,12 +183,26 @@ export class TermFormComponent implements OnInit, OnDestroy {
   }
 
   cancel(): void {
-    this.router.navigate(['/terms']);
+    this.router.navigate([RoutePaths.Terms]);
   }
 
   hasError(controlName: string, errorType: string): boolean | undefined {
     const control = this.termForm.get(controlName);
     return control?.hasError(errorType) && (control?.touched || control?.dirty);
+  }
+
+  loadLanguages(): void {
+    this.languageService.getAllLanguages().subscribe({
+      next: data => this.languages = data,
+      error: err => console.error('Failed to load languages:', err)
+    });
+  }
+
+  loadCountries(): void {
+    this.configService.getCountries().subscribe({
+      next: res => this.countries = res,
+      error: err => console.error('Failed to load countries:', err)
+    });
   }
 
   ngOnDestroy(): void {
