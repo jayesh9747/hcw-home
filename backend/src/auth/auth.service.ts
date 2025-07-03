@@ -136,7 +136,7 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: RefreshTokenDto): Promise<TokenDto> {
-    if (!refreshToken) {
+    if (!refreshToken.refreshToken) {
       this.logger.warn('Refresh token is required for token refresh');
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
@@ -153,19 +153,20 @@ export class AuthService {
       return this.generateToken(user);
     } catch (error) {
       this.logger.error('Invalid refresh token', error?.message || error);
-      throw HttpExceptionHelper.unauthorized('Invalid refresh token');
+      throw HttpExceptionHelper.unauthorized('Invalid or expired token');
     }
   }
 
   async verifyRefreshToken(
     refreshToken: RefreshTokenDto,
   ): Promise<{ userId: number; userEmail: string }> {
-    if (refreshToken) {
+    if (!refreshToken.refreshToken) {
+      this.logger.warn('Refresh token is required for token refresh');
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
 
     try {
-      return await this.verifyToken(refreshToken, true);
+      return await this.verifyToken(refreshToken.refreshToken, true);
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         throw HttpExceptionHelper.unauthorized('Token expired');

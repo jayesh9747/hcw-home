@@ -6,15 +6,21 @@ import { ResourceManagerComponent } from './resource-manager/resource-manager.co
 import { TermsComponent } from './terms/terms.component';
 import { TermFormComponent } from './term-form/term-form.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
+import { LoginComponent } from './login/login.component';
+import { AuthGuard } from './auth/guard/auth.guard';
+
 
 export const routes: Routes = [
     { path: '', redirectTo: RoutePaths.Dashboard, pathMatch: 'full' },
-    { path: RoutePaths.Dashboard, component: DashboardComponent},
-    { path: RoutePaths.Users, component: UsersComponent },
-    { path: RoutePaths.NewUser, component: UserFormComponent},
-    { path: 'user/:id', component:UserFormComponent },
-    { path: RoutePaths.ResourceManager, component: ResourceManagerComponent },
-    { path: RoutePaths.Terms, component: TermsComponent },
-    { path: RoutePaths.newTerm, component: TermFormComponent },
-    { path: 'term/:id', component: TermFormComponent },
-];
+    { path: RoutePaths.Login, component: LoginComponent },
+  
+    // Protected routes
+    { path: RoutePaths.Dashboard, component: DashboardComponent, canActivate: [AuthGuard] },
+    { path: RoutePaths.Users, component: UsersComponent, canActivate: [AuthGuard] },
+    { path: RoutePaths.NewUser, component: UserFormComponent, canActivate: [AuthGuard] },
+    { path: 'user/:id', component: UserFormComponent, canActivate: [AuthGuard] },
+    { path: RoutePaths.ResourceManager, component: ResourceManagerComponent, canActivate: [AuthGuard] },
+    { path: RoutePaths.Terms, component: TermsComponent, canActivate: [AuthGuard] },
+    { path: RoutePaths.newTerm, component: TermFormComponent, canActivate: [AuthGuard] },
+    { path: 'term/:id', component: TermFormComponent, canActivate: [AuthGuard] }
+  ];

@@ -11,8 +11,13 @@ export default () => ({
     refreshExpiresIn: process.env.REFRESH_TOKEN_LIFE || '7d',
   },
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+    origin: [
+      process.env.ADMIN_URL,
+      process.env.PRACTITIONER_URL,
+      process.env.PATIENT_URL,
+    ].filter(Boolean),
   },
+  
   swagger: {
     enabled: process.env.NODE_ENV === 'development',
     title: 'HCW-Home Backend API',

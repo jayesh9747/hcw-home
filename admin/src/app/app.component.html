@@ -1,7 +1,17 @@
-@if (isLoggedIn) {
-  <app-sidebar>
+<ng-container *ngIf="loginChecked(); else loading">
+<ng-container *ngIf="isLoggedIn(); else noSidebar">
+  <app-sidebar [isLoggedIn]="isLoggedIn()">
     <router-outlet></router-outlet>
   </app-sidebar>
-} @else {
+</ng-container>
+
+<ng-template #noSidebar>
   <router-outlet></router-outlet>
-}
+</ng-template>
+</ng-container>
+
+<ng-template #loading>
+<div class="full-screen-loader">
+  <mat-spinner></mat-spinner>
+</div>
+</ng-template> 

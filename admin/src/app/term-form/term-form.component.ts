@@ -148,6 +148,7 @@ export class TermFormComponent implements OnInit, OnDestroy {
   onFilterChange(): void {
     this.updateQueryParamsFromForm();
   }
+  
 
   onSubmit(): void {
     if (this.termForm.invalid) {

@@ -75,6 +75,9 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "port": 4201
+          },
           "configurations": {
             "production": {
               "buildTarget": "app:build:production"
@@ -131,7 +134,8 @@
   "cli": {
     "schematicCollections": [
       "@ionic/angular-toolkit"
-    ]
+    ],
+    "analytics": "7989e56d-074c-4e8e-bcdb-01eb1f9e797e"
   },
   "schematics": {
     "@ionic/angular-toolkit:component": {

@@ -12,7 +12,8 @@ import {
   Logger,
   Next,
   Param,
-  HttpException
+  HttpException,
+  ValidationPipe
 } from '@nestjs/common';
 import * as passport from 'passport';
 import { AuthService } from './auth.service';
@@ -34,7 +35,6 @@ import { registerUserSchema } from './validation/auth.validation';
 import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { Request, Response } from 'express';
 import { AuthenticatedGuard } from './guards/authenticated.guard';
-
 
 @Controller('auth')
 export class AuthController {
@@ -116,7 +116,7 @@ export class AuthController {
 async oidcCallback(
   @Req() req: Request,
   @Param('provider') provider: string,
-  // @Res() res:Response
+  @Res() res:Response
 ): Promise<any> {
   const { role } = req.query;
   const ReqRole = (role as string)?.toUpperCase() as Role;
@@ -158,10 +158,10 @@ async oidcCallback(
       }
 
       const tokens= user.data.tokens
-      const finalRedirect = `${redirectTo}?aT=${tokens.accessToken}&rT=${tokens.refreshToken}`;
+      const finalRedirect = `${redirectTo}/login?aT=${tokens.accessToken}&rT=${tokens.refreshToken}`;
       this.logger.log(`Redirecting ${ReqRole} to ${finalRedirect}`);
-      return resolve(user)
-      // return resolve(res.redirect(finalRedirect)); // redirect to frontend with tokens
+      // return resolve(user)
+      return resolve(res.redirect(finalRedirect)); // redirect to frontend with tokens
     })(req, null as any, (authErr) => {
       if (authErr) {
         return resolve({
@@ -229,14 +229,15 @@ async oidcCallback(
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   async refreshToken(
-    @Body() refreshToken: RefreshTokenDto,
-    @Req() req: ExtendedRequest,
-  ) {
-    const requestId = req.id as string;
-    if (!refreshToken) {
+    @Body(new ValidationPipe({transform: true}),) refreshTokenDto: RefreshTokenDto,
+  ): Promise<ApiResponseDto<any>> {    
+    this.logger.log('refresh token called')
+    if (!refreshTokenDto.refreshToken) {
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
-    const result = await this.authService.refreshToken(refreshToken);
-    return ApiResponseDto.success(result, 'tokens created successfully', 200);
+  
+    const result = await this.authService.refreshToken(refreshTokenDto);
+    return ApiResponseDto.success(result, 'Tokens created successfully', 200);
   }
+  
 }

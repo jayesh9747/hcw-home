@@ -213,3 +213,26 @@
     }
   }
 }
+
+.admin-logo-wrapper {
+  position: relative;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 0 12px;
+
+  .admin-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+  }
+  
+}
+.logout{
+  font-weight: 600;
+  font-size: 14px;
+  color: red;
+    
+}
