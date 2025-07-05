@@ -50,6 +50,7 @@ export class ResourceManagerComponent {
   editResourceId: number | null = null;
   selectedLogoFile: File | null = null;
   existingLogoUrl: string = '';
+  selectedLogoFileName: string | null = null;
 
   displayedColumns: string[] = ['name', 'actions'];
 
@@ -189,6 +190,7 @@ export class ResourceManagerComponent {
     event.preventDefault();
     event.stopPropagation(); 
     this.selectedLogoFile = event.target.files[0];
+    this.selectedLogoFileName = event.target.files[0] ? event.target.files[0].name : null;
   }
 
   uploadLogo(file: File) {
@@ -311,6 +313,7 @@ export class ResourceManagerComponent {
     this.editResourceId = resource.id;
     const patchData: any = { name: resource.name };
     this.existingLogoUrl = resource.logo || '';
+    this.selectedLogoFileName = resource.logo;
 
     if (this.tabs[this.selectedTabIndex].type === 'organization') {
       patchData.logo = resource.logo || '';
@@ -328,6 +331,7 @@ export class ResourceManagerComponent {
     this.editResourceId = null;
     this.selectedLogoFile = null;
     this.existingLogoUrl = '';
+    this.selectedLogoFileName = null;
   }
 
   postSave() {

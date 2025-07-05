@@ -13,7 +13,10 @@
           @if (tab.type === 'organization') {
             <div class="org-fields">
               <div class="file-upload-container half-width">
-                <label>Upload Logo:</label>
+                <label> Upload Logo:</label>
+                @if(selectedLogoFileName){<label class="selected-file">
+                  {{ selectedLogoFileName }}
+                </label>}
                 <button mat-raised-button color="primary" type="button" (click)="fileInput.click()">Select File</button>
                 <input type="file" hidden #fileInput (change)="onLogoSelected($event)" />
               </div>
