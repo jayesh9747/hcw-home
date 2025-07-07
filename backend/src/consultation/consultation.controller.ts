@@ -41,11 +41,12 @@ import { HistoryQueryDto } from './dto/history-query.dto';
 import { ConsultationHistoryItemDto } from './dto/consultation-history-item.dto';
 import { ConsultationDetailDto } from './dto/consultation-detail.dto';
 import { Response } from 'express';
-import { ResponseStatus } from 'src/common/helpers/response/response-status.enum';
 import {
   EndConsultationDto,
   EndConsultationResponseDto,
 } from './dto/end-consultation.dto';
+import { ConsultationPatientHistoryItemDto } from './dto/consultation-patient-history.dto';
+import { RateConsultationDto } from './dto/rate-consultation.dto';
 
 @ApiTags('consultation')
 @Controller('consultation')
@@ -59,14 +60,27 @@ export class ConsultationController {
   @ApiBody({ type: CreateConsultationDto })
   @ApiCreatedResponse({
     description: 'Consultation created',
-    type: ApiResponseDto,
+    type: ApiResponseDto<ConsultationResponseDto>,
   })
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
   async createConsultation(
     @Body() createDto: CreateConsultationDto,
     @Query('userId', UserIdParamPipe) userId: number,
-  ): Promise<ApiResponseDto<ConsultationResponseDto>> {
-    return this.consultationService.createConsultation(createDto, userId);
+  ): Promise<any> {
+    const result = await this.consultationService.createConsultation(
+      createDto,
+      userId,
+    );
+    return {
+      ...ApiResponseDto.success(result.data, result.message, result.statusCode),
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post(':id/join/patient')
@@ -75,14 +89,21 @@ export class ConsultationController {
   @ApiBody({ type: JoinConsultationDto })
   @ApiOkResponse({
     description: 'Patient joined consultation',
-    type: ApiResponseDto,
+    type: ApiResponseDto<JoinConsultationResponseDto>,
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async joinPatient(
     @Param('id', ConsultationIdParamPipe) id: number,
     @Body() body: JoinConsultationDto,
-  ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
-    return this.consultationService.joinAsPatient(id, body.userId);
+  ): Promise<any> {
+    const result = await this.consultationService.joinAsPatient(
+      id,
+      body.userId,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post(':id/join/practitioner')
@@ -91,14 +112,21 @@ export class ConsultationController {
   @ApiBody({ type: JoinConsultationDto })
   @ApiOkResponse({
     description: 'Practitioner joined consultation',
-    type: ApiResponseDto,
+    type: ApiResponseDto<JoinConsultationResponseDto>,
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async joinPractitioner(
     @Param('id', ConsultationIdParamPipe) id: number,
     @Body() body: JoinConsultationDto,
-  ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
-    return this.consultationService.joinAsPractitioner(id, body.userId);
+  ): Promise<any> {
+    const result = await this.consultationService.joinAsPractitioner(
+      id,
+      body.userId,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post('/admit')
@@ -108,14 +136,18 @@ export class ConsultationController {
   @ApiBody({ type: AdmitPatientDto })
   @ApiOkResponse({
     description: 'Patient admitted to consultation',
-    type: ApiResponseDto,
+    type: ApiResponseDto<AdmitPatientResponseDto>,
   })
-  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async admitPatient(
     @Body() dto: AdmitPatientDto,
     @Query('userId', UserIdParamPipe) userId: number,
-  ): Promise<ApiResponseDto<AdmitPatientResponseDto>> {
-    return this.consultationService.admitPatient(dto, userId);
+  ): Promise<any> {
+    const result = await this.consultationService.admitPatient(dto, userId);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post('/end')
@@ -123,14 +155,27 @@ export class ConsultationController {
   @ApiBody({ type: EndConsultationDto })
   @ApiOkResponse({
     description: 'Consultation ended',
-    type: ApiResponseDto,
+    type: ApiResponseDto<EndConsultationResponseDto>,
   })
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
   async endConsultation(
     @Body() endDto: EndConsultationDto,
     @Query('userId', UserIdParamPipe) userId: number,
-  ): Promise<ApiResponseDto<EndConsultationResponseDto>> {
-    return this.consultationService.endConsultation(endDto, userId);
+  ): Promise<any> {
+    const result = await this.consultationService.endConsultation(
+      endDto,
+      userId,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('/waiting-room')
@@ -140,12 +185,17 @@ export class ConsultationController {
   @ApiQuery({ name: 'userId', type: Number, description: 'Practitioner ID' })
   @ApiOkResponse({
     description: 'Waiting room consultations',
-    type: ApiResponseDto,
+    type: ApiResponseDto<WaitingRoomPreviewResponseDto>,
   })
   async getWaitingRoom(
     @Query('userId', UserIdParamPipe) userId: number,
-  ): Promise<ApiResponseDto<WaitingRoomPreviewResponseDto>> {
-    return this.consultationService.getWaitingRoomConsultations(userId);
+  ): Promise<any> {
+    const result =
+      await this.consultationService.getWaitingRoomConsultations(userId);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('/history')
@@ -160,40 +210,44 @@ export class ConsultationController {
     enum: ['COMPLETED', 'TERMINATED_OPEN'],
     required: false,
   })
-  @ApiOkResponse({ type: ApiResponseDto })
-  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
-  async getHistory(
-    @Query() query: HistoryQueryDto,
-  ): Promise<ApiResponseDto<ConsultationHistoryItemDto[]>> {
-    const data = await this.consultationService.getConsultationHistory(
+  @ApiOkResponse({ type: ApiResponseDto<ConsultationHistoryItemDto[]> })
+  @UsePipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
+  async getHistory(@Query() query: HistoryQueryDto): Promise<any> {
+    const result = await this.consultationService.getConsultationHistory(
       query.practitionerId,
       query.status,
     );
     return {
-      success: true,
-      status: ResponseStatus.SUCCESS,
-      statusCode: HttpStatus.OK,
-      message: 'Consultation history fetched successfully',
+      ...ApiResponseDto.success(
+        result,
+        'Consultation history fetched successfully',
+        HttpStatus.OK,
+      ),
       timestamp: new Date().toISOString(),
-      data,
     };
   }
 
   @Get(':id/details')
   @ApiOperation({ summary: 'Fetch full details of one consultation' })
   @ApiParam({ name: 'id', type: Number })
-  @ApiOkResponse({ type: ApiResponseDto })
+  @ApiOkResponse({ type: ApiResponseDto<ConsultationDetailDto> })
   async getDetails(
     @Param('id', ConsultationIdParamPipe) id: number,
-  ): Promise<ApiResponseDto<ConsultationDetailDto>> {
-    const data = await this.consultationService.getConsultationDetails(id);
+  ): Promise<any> {
+    const result = await this.consultationService.getConsultationDetails(id);
     return {
-      success: true,
-      status: ResponseStatus.SUCCESS,
-      statusCode: HttpStatus.OK,
-      message: 'Consultation details fetched successfully',
+      ...ApiResponseDto.success(
+        result,
+        'Consultation details fetched successfully',
+        HttpStatus.OK,
+      ),
       timestamp: new Date().toISOString(),
-      data,
     };
   }
 
@@ -213,5 +267,53 @@ export class ConsultationController {
         'Content-Disposition': `attachment; filename="consultation_${id}.pdf"`,
       })
       .send(pdfBuffer);
+  }
+
+  @Get('/patient/history')
+  @ApiOperation({ summary: 'Fetch consultation history for a patient' })
+  @ApiQuery({
+    name: 'patientId',
+    type: Number,
+    description: 'Patient ID',
+  })
+  @ApiOkResponse({ type: ApiResponseDto<ConsultationPatientHistoryItemDto[]> })
+  async getPatientHistory(
+    @Query('patientId', UserIdParamPipe) patientId: number,
+  ): Promise<any> {
+    const consultations =
+      await this.consultationService.getPatientConsultationHistory(patientId);
+    return {
+      ...ApiResponseDto.success(
+        consultations,
+        'Patient consultation history fetched successfully',
+        HttpStatus.OK,
+      ),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('/patient/rate')
+  @ApiOperation({ summary: 'Patient rates a completed consultation' })
+  @ApiBody({ type: RateConsultationDto })
+  @ApiOkResponse({ type: ApiResponseDto })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
+  async rateConsultation(
+    @Query('patientId', UserIdParamPipe) patientId: number,
+    @Body() dto: RateConsultationDto,
+  ): Promise<any> {
+    const result = await this.consultationService.rateConsultation(
+      patientId,
+      dto,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
