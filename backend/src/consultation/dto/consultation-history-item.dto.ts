@@ -1,28 +1,109 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsDate, IsEnum, IsInt, IsNotEmpty, IsNumber, IsObject, IsOptional, IsPhoneNumber, IsString } from 'class-validator';
 import { ConsultationStatus, MessageService } from '@prisma/client';
 
+class ConsultationDto {
+  @ApiProperty()
+  @IsInt()
+  id: number;
+
+  @ApiProperty({ required: false, type: String, format: 'date-time' })
+  @IsOptional()
+  @IsDate()
+  scheduledDate?: Date;
+
+  @ApiProperty({ required: false, type: String, format: 'date-time' })
+  @IsOptional()
+  @IsDate()
+  createdAt?: Date;
+
+  @ApiProperty({ required: false, type: String, format: 'date-time' })
+  @IsOptional()
+  @IsDate()
+  startedAt?: Date;
+
+  @ApiProperty({ required: false, type: String, format: 'date-time' })
+  @IsOptional()
+  @IsDate()
+  closedAt?: Date;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  createdBy?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  owner?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  groupId?: number;
+
+  @ApiProperty({ required: false, enum: MessageService })
+  @IsOptional()
+  @IsEnum(MessageService)
+  messageService?: MessageService;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  whatsappTemplateId?: number;
+
+  @ApiProperty({ enum: ConsultationStatus })
+  @IsEnum(ConsultationStatus)
+  status: ConsultationStatus;
+}
+
+class PatientDto {
+  @ApiProperty()
+  @IsInt()
+  id: number;
+
+  @ApiProperty()
+  @IsString()
+  role: string;
+
+  @ApiProperty()
+  @IsString()
+  firstName: string;
+
+  @ApiProperty()
+  @IsString()
+  lastName: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsPhoneNumber(undefined)
+  phoneNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  sex?: string;
+
+  @ApiProperty()
+  @IsString()
+  status: string;
+}
+
 export class ConsultationHistoryItemDto {
-  consultation: {
-    id: number;
-    scheduledDate?: Date;
-    createdAt?: Date;
-    startedAt?: Date;
-    closedAt?: Date;
-    createdBy?: number;
-    owner?: number;
-    groupId?: number;
-    messageService?: MessageService;
-    whatsappTemplateId?: number;
-    status: ConsultationStatus;
-  };
-  patient: {
-    id: number;
-    role: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber?: string;
-    country?: string;
-    sex?: string;
-    status: string;
-  };
+  @ApiProperty({ type: ConsultationDto })
+  @IsObject()
+  consultation: ConsultationDto;
+
+  @ApiProperty({ type: PatientDto })
+  @IsObject()
+  patient: PatientDto;
+
+  @ApiProperty()
+  @IsString()
   duration: string;
 }
