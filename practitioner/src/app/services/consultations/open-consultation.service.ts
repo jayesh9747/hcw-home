@@ -95,7 +95,6 @@ export class OpenConsultationService {
         map((response) => response.data),
         catchError((error) => {
           console.error('Error joining consultation:', error);
-          // Return mock success response
           return of({
             success: false,
             statusCode: 500,

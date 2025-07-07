@@ -105,8 +105,14 @@ export class OpenConsultationsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          if (response.success && response.sessionUrl) {
-            this.router.navigate([response.sessionUrl]);
+          if (response.success) {
+            if (response.sessionUrl) {
+              window.location.href = response.sessionUrl;
+            } else {
+              this.router.navigate(['/consultation', consultationId]);
+            }
+          } else {
+            console.error('Failed to join consultation:', response.message);
           }
         },
         error: (error) => {

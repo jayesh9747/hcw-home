@@ -45,7 +45,7 @@ export interface JoinConsultationResponse {
   success: boolean;
   statusCode: number;
   message: string;
-  consultationId: number;
+  consultationId?: number;
   sessionUrl?: string;
 }
 

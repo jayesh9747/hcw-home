@@ -49,9 +49,16 @@ import {
 } from './dto/end-consultation.dto';
 import { ConsultationPatientHistoryItemDto } from './dto/consultation-patient-history.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
-import { CloseConsultationDto, CloseConsultationResponseDto } from './dto/close-consultation.dto';
-import { JoinOpenConsultationDto, JoinOpenConsultationResponseDto } from './dto/join-open-consultation.dto';
-import { OpenConsultationResponseDto, OpenConsultationQueryDto } from './dto/open-consultation.dto';
+import {
+  CloseConsultationDto,
+} from './dto/close-consultation.dto';
+import {
+  JoinOpenConsultationDto,
+} from './dto/join-open-consultation.dto';
+import {
+  OpenConsultationResponseDto,
+  OpenConsultationQueryDto,
+} from './dto/open-consultation.dto';
 
 @ApiTags('consultation')
 @Controller('consultation')
@@ -396,38 +403,40 @@ export class ConsultationController {
   @ApiBody({ type: JoinOpenConsultationDto })
   @ApiOkResponse({
     description: 'Successfully rejoined consultation',
-    type: ApiResponseDto<JoinOpenConsultationResponseDto>,
+    type: ApiResponseDto<JoinConsultationResponseDto>,
   })
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   async joinOpenConsultation(
     @Body() dto: JoinOpenConsultationDto,
     @Query('practitionerId', UserIdParamPipe) practitionerId: number,
-  ): Promise<ApiResponseDto<JoinOpenConsultationResponseDto>> {
-    return this.consultationService.joinOpenConsultation(
+  ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
+    return this.consultationService.joinAsPractitioner(
       dto.consultationId,
       practitionerId,
     );
   }
-
   @Post('/open/close')
   @ApiOperation({
-    summary: 'Close an open consultation',
+    summary: 'Close an open consultation - Deprecated: Use /consultation/end',
+    deprecated: true,
   })
   @ApiBody({ type: CloseConsultationDto })
   @ApiOkResponse({
     description: 'Consultation closed successfully',
-    type: ApiResponseDto<CloseConsultationResponseDto>,
+    type: ApiResponseDto<EndConsultationResponseDto>,
   })
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   async closeConsultation(
     @Body() dto: CloseConsultationDto,
     @Query('practitionerId', UserIdParamPipe) practitionerId: number,
-  ): Promise<ApiResponseDto<CloseConsultationResponseDto>> {
-    return this.consultationService.closeConsultation(
-      dto.consultationId,
-      practitionerId,
-      dto.reason,
-    );
+  ): Promise<ApiResponseDto<EndConsultationResponseDto>> {
+    const endDto: EndConsultationDto = {
+      consultationId: dto.consultationId,
+      action: 'close',
+      reason: dto.reason,
+    };
+
+    return this.consultationService.endConsultation(endDto, practitionerId);
   }
 
   @Get('/open/:id/details')

@@ -36,6 +36,12 @@ import {
 import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConfigService } from 'src/config/config.service';
 import { AvailabilityService } from '../availability/availability.service';
+import {
+  CloseConsultationResponseDto,
+  OpenConsultationItemDto,
+  OpenConsultationPatientDto,
+  OpenConsultationResponseDto,
+} from './dto/open-consultation.dto';
 
 type ConsultationWithParticipants = Consultation & {
   participants: (Participant & { user: User })[];
@@ -997,154 +1003,6 @@ export class ConsultationService {
     );
   }
 
-  async joinOpenConsultation(
-    consultationId: number,
-    practitionerId: number,
-  ): Promise<ApiResponseDto<JoinOpenConsultationResponseDto>> {
-    const consultation = await this.db.consultation.findUnique({
-      where: { id: consultationId },
-      include: {
-        participants: {
-          where: { userId: practitionerId },
-        },
-      },
-    });
-
-    if (!consultation) {
-      throw HttpExceptionHelper.notFound('Consultation not found');
-    }
-
-    if (consultation.ownerId !== practitionerId) {
-      throw HttpExceptionHelper.forbidden(
-        'Not authorized to join this consultation',
-      );
-    }
-
-    if (consultation.closedAt) {
-      throw HttpExceptionHelper.badRequest('Cannot join a closed consultation');
-    }
-
-    if (!consultation.startedAt) {
-      throw HttpExceptionHelper.badRequest('Consultation has not started yet');
-    }
-
-    await this.db.participant.upsert({
-      where: {
-        consultationId_userId: { consultationId, userId: practitionerId },
-      },
-      create: {
-        consultationId,
-        userId: practitionerId,
-        isActive: true,
-        joinedAt: new Date(),
-      },
-      update: {
-        isActive: true,
-        joinedAt: new Date(),
-      },
-    });
-
-    if (this.wsServer) {
-      this.wsServer
-        .to(`consultation:${consultationId}`)
-        .emit('practitioner_rejoined', {
-          consultationId,
-          practitionerId,
-          timestamp: new Date(),
-        });
-    }
-
-    const responseData: JoinOpenConsultationResponseDto = {
-      success: true,
-      statusCode: 200,
-      message: 'Successfully rejoined consultation',
-      consultationId,
-      sessionUrl: `/consultation/session/${consultationId}`,
-    };
-
-    return ApiResponseDto.success(
-      responseData,
-      responseData.message,
-      responseData.statusCode,
-    );
-  }
-
-  async closeConsultation(
-    consultationId: number,
-    practitionerId: number,
-    reason?: string,
-  ): Promise<ApiResponseDto<CloseConsultationResponseDto>> {
-    const consultation = await this.db.consultation.findUnique({
-      where: { id: consultationId },
-      include: {
-        participants: true,
-      },
-    });
-
-    if (!consultation) {
-      throw HttpExceptionHelper.notFound('Consultation not found');
-    }
-
-    if (consultation.ownerId !== practitionerId) {
-      throw HttpExceptionHelper.forbidden(
-        'Not authorized to close this consultation',
-      );
-    }
-
-    if (consultation.closedAt) {
-      throw HttpExceptionHelper.badRequest('Consultation is already closed');
-    }
-
-    const closedAt = new Date();
-
-    const updatedConsultation = await this.db.consultation.update({
-      where: { id: consultationId },
-      data: {
-        status: ConsultationStatus.COMPLETED,
-        closedAt,
-      },
-    });
-
-    await this.db.participant.updateMany({
-      where: { consultationId },
-      data: { isActive: false },
-    });
-
-    if (this.wsServer) {
-      this.wsServer
-        .to(`consultation:${consultationId}`)
-        .emit('consultation_closed', {
-          consultationId,
-          closedBy: practitionerId,
-          reason: reason || 'Consultation ended by practitioner',
-          closedAt,
-        });
-
-      consultation.participants.forEach((participant) => {
-        this.wsServer
-          .to(`user:${participant.userId}`)
-          .emit('consultation_ended', {
-            consultationId,
-            message: 'The consultation has been ended by the practitioner',
-          });
-      });
-    }
-
-    const responseData: CloseConsultationResponseDto = {
-      success: true,
-      statusCode: 200,
-      message: 'Consultation closed successfully',
-      consultationId,
-      closedAt,
-    };
-
-    return ApiResponseDto.success(
-      responseData,
-      responseData.message,
-      responseData.statusCode,
-    );
-  }
-
   private calculateTimeSinceStart(startedAt: Date): string {
     const now = new Date();
     const diffMs = now.getTime() - new Date(startedAt).getTime();
@@ -1168,7 +1026,6 @@ export class ConsultationService {
     consultationId: number,
     practitionerId: number,
   ): Promise<ConsultationDetailDto> {
-    // Verify practitioner has access to this consultation
     const consultation = await this.db.consultation.findUnique({
       where: { id: consultationId },
       select: { ownerId: true, closedAt: true },
