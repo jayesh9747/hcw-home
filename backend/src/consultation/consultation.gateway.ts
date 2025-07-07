@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { DatabaseService } from 'src/database/database.service';
 import { ConsultationService } from './consultation.service';
 import { EndConsultationDto } from './dto/end-consultation.dto';
+import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 
 @WebSocketGateway({ namespace: '/consultation', cors: true })
@@ -38,6 +39,9 @@ export class ConsultationGateway
         console.error(
           `[ConsultationGateway][handleConnection] Invalid connection params: consultationId=${cId}, userId=${uId}, role=${role}`,
         );
+        client.emit('error', {
+          message: 'Invalid connection parameters.',
+        });
         client.disconnect();
         return;
       }
@@ -52,7 +56,7 @@ export class ConsultationGateway
       });
 
       if (existing.length > 0 && !existing.some((p) => p.userId === uId)) {
-        console.warn(
+        console.error(
           `[ConsultationGateway][handleConnection] Another ${role} is already active in consultation ${cId}`,
         );
         client.emit('error', {
@@ -84,6 +88,75 @@ export class ConsultationGateway
           lastActiveAt: new Date(),
         },
       });
+
+      // Notify patients when doctor joins
+      if (role === UserRole.PRACTITIONER) {
+        try {
+          const patientParticipants =
+            await this.databaseService.participant.findMany({
+              where: {
+                consultationId: cId,
+                user: { role: UserRole.PATIENT },
+              },
+            });
+          for (const part of patientParticipants) {
+            this.server.to(`consultation:${cId}`).emit('doctor_joined', {
+              consultationId: cId,
+              practitionerId: uId,
+              message: 'Doctor has joined. You can join the consultation.',
+            });
+          }
+        } catch (err) {
+          console.error(
+            `[ConsultationGateway][handleConnection] Error notifying patients doctor joined:`,
+            err,
+          );
+        }
+      }
+
+      // For patient, send initial consultation status
+      if (role === UserRole.PATIENT) {
+        try {
+          const consultation =
+            await this.databaseService.consultation.findUnique({
+              where: { id: cId },
+              include: {
+                owner: true,
+                rating: true,
+              },
+            });
+          if (consultation) {
+            let canJoin = false;
+            let waitingForDoctor = false;
+            if (consultation.status === ConsultationStatus.ACTIVE) {
+              canJoin = true;
+            } else if (consultation.status === ConsultationStatus.WAITING) {
+              waitingForDoctor = true;
+            }
+            client.emit('consultation_status_patient', {
+              status: consultation.status,
+              canJoin,
+              waitingForDoctor,
+              scheduledDate: consultation.scheduledDate,
+              doctorName: consultation.owner
+                ? `${consultation.owner.firstName} ${consultation.owner.lastName}`
+                : '',
+              rating: consultation.rating
+                ? {
+                    value: consultation.rating.rating,
+                    color: consultation.rating.rating >= 4 ? 'green' : 'red',
+                    done: true,
+                  }
+                : { value: 0, color: null, done: false },
+            });
+          }
+        } catch (err) {
+          console.error(
+            `[ConsultationGateway][handleConnection] Error sending patient initial status:`,
+            err,
+          );
+        }
+      }
 
       console.log(
         `[ConsultationGateway][handleConnection] User ${uId} (${role}) connected to consultation ${cId}`,
@@ -181,6 +254,9 @@ export class ConsultationGateway
       const { role } = client.data;
 
       if (role !== UserRole.PRACTITIONER) {
+        console.error(
+          `[ConsultationGateway][handleAdmitPatient] Forbidden: Only practitioners can admit patients`,
+        );
         throw new Error('Only practitioners can admit patients');
       }
 
@@ -194,6 +270,15 @@ export class ConsultationGateway
         .emit('consultation_status', {
           status: ConsultationStatus.ACTIVE,
           initiatedBy: 'PRACTITIONER',
+        });
+
+      // Notify patients they can now join
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('consultation_status_patient', {
+          status: ConsultationStatus.ACTIVE,
+          canJoin: true,
+          waitingForDoctor: false,
         });
 
       console.log(
@@ -218,6 +303,9 @@ export class ConsultationGateway
       const { userId, role } = client.data;
 
       if (role !== UserRole.PRACTITIONER && role !== UserRole.ADMIN) {
+        console.error(
+          `[ConsultationGateway][end_consultation] Forbidden: Only practitioners or admins can end consultations`,
+        );
         throw new Error('Only practitioners or admins can end consultations');
       }
 
@@ -238,10 +326,25 @@ export class ConsultationGateway
             }),
           });
 
+        // Notify patients for rating if completed
+        if (result.data.status === ConsultationStatus.COMPLETED) {
+          this.server
+            .to(`consultation:${consultationId}`)
+            .emit('consultation_status_patient', {
+              status: ConsultationStatus.COMPLETED,
+              canJoin: false,
+              waitingForDoctor: false,
+              showRating: true,
+            });
+        }
+
         console.log(
           `[ConsultationGateway][end_consultation] Consultation ${consultationId} ended by ${userId} with action ${action}`,
         );
       } else {
+        console.error(
+          `[ConsultationGateway][end_consultation] Failed: No data returned`,
+        );
         client.emit('error', {
           message: 'Failed to end consultation: No data returned',
         });
@@ -268,7 +371,7 @@ export class ConsultationGateway
         data.content.trim().length === 0 ||
         data.content.length > 2000
       ) {
-        console.warn(
+        console.error(
           `[ConsultationGateway][send_message] Invalid message content from user ${data.userId} in consultation ${data.consultationId}`,
         );
         return;
@@ -304,6 +407,63 @@ export class ConsultationGateway
     }
   }
 
+  @SubscribeMessage('rate_consultation')
+  async handleRateConsultation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: RateConsultationDto,
+  ) {
+    try {
+      const { consultationId, rating, comment } = data;
+      const { userId, role } = client.data;
+
+      if (role !== UserRole.PATIENT) {
+        console.error(
+          `[ConsultationGateway][rate_consultation] Forbidden: Only patients can rate consultations`,
+        );
+        throw new Error('Only patients can rate consultations');
+      }
+
+      await this.consultationService.rateConsultation(userId, {
+        consultationId,
+        rating,
+        comment,
+      });
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('consultation_rated', {
+          consultationId,
+          patientId: userId,
+          rating,
+        });
+
+      // Optionally: update patient dashboard in real-time
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('consultation_status_patient', {
+          status: ConsultationStatus.COMPLETED,
+          canJoin: false,
+          waitingForDoctor: false,
+          showRating: false,
+          rating: {
+            value: rating,
+            color: rating >= 4 ? 'green' : 'red',
+            done: true,
+          },
+        });
+
+      console.log(
+        `[ConsultationGateway][rate_consultation] Patient ${userId} rated consultation ${consultationId} with ${rating}`,
+      );
+    } catch (error) {
+      console.error(`[ConsultationGateway][rate_consultation] Error:`, error);
+      client.emit('error', {
+        message: 'Failed to rate consultation',
+        details: error?.message ?? error,
+      });
+    }
+  }
+
   @SubscribeMessage('consultation_keep_alive')
   async handleKeepAlive(
     @ConnectedSocket() client: Socket,
@@ -323,6 +483,9 @@ export class ConsultationGateway
       });
 
       if (!participant) {
+        console.error(
+          `[ConsultationGateway][keep_alive] Participant not found for consultation ${consultationId}, user ${userId}`,
+        );
         throw new Error('Participant not found');
       }
 
@@ -338,9 +501,7 @@ export class ConsultationGateway
         },
       });
 
-      console.log(
-        `[ConsultationGateway][keep_alive] User ${userId} kept consultation ${consultationId} alive`,
-      );
+      // No log for keep_alive to avoid flooding logs
     } catch (error) {
       console.error(`[ConsultationGateway][keep_alive] Error:`, error);
     }
