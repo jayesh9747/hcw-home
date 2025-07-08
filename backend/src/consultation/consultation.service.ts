@@ -28,6 +28,11 @@ import {
   EndConsultationDto,
   EndConsultationResponseDto,
 } from './dto/end-consultation.dto';
+import {
+  ConsultationPatientHistoryResponseDto,
+  ConsultationPatientHistoryItemDto,
+} from './dto/consultation-patient-history.dto';
+import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConfigService } from 'src/config/config.service';
 
 type ConsultationWithParticipants = Consultation & {
@@ -439,6 +444,109 @@ export class ConsultationService {
     );
   }
 
+  async getPatientConsultationHistory(
+    patientId: number,
+  ): Promise<ConsultationPatientHistoryItemDto[]> {
+    const user = await this.db.user.findUnique({ where: { id: patientId } });
+    if (!user) {
+      throw HttpExceptionHelper.notFound('User not found');
+    }
+    if (user.role !== UserRole.PATIENT) {
+      throw HttpExceptionHelper.forbidden(
+        'Only patients can access their consultation history',
+      );
+    }
+
+    const consultations = await this.db.consultation.findMany({
+      where: {
+        participants: {
+          some: {
+            userId: patientId,
+            user: { role: UserRole.PATIENT },
+          },
+        },
+      },
+      include: {
+        owner: {
+          select: {
+            firstName: true,
+            lastName: true,
+            specialities: {
+              include: { speciality: true },
+            },
+          },
+        },
+        participants: {
+          include: { user: true },
+        },
+        rating: true,
+      },
+      orderBy: [{ scheduledDate: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    const now = new Date();
+
+    return consultations.map((c) => {
+      const canJoin =
+        c.status === ConsultationStatus.ACTIVE &&
+        !!c.owner &&
+        !!c.participants.find((p) => p.userId === patientId && p.isActive);
+
+      const waitingForDoctor =
+        c.status === ConsultationStatus.WAITING &&
+        (!c.owner ||
+          !c.participants.find((p) => p.userId === c.ownerId && p.isActive));
+
+      let remainingDays: number | undefined = undefined;
+      if (c.status === ConsultationStatus.SCHEDULED && c.scheduledDate) {
+        remainingDays = Math.max(
+          0,
+          Math.ceil(
+            (c.scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          ),
+        );
+      }
+
+      const practitionerName = c.owner
+        ? `${c.owner.firstName} ${c.owner.lastName}`
+        : '';
+      const practitionerSpeciality = c.owner
+        ? c.owner.specialities.map((s) => s.speciality.name)
+        : [];
+
+      let rating:
+        | { value: number; color: 'green' | 'red' | null; done: boolean }
+        | undefined = undefined;
+      if (c.status === ConsultationStatus.COMPLETED && c.rating) {
+        rating = {
+          value: c.rating.rating,
+          color: c.rating.rating >= 4 ? 'green' : 'red',
+          done: true,
+        };
+      } else if (c.status === ConsultationStatus.COMPLETED) {
+        rating = {
+          value: 0,
+          color: null,
+          done: false,
+        };
+      }
+
+      return {
+        consultationId: c.id,
+        practitionerName,
+        practitionerSpeciality,
+        scheduledDate: c.scheduledDate,
+        startedAt: c.startedAt,
+        closedAt: c.closedAt,
+        status: c.status,
+        remainingDays,
+        canJoin,
+        waitingForDoctor,
+        rating,
+      };
+    });
+  }
+
   async endConsultation(
     endDto: EndConsultationDto,
     userId: number,
@@ -566,6 +674,51 @@ export class ConsultationService {
         error,
       );
     }
+  }
+
+  async rateConsultation(
+    patientId: number,
+    dto: RateConsultationDto,
+  ): Promise<ApiResponseDto<{ success: boolean }>> {
+    const consultation = await this.db.consultation.findUnique({
+      where: { id: dto.consultationId },
+      include: {
+        participants: true,
+        rating: true,
+      },
+    });
+
+    if (!consultation)
+      throw HttpExceptionHelper.notFound('Consultation not found');
+
+    if (consultation.status !== ConsultationStatus.COMPLETED)
+      throw HttpExceptionHelper.badRequest('Consultation not completed');
+
+    if (
+      !consultation.participants.some(
+        (p) => p.userId === patientId && p.isBeneficiary,
+      )
+    ) {
+      throw HttpExceptionHelper.forbidden('Not authorized');
+    }
+
+    if (consultation.rating)
+      throw HttpExceptionHelper.conflict('Already rated');
+
+    await this.db.consultationRating.create({
+      data: {
+        consultationId: consultation.id,
+        patientId,
+        rating: dto.rating,
+        comment: dto.comment,
+      },
+    });
+
+    return ApiResponseDto.success(
+      { success: true },
+      'Consultation rated successfully',
+      200,
+    );
   }
 
   async getConsultationHistory(

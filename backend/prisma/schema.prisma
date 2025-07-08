@@ -39,6 +39,7 @@ model User {
 
   @@map("users")
   Consultation Consultation[]
+  ConsultationRating ConsultationRating[]
 }
 
 enum UserRole {
@@ -162,7 +163,19 @@ model UserSpeciality {
   @@unique([userId, specialityId])
 }
 
+model ConsultationRating {
+  id              Int           @id @default(autoincrement())
+  consultationId  Int           @unique
+  patientId       Int
+  rating          Int          
+  comment         String?
+  createdAt       DateTime      @default(now())
 
+  consultation    Consultation  @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  patient         User          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+}
 
 //  Add the new models/enums that is necessary for consultation remainders
 
@@ -198,6 +211,7 @@ model Consultation {
   @@index([status])
   @@index([ownerId])
   DeletedConsultationLog DeletedConsultationLog[]
+  rating  ConsultationRating?
 }
 
 
