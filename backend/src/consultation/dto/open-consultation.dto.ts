@@ -1,31 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ConsultationStatus, UserSex } from '@prisma/client';
-import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, Min } from 'class-validator';
-
-export class OpenConsultationQueryDto {
-  @ApiProperty({
-    description: 'Page number for pagination',
-    default: 1,
-    minimum: 1,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiProperty({
-    description: 'Number of items per page',
-    default: 10,
-    minimum: 1,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  limit?: number = 10;
-}
+import { Transform, Type } from 'class-transformer';
+import { IsInt, IsNumber, IsOptional, Min } from 'class-validator';
 
 export class OpenConsultationPatientDto {
   @ApiProperty({ description: 'Patient ID' })
@@ -178,4 +154,25 @@ export class CloseConsultationResponseDto {
 
   @ApiProperty({ description: 'When the consultation was closed' })
   closedAt: Date;
+}
+
+export class OpenConsultationQueryDto {
+  @IsNumber()
+  @IsInt()
+  @Transform(({ value }) => parseInt(value, 10))
+  practitionerId: number;
+
+  @IsOptional()
+  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 1))
+  page?: number = 1;
+
+  @IsOptional()
+  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 10))
+  limit?: number = 10;
 }

@@ -49,16 +49,14 @@ import {
 } from './dto/end-consultation.dto';
 import { ConsultationPatientHistoryItemDto } from './dto/consultation-patient-history.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
-import {
-  CloseConsultationDto,
-} from './dto/close-consultation.dto';
-import {
-  JoinOpenConsultationDto,
-} from './dto/join-open-consultation.dto';
+import { CloseConsultationDto } from './dto/close-consultation.dto';
+import { JoinOpenConsultationDto } from './dto/join-open-consultation.dto';
 import {
   OpenConsultationResponseDto,
   OpenConsultationQueryDto,
 } from './dto/open-consultation.dto';
+import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
+import { ResponseStatus } from 'src/common/helpers/response/response-status.enum';
 
 @ApiTags('consultation')
 @Controller('consultation')

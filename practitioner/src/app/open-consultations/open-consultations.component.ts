@@ -57,7 +57,7 @@ export class OpenConsultationsComponent implements OnInit, OnDestroy {
   loadConsultations(): void {
     this.isLoading = true;
     this.openConsultationService
-      .getOpenConsultations(this.currentPage)
+      .getOpenConsultations(3, this.currentPage)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {

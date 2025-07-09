@@ -92,7 +92,15 @@ export class OpenConsultationService {
         { params }
       )
       .pipe(
-        map((response) => response.data),
+        map((response) => {
+          return {
+            success: response.data.success,
+            statusCode: response.data.statusCode,
+            message: response.data.message,
+            consultationId: response.data.consultationId,
+            sessionUrl: response.data.sessionUrl, 
+          };
+        }),
         catchError((error) => {
           console.error('Error joining consultation:', error);
           return of({
@@ -100,6 +108,7 @@ export class OpenConsultationService {
             statusCode: 500,
             message: 'Failed to join consultation',
             consultationId,
+            sessionUrl: undefined,
           });
         })
       );

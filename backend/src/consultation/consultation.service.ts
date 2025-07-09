@@ -8,7 +8,7 @@ import {
   User,
   Message,
 } from '@prisma/client';
-import { Server } from 'socket.io';
+import { ConsultationGateway } from './consultation.gateway';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { JoinConsultationResponseDto } from './dto/join-consultation.dto';
@@ -55,8 +55,8 @@ export class ConsultationService {
     private readonly db: DatabaseService,
     private readonly configService: ConfigService,
     private readonly availabilityService: AvailabilityService,
-    @Inject(forwardRef(() => 'CONSULTATION_GATEWAY'))
-    private readonly wsServer: Server,
+    @Inject(forwardRef(() => ConsultationGateway))
+    private readonly consultationGateway: ConsultationGateway,
   ) {}
 
   async createConsultation(
@@ -249,8 +249,8 @@ export class ConsultationService {
       });
     }
 
-    if (consultation.ownerId && this.wsServer) {
-      this.wsServer
+    if (consultation.ownerId && this.consultationGateway.server) {
+      this.consultationGateway.server
         .to(`practitioner:${consultation.ownerId}`)
         .emit('patient_waiting', {
           consultationId,
@@ -278,71 +278,85 @@ export class ConsultationService {
     consultationId: number,
     practitionerId: number,
   ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
-    const consultation = await this.db.consultation.findUnique({
-      where: { id: consultationId },
-      select: { id: true, ownerId: true, status: true },
-    });
-    if (!consultation)
-      throw HttpExceptionHelper.notFound('Consultation not found');
-
-    const practitioner = await this.db.user.findUnique({
-      where: { id: practitionerId },
-      select: { id: true },
-    });
-    if (!practitioner)
-      throw HttpExceptionHelper.notFound('Practitioner does not exist');
-
-    if (consultation.ownerId !== practitionerId) {
-      throw HttpExceptionHelper.forbidden(
-        'Not the practitioner for this consultation',
-      );
-    }
-
-    if (consultation.status === ConsultationStatus.COMPLETED) {
-      throw HttpExceptionHelper.badRequest(
-        'Cannot join completed consultation',
-      );
-    }
-
-    await this.db.participant.upsert({
-      where: {
-        consultationId_userId: { consultationId, userId: practitionerId },
-      },
-      create: {
+    try {
+      const consultation = await this.db.consultation.findUnique({
+        where: { id: consultationId },
+        select: { id: true, ownerId: true, status: true },
+      });
+  
+      if (!consultation) {
+        throw HttpExceptionHelper.notFound('Consultation not found');
+      }
+  
+      const practitioner = await this.db.user.findUnique({
+        where: { id: practitionerId },
+        select: { id: true },
+      });
+  
+      if (!practitioner) {
+        throw HttpExceptionHelper.notFound('Practitioner does not exist');
+      }
+  
+      if (consultation.ownerId !== practitionerId) {
+        throw HttpExceptionHelper.forbidden(
+          'Not the practitioner for this consultation',
+        );
+      }
+  
+      if (consultation.status === ConsultationStatus.COMPLETED) {
+        throw HttpExceptionHelper.badRequest(
+          'Cannot join completed consultation',
+        );
+      }
+  
+      const participantData = {
         consultationId,
         userId: practitionerId,
         isActive: true,
         joinedAt: new Date(),
-      },
-      update: { isActive: true, joinedAt: new Date() },
-    });
-
-    await this.db.consultation.update({
-      where: { id: consultationId },
-      data: { status: ConsultationStatus.ACTIVE },
-    });
-
-    if (this.wsServer) {
-      this.wsServer
-        .to(`consultation:${consultationId}`)
-        .emit('consultation_status', {
-          status: 'ACTIVE',
-          initiatedBy: 'PRACTITIONER',
-        });
+      };
+  
+      const upsertedParticipant = await this.db.participant.upsert({
+        where: {
+          consultationId_userId: { consultationId, userId: practitionerId },
+        },
+        create: participantData,
+        update: { isActive: true, joinedAt: new Date() },
+      });
+  
+      const updatedConsultation = await this.db.consultation.update({
+        where: { id: consultationId },
+        data: { status: ConsultationStatus.ACTIVE },
+      });
+  
+      if (this.consultationGateway.server) {
+        try {
+          this.consultationGateway.server
+            .to(`consultation:${consultationId}`)
+            .emit('consultation_status', {
+              status: 'ACTIVE',
+              initiatedBy: 'PRACTITIONER',
+            });
+        } catch (wsError) {
+        }
+      }
+  
+      const responsePayload: JoinConsultationResponseDto = {
+        success: true,
+        statusCode: 200,
+        message: 'Practitioner joined and activated the consultation.',
+        consultationId,
+        sessionUrl: `/session/consultation/${consultationId}`,
+      };
+  
+      return ApiResponseDto.success(
+        responsePayload,
+        responsePayload.message,
+        responsePayload.statusCode,
+      );
+    } catch (error) {
+      throw error;
     }
-
-    const responsePayload: JoinConsultationResponseDto = {
-      success: true,
-      statusCode: 200,
-      message: 'Practitioner joined and activated the consultation.',
-      consultationId,
-    };
-
-    return ApiResponseDto.success(
-      responsePayload,
-      responsePayload.message,
-      responsePayload.statusCode,
-    );
   }
 
   async admitPatient(
@@ -386,9 +400,9 @@ export class ConsultationService {
         },
       });
 
-      if (this.wsServer) {
+      if (this.consultationGateway.server) {
         try {
-          this.wsServer
+          this.consultationGateway.server
             .to(`consultation:${dto.consultationId}`)
             .emit('consultation_status', {
               status: 'ACTIVE',
@@ -686,9 +700,9 @@ export class ConsultationService {
       });
 
       // Notify participants via WebSocket
-      if (this.wsServer) {
+      if (this.consultationGateway.server) {
         try {
-          this.wsServer
+          this.consultationGateway.server
             .to(`consultation:${endDto.consultationId}`)
             .emit('consultation_ended', {
               status: newStatus,
