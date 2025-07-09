@@ -5,5 +5,6 @@ export enum RoutePaths {
   Dashboard = 'dashboard',
   Terms='term',
   newTerm='term/new',
-  Login='login'
+  Login='login',
+  Availability='availability'
 }

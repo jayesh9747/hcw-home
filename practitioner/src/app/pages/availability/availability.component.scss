@@ -1,0 +1,182 @@
+.availability-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tab-content {
+  padding: 20px 0;
+}
+
+.form-card, .table-card {
+  margin-bottom: 20px;
+}
+
+.availability-form, .generate-form {
+  .form-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    
+    mat-form-field {
+      flex: 1;
+      min-width: 200px;
+    }
+  }
+  
+  .form-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-start;
+    
+    button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+}
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.availability-table, .slots-table {
+  width: 100%;
+  
+  th, td {
+    padding: 12px 8px;
+  }
+  
+  th {
+    font-weight: 600;
+    background-color: #f5f5f5;
+  }
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  
+  &.status-available {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+  }
+  
+  &.status-booked {
+    background-color: #fff3e0;
+    color: #ef6c00;
+  }
+  
+  &.status-blocked {
+    background-color: #ffebee;
+    color: #c62828;
+  }
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #ccc;
+    margin-bottom: 16px;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+}
+
+mat-slide-toggle {
+  .mat-slide-toggle-label {
+    color: inherit;
+  }
+}
+.simple-button {
+  background-color: #f5f5f5 !important;
+  color: #333 !important;
+  border: 1px solid #ddd !important;
+  padding: 12px 24px !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  
+  &:hover:not([disabled]) {
+    background-color: #e8e8e8 !important;
+    border-color: #ccc !important;
+  }
+  
+  &:focus, &:active {
+    background-color: #e0e0e0 !important;
+    border-color: #bbb !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  
+  &[disabled] {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+  }
+  
+  
+  .mat-button-ripple-round {
+    display: none !important;
+  }
+  
+  .mat-button-focus-overlay {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .availability-container {
+    padding: 10px;
+  }
+  
+  .availability-form, .generate-form {
+    .form-row {
+      flex-direction: column;
+      gap: 10px;
+      
+      mat-form-field {
+        min-width: unset;
+      }
+    }
+  }
+  
+  .availability-table, .slots-table {
+    th, td {
+      padding: 8px 4px;
+      font-size: 0.9rem;
+    }
+  }
+}
+
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+mat-card-header {
+  margin-bottom: 16px;
+}
+
+mat-card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+mat-card-subtitle {
+  font-size: 0.9rem;
+  color: #666;
+}

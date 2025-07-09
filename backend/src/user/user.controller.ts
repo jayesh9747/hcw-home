@@ -146,4 +146,26 @@ export class UserController {
       path: req.path,
     });
   }
+
+  @Roles(Role.ADMIN, Role.PRACTITIONER)
+  @Get('role/practitioners')
+  @ApiOperation({ summary: 'Get all practitioners' })
+  @ApiResponse({
+    status: 200,
+    description: 'Practitioners retrieved successfully',
+  })
+  async getPractitioners(@Req() req: Request) {
+    const practitioners = await this.userService.findPractitioners();
+    return ApiResponseDto.success(
+      practitioners,
+      'Practitioners retrieved successfully',
+      200,
+      {
+        requestId: req['id'],
+        path: req.path,
+      },
+    );
+  }
 }
+
+

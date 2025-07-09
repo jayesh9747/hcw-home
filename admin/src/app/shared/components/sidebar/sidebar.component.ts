@@ -42,13 +42,14 @@ export class SidebarComponent {
   ngOnInit() {
     this.checkMobileView();
     this.currentUser=this.authService.getCurrentUser()
-    console.log(this.currentUser);
+
     
     this.sidebarItems = [
       { icon: "icon-dashboard.svg", label: "Dashboard", route: RoutePaths.Dashboard },
       { icon: "icon-user.svg", label: "Users", route: RoutePaths.Users },
       { icon: "icon-user.svg", label: "Resource Management", route: RoutePaths.ResourceManager },
       { icon: "icon-term.svg", label: 'Terms', route: RoutePaths.Terms },
+      { icon: "icon-queue.svg", label: "Availability Management", route: RoutePaths.Availability },
       { icon: "icon-queue.svg", label: "Waiting Queues", route: "/queue" },
       { icon: "server.svg", label: "Mediasoup", route: "/mediasoup" },
     ];

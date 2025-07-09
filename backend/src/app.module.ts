@@ -21,7 +21,7 @@ import { SpecialityModule } from './speciality/speciality.module';
 import { ExportModule } from './export/export.module';
 import { TermModule } from './term/term.module';
 import { LoggerModule } from './logger/logger.module';
-
+import { AvailabilityModule } from './availability/availability.module';
 
 @Module({
   imports: [
@@ -39,7 +39,8 @@ import { LoggerModule } from './logger/logger.module';
     LanguageModule,
     SpecialityModule,
     ExportModule,
-    TermModule
+    TermModule,
+    AvailabilityModule,
   ],
   controllers: [AppController],
   providers: [

@@ -19,6 +19,7 @@ import {
 } from './dto/admit-patient.dto';
 import {
   CreateConsultationDto,
+  CreateConsultationWithTimeSlotDto,
   ConsultationResponseDto,
 } from './dto/create-consultation.dto';
 import { ConsultationHistoryItemDto } from './dto/consultation-history-item.dto';
@@ -34,6 +35,7 @@ import {
 } from './dto/consultation-patient-history.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConfigService } from 'src/config/config.service';
+import { AvailabilityService } from '../availability/availability.service';
 
 type ConsultationWithParticipants = Consultation & {
   participants: (Participant & { user: User })[];
@@ -46,6 +48,7 @@ export class ConsultationService {
   constructor(
     private readonly db: DatabaseService,
     private readonly configService: ConfigService,
+    private readonly availabilityService: AvailabilityService,
     @Inject(forwardRef(() => 'CONSULTATION_GATEWAY'))
     private readonly wsServer: Server,
   ) {}
@@ -56,12 +59,19 @@ export class ConsultationService {
   ): Promise<ApiResponseDto<ConsultationResponseDto>> {
     const creator = await this.db.user.findUnique({ where: { id: userId } });
     if (!creator) throw HttpExceptionHelper.notFound('Creator user not found');
-    if (
+
+    if (creator.role === UserRole.PATIENT) {
+      if (createDto.patientId !== userId) {
+        throw HttpExceptionHelper.forbidden(
+          'Patients can only book consultations for themselves',
+        );
+      }
+    } else if (
       creator.role !== UserRole.PRACTITIONER &&
       creator.role !== UserRole.ADMIN
     ) {
       throw HttpExceptionHelper.forbidden(
-        'Only practitioners or admins can create consultations',
+        'Only patients (for themselves), practitioners, or admins can create consultations',
       );
     }
 
@@ -72,7 +82,7 @@ export class ConsultationService {
     if (patient.role !== UserRole.PATIENT)
       throw HttpExceptionHelper.badRequest('Target user is not a patient');
 
-    let ownerId = createDto.ownerId ?? userId;
+    const ownerId = createDto.ownerId ?? userId;
     const practitioner = await this.db.user.findUnique({
       where: { id: ownerId },
     });
@@ -126,6 +136,49 @@ export class ConsultationService {
       'Consultation created',
       201,
     );
+  }
+
+  async createConsultationWithTimeSlot(
+    createDto: CreateConsultationWithTimeSlotDto,
+    userId: number,
+  ): Promise<ApiResponseDto<ConsultationResponseDto>> {
+    const { timeSlotId, ...consultationData } = createDto;
+
+    const timeSlot = await this.db.timeSlot.findUnique({
+      where: { id: timeSlotId },
+    });
+
+    if (!timeSlot) {
+      throw HttpExceptionHelper.notFound('Time slot not found');
+    }
+
+    if (timeSlot.status !== 'AVAILABLE') {
+      throw HttpExceptionHelper.badRequest('Time slot is not available');
+    }
+
+    const scheduledDateTime = new Date(timeSlot.date);
+    const [hours, minutes] = timeSlot.startTime.split(':').map(Number);
+    scheduledDateTime.setHours(hours, minutes, 0, 0);
+
+    const consultationDataWithOwner = {
+      ...consultationData,
+      scheduledDate: scheduledDateTime,
+      ownerId: timeSlot.practitionerId,
+    };
+
+    const consultationResult = await this.createConsultation(
+      consultationDataWithOwner,
+      userId,
+    );
+
+    if (consultationResult.success && consultationResult.data) {
+      await this.availabilityService.bookTimeSlot(
+        timeSlotId,
+        consultationResult.data.id,
+      );
+    }
+
+    return consultationResult;
   }
 
   async joinAsPatient(
@@ -559,8 +612,8 @@ export class ConsultationService {
     if (!consultation) {
       throw HttpExceptionHelper.notFound('Consultation not found');
     }
-
-    // Validate user is practitioner or admin
+    
+     // Validate user is practitioner or admin
     const user = await this.db.user.findUnique({ where: { id: userId } });
     if (!user) throw HttpExceptionHelper.notFound('User not found');
     if (user.role !== UserRole.PRACTITIONER && user.role !== UserRole.ADMIN) {
@@ -569,7 +622,7 @@ export class ConsultationService {
       );
     }
 
-    // Validate consultation ownership
+     // Validate consultation ownership
     if (consultation.ownerId !== userId && user.role !== UserRole.ADMIN) {
       throw HttpExceptionHelper.forbidden(
         'Not authorized to end this consultation',
@@ -597,7 +650,7 @@ export class ConsultationService {
       newStatus = ConsultationStatus.COMPLETED;
       message = 'Consultation closed successfully';
 
-      // Get retention period from config service
+    // Get retention period from config service
       retentionHours = this.configService.consultationRetentionHours;
       deletionScheduledAt = new Date();
       deletionScheduledAt.setHours(
