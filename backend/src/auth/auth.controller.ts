@@ -114,69 +114,58 @@ export class AuthController {
     });
   }
   
+  @Get('callback/:provider')
+  async oidcCallback(
+    @Req() req: Request,
+    @Param('provider') provider: string,
+    @Res() res: Response
+  ): Promise<void> {
+    const { role } = req.query;
+    const ReqRole = (role as string)?.toUpperCase() as Role;
   
-
-@Get('callback/:provider') // Example: /api/v1/auth/callback/:{}?role
-async oidcCallback(
-  @Req() req: Request,
-  @Param('provider') provider: string,
-  @Res() res:Response
-): Promise<any> {
-  const { role } = req.query;
-  const ReqRole = (role as string)?.toUpperCase() as Role;
-
-  if (!ReqRole || !(ReqRole in Role)) {
-    this.logger.warn(`Missing or invalid role in callback`);
-    throw HttpExceptionHelper.badRequest('Missing or invalid role in query param');
+    if (!ReqRole || !(ReqRole in Role)) {
+      this.logger.warn(`Missing or invalid role in callback`);
+      return res.redirect(`/login?error=InvalidRole`);
+    }
+  
+    const strategyMap = {
+      [Role.ADMIN]: 'openidconnect_admin',
+      [Role.PRACTITIONER]: 'openidconnect_practitioner',
+    };
+  
+    const redirectMap = {
+      [Role.ADMIN]: process.env.ADMIN_URL,
+      [Role.PRACTITIONER]: process.env.PRACTITIONER_URL,
+    };
+  
+    const strategy = strategyMap[ReqRole];
+    const redirectTo = redirectMap[ReqRole];
+  
+    try {
+      passport.authenticate(strategy, async (err, user, info) => {
+        if (res.headersSent) return;
+  
+        if (err) {
+          this.logger.error(`OIDC error: ${err.message || err}`);
+          return res.redirect(`${redirectTo}/login?error=${encodeURIComponent(err.message || 'OIDCError')}`);
+        }
+        const data= user as ApiResponseDto<LoginResponseDto>;
+        if (!data || !data.data || !data.data.tokens) {
+          this.logger.warn('User data or tokens not found in OIDC callback');
+          return res.redirect(`${redirectTo}/login?error=UserDataNotFound`);
+        }
+        const { accessToken, refreshToken } = data.data.tokens;
+        const finalRedirect = `${redirectTo}/login?aT=${accessToken}&rT=${refreshToken}`;
+        this.logger.log(`Redirecting to ${finalRedirect}`);
+        return res.redirect(finalRedirect);
+      })(req, res);
+    } catch (e) {
+      if (!res.headersSent) {
+        return res.redirect(`${redirectTo}/login?error=Unexpected`);
+      }
+    }
   }
-
-
-  const strategyMap = {
-    [Role.ADMIN]: 'openidconnect_admin',
-    [Role.PRACTITIONER]: 'openidconnect_practitioner',
-  };
-
-  const redirectMap = {
-    [Role.ADMIN]: process.env.ADMIN_URL,
-    [Role.PRACTITIONER]: process.env.PRACTITIONER_URL,
-  };
-  const strategy = strategyMap[ReqRole];
-  const redirectTo = redirectMap[ReqRole];
-
-
-  return new Promise((resolve) => {
-    passport.authenticate(strategy, async (err, user, info) => {
-      if (err) {
-        return resolve({
-          success: false,
-          message: 'Authentication failed',
-          error: err.message || err,
-        });
-      }
-
-      if (!user) {
-        return resolve({
-          success: false,
-          message: 'No user info returned',
-        });
-      }
-
-      const tokens= user.data.tokens
-      const finalRedirect = `${redirectTo}/login?aT=${tokens.accessToken}&rT=${tokens.refreshToken}`;
-      this.logger.log(`Redirecting ${ReqRole} to ${finalRedirect}`);
-      // return resolve(user)
-      return resolve(res.redirect(finalRedirect)); // redirect to frontend with tokens
-    })(req, null as any, (authErr) => {
-      if (authErr) {
-        return resolve({
-          success: false,
-          message: 'Internal error during authentication',
-          error: authErr.message || authErr,
-        });
-      }
-    });
-  });
-}
+  
 
   
 

@@ -8,11 +8,15 @@
     <!-- OpenID Button -->
     @if (showOpenIdLogin(); as shouldShow) {
     <div class="openid-wrapper">
-      <button mat-stroked-button class="openid-button" (click)="loginWithOpenID()">
+      <app-button [variant]="'primary'" [type]="'button'" (click)="loginWithOpenID()">
+        <div>
         <svg-icon src="assets/svg/google.svg" class="openid-icon"
-          [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
-        Login with Google
-      </button>
+          [svgStyle]="{ width: '24px', height: '24px'}"></svg-icon>
+          <span>
+          Login with Google
+          </span>
+        </div>
+      </app-button>
     </div>
     }
 
