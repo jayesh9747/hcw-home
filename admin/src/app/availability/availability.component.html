@@ -1,0 +1,133 @@
+<div class="availability-management">
+  <div class="header">
+    <h2>Practitioner Availability Management</h2>
+  </div>
+
+  <div class="content">
+    <div class="form-section">
+      <h3>{{ editingId ? 'Edit' : 'Add' }} Availability</h3>
+      <form [formGroup]="availabilityForm" (ngSubmit)="onSubmit()">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="practitionerId">Practitioner</label>
+            <select id="practitionerId" formControlName="practitionerId" class="form-control">
+              <option value="">Select Practitioner</option>
+              <option *ngFor="let practitioner of practitioners" [value]="practitioner.id">
+                {{ practitioner.firstName }} {{ practitioner.lastName }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="dayOfWeek">Day of Week</label>
+            <select id="dayOfWeek" formControlName="dayOfWeek" class="form-control">
+              <option value="">Select Day</option>
+              <option *ngFor="let day of daysOfWeek" [value]="day.value">
+                {{ day.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="startTime">Start Time</label>
+            <input
+              type="time"
+              id="startTime"
+              formControlName="startTime"
+              class="form-control"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="endTime">End Time</label>
+            <input
+              type="time"
+              id="endTime"
+              formControlName="endTime"
+              class="form-control"
+            >
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="slotDuration">Slot Duration (minutes)</label>
+            <input
+              type="number"
+              id="slotDuration"
+              formControlName="slotDuration"
+              class="form-control"
+              min="15"
+              max="120"
+            >
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                formControlName="isActive"
+              >
+              Active
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="!availabilityForm.valid">
+            {{ editingId ? 'Update' : 'Create' }} Availability
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="resetForm()">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="list-section">
+      <h3>Current Availabilities</h3>
+      <div class="loading" *ngIf="isLoading">Loading...</div>
+      
+      <div class="availability-table" *ngIf="!isLoading">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Practitioner</th>
+              <th>Day</th>
+              <th>Time</th>
+              <th>Slot Duration</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let availability of availabilities">
+              <td>{{ getPractitionerName(availability.practitionerId) }}</td>
+              <td>{{ getDayName(availability.dayOfWeek) }}</td>
+              <td>{{ availability.startTime }} - {{ availability.endTime }}</td>
+              <td>{{ availability.slotDuration }} min</td>
+              <td>
+                <span class="status" [class.active]="availability.isActive" [class.inactive]="!availability.isActive">
+                  {{ availability.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td>
+                <button class="btn btn-sm btn-edit" (click)="editAvailability(availability)">
+                  Edit
+                </button>
+                <button class="btn btn-sm btn-danger" (click)="deleteAvailability(availability.id)">
+                  Delete
+                </button>
+                <button class="btn btn-sm btn-generate" (click)="generateTimeSlots(availability.practitionerId)">
+                  Generate Slots
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

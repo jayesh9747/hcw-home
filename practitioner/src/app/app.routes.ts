@@ -8,6 +8,7 @@ import { InvitesComponent } from './invites/invites.component';
 import { TestCallComponent } from './test-call/test-call.component';
 import { ConsultationHistoryComponent } from './consultation-history/consultation-history.component';
 import { ProfileComponent } from './pages/profile/profile.component';
+import { AvailabilityComponent } from './pages/availability/availability.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: RoutePaths.Dashboard, pathMatch: 'full' },
@@ -18,6 +19,7 @@ export const routes: Routes = [
   { path: RoutePaths.Invitations, component: InvitesComponent },
   { path: RoutePaths.Test, component: TestCallComponent },
   { path: RoutePaths.Profile, component: ProfileComponent },
+  { path: RoutePaths.Availability, component: AvailabilityComponent },
 ];
 
 

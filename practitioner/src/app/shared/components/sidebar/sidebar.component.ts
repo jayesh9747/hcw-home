@@ -60,7 +60,7 @@ export class SidebarComponent {
         route: '/closed-consultations',
       },
       { icon: 'icon-invite.svg', label: 'Invites', route: '/invites' },
-      { icon: 'self-check.svg', label: 'Test', route: '/test' },
+      { icon: 'icon-calendar.svg', label: 'Availability', route: '/availability' },
     ];
   }
 

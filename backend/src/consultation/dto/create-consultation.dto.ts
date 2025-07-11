@@ -25,6 +25,12 @@ export class CreateConsultationDto {
   groupId?: number | null;
 }
 
+export class CreateConsultationWithTimeSlotDto extends CreateConsultationDto {
+  @ApiProperty({ description: 'Time slot ID' })
+  @IsNumber()
+  timeSlotId: number;
+}
+
 export class ConsultationResponseDto {
   @ApiProperty()
   id: number;
@@ -43,5 +49,4 @@ export class ConsultationResponseDto {
 
   @ApiPropertyOptional()
   groupId?: number;
-
 }

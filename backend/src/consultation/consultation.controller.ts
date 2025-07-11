@@ -5,6 +5,7 @@ import {
   Header,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Post,
   Query,
   Res,
@@ -26,6 +27,7 @@ import {
 } from './dto/admit-patient.dto';
 import {
   CreateConsultationDto,
+  CreateConsultationWithTimeSlotDto,
   ConsultationResponseDto,
 } from './dto/create-consultation.dto';
 import {
@@ -77,6 +79,37 @@ export class ConsultationController {
       createDto,
       userId,
     );
+    return {
+      ...ApiResponseDto.success(result.data, result.message, result.statusCode),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('with-timeslot')
+  @ApiOperation({
+    summary: 'Create a new consultation with time slot booking',
+  })
+  @ApiBody({ type: CreateConsultationWithTimeSlotDto })
+  @ApiCreatedResponse({
+    description: 'Consultation created with time slot booked',
+    type: ApiResponseDto<ConsultationResponseDto>,
+  })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
+  async createConsultationWithTimeSlot(
+    @Body() createDto: CreateConsultationWithTimeSlotDto,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<any> {
+    const result =
+      await this.consultationService.createConsultationWithTimeSlot(
+        createDto,
+        userId,
+      );
     return {
       ...ApiResponseDto.success(result.data, result.message, result.statusCode),
       timestamp: new Date().toISOString(),

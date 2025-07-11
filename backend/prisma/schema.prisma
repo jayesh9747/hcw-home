@@ -36,6 +36,8 @@ model User {
   Message            Message[]
   languages          UserLanguage[]
   specialities       UserSpeciality[]
+  availability       PractitionerAvailability[] @relation("PractitionerAvailability")
+  timeSlots          TimeSlot[] @relation("PractitionerTimeSlots")
 
   @@map("users")
   Consultation Consultation[]
@@ -207,6 +209,7 @@ model Consultation {
   messages        Message[]
   owner           User?         @relation(fields: [ownerId], references: [id])
   MediasoupRouter MediasoupRouter[]
+  timeSlot        TimeSlot?
 
   @@index([status])
   @@index([ownerId])
@@ -331,4 +334,45 @@ model DeletedConsultationLog {
   consultation     Consultation @relation(fields: [consultationId], references: [id])
 
   @@index([consultationId])
+}
+
+model PractitionerAvailability {
+  id              Int       @id @default(autoincrement())
+  practitionerId  Int
+  dayOfWeek       Int
+  startTime       String
+  endTime         String
+  slotDuration    Int       @default(30)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  practitioner    User      @relation("PractitionerAvailability", fields: [practitionerId], references: [id], onDelete: Cascade)
+  
+  @@map("practitioner_availability")
+  @@index([practitionerId])
+}
+
+model TimeSlot {
+  id              Int       @id @default(autoincrement())
+  practitionerId  Int
+  date            DateTime
+  startTime       String
+  endTime         String
+  status          TimeSlotStatus @default(AVAILABLE)
+  consultationId  Int?      @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  practitioner    User          @relation("PractitionerTimeSlots", fields: [practitionerId], references: [id], onDelete: Cascade)
+  consultation    Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+  
+  @@map("time_slots")
+  @@index([practitionerId, date])
+}
+
+enum TimeSlotStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
 }

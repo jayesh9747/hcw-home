@@ -16,8 +16,9 @@
           </ion-avatar>
           <ion-label class="text-clr">
             <h2>{{ selectedPractitioner.firstName }} {{ selectedPractitioner.lastName }}</h2>
-            <p>{{ selectedPractitioner.specialization }}</p>
-            <p>Consultation Duration: {{ selectedPractitioner.defaultSlotDuration }} minutes</p>
+            <p *ngIf="selectedPractitioner.specialization">{{ selectedPractitioner.specialization }}</p>
+            <p *ngIf="getSlotDuration() > 0">Consultation Duration: {{ getSlotDuration() }} minutes</p>
+            <p *ngIf="getSlotDuration() === 0">Consultation Duration: 30 minutes</p>
           </ion-label>
         </ion-item>
       </ion-card-content>

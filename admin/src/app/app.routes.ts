@@ -8,6 +8,7 @@ import { TermFormComponent } from './term-form/term-form.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { LoginComponent } from './login/login.component';
 import { AuthGuard } from './auth/guard/auth.guard';
+import { AvailabilityComponent } from './availability/availability.component';
 
 
 export const routes: Routes = [
@@ -22,5 +23,6 @@ export const routes: Routes = [
     { path: RoutePaths.ResourceManager, component: ResourceManagerComponent, canActivate: [AuthGuard] },
     { path: RoutePaths.Terms, component: TermsComponent, canActivate: [AuthGuard] },
     { path: RoutePaths.newTerm, component: TermFormComponent, canActivate: [AuthGuard] },
-    { path: 'term/:id', component: TermFormComponent, canActivate: [AuthGuard] }
+    { path: 'term/:id', component: TermFormComponent, canActivate: [AuthGuard] },
+    { path: RoutePaths.Availability, component: AvailabilityComponent, canActivate: [AuthGuard] }
   ];

@@ -29,7 +29,7 @@ export class UserService {
       specialityIds = [],
       ...rest
     } = createUserDto;
-    
+
     // Check if email already exists
     const existingUser = await this.databaseService.user.findUnique({
       where: { email },
@@ -127,7 +127,7 @@ export class UserService {
       sortOrder,
     } = query;
     const skip = (page - 1) * limit;
-
+    
     console.log('page type:', typeof page);
     console.log('limit type:', typeof limit);
 
@@ -444,5 +444,24 @@ export class UserService {
     return plainToInstance(UserResponseDto, user, {
       excludeExtraneousValues: false,
     });
+  }
+
+  async findPractitioners(): Promise<UserResponseDto[]> {
+    const practitioners = await this.databaseService.user.findMany({
+      where: {
+        role: 'PRACTITIONER',
+        status: 'APPROVED',
+      },
+      include: {
+        languages: { include: { language: true } },
+        specialities: { include: { speciality: true } },
+      },
+    });
+
+    return practitioners.map((user) =>
+      plainToInstance(UserResponseDto, user, {
+        excludeExtraneousValues: false,
+      }),
+    );
   }
 }

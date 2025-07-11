@@ -1,0 +1,211 @@
+<div class="availability-container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Availability Management</mat-card-title>
+      <mat-card-subtitle>Manage your consultation availability and time slots</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <mat-tab-group [(selectedIndex)]="selectedTabIndex">
+        <mat-tab label="Weekly Availability">
+          <div class="tab-content">
+            <mat-card class="form-card">
+              <mat-card-header>
+                <mat-card-title>Add New Availability</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <form [formGroup]="availabilityForm" (ngSubmit)="createAvailability()" class="availability-form">
+                  <div class="form-row">
+                    <mat-form-field>
+                      <mat-label>Day of Week</mat-label>
+                      <mat-select formControlName="dayOfWeek">
+                        <mat-option *ngFor="let day of daysOfWeek" [value]="day.value">
+                          {{ day.label }}
+                        </mat-option>
+                      </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field>
+                      <mat-label>Start Time</mat-label>
+                      <input matInput type="time" formControlName="startTime" placeholder="09:00">
+                    </mat-form-field>
+
+                    <mat-form-field>
+                      <mat-label>End Time</mat-label>
+                      <input matInput type="time" formControlName="endTime" placeholder="17:00">
+                    </mat-form-field>
+
+                    <mat-form-field>
+                      <mat-label>Slot Duration (minutes)</mat-label>
+                      <input matInput type="number" formControlName="slotDuration" min="15" max="120">
+                    </mat-form-field>
+                  </div>
+
+                  <div class="form-actions">
+                    <button mat-flat-button class="simple-button" type="submit" [disabled]="!availabilityForm.valid || loading">
+                      Add Availability
+                    </button>
+                  </div>
+                </form>
+              </mat-card-content>
+            </mat-card>
+
+      
+            <mat-card class="table-card" *ngIf="availabilities && availabilities.length > 0">
+              <mat-card-header>
+                <mat-card-title>Current Weekly Availability</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="table-container">
+                  <table mat-table [dataSource]="availabilities" class="availability-table">
+                    
+                    <ng-container matColumnDef="day">
+                      <th mat-header-cell *matHeaderCellDef>Day</th>
+                      <td mat-cell *matCellDef="let availability">{{ getDayName(availability.dayOfWeek) }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="time">
+                      <th mat-header-cell *matHeaderCellDef>Time</th>
+                      <td mat-cell *matCellDef="let availability">
+                        {{ formatTime(availability.startTime) }} - {{ formatTime(availability.endTime) }}
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="duration">
+                      <th mat-header-cell *matHeaderCellDef>Slot Duration</th>
+                      <td mat-cell *matCellDef="let availability">{{ availability.slotDuration }} minutes</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="status">
+                      <th mat-header-cell *matHeaderCellDef>Status</th>
+                      <td mat-cell *matCellDef="let availability">
+                        <mat-slide-toggle 
+                          [checked]="availability.isActive"
+                          (change)="toggleAvailabilityStatus(availability)"
+                          color="primary">
+                          {{ availability.isActive ? 'Active' : 'Inactive' }}
+                        </mat-slide-toggle>
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef>Actions</th>
+                      <td mat-cell *matCellDef="let availability">
+                        <button mat-icon-button color="warn" (click)="deleteAvailability(availability.id)">
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+                  </table>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            
+            <mat-card class="table-card" *ngIf="!availabilities || availabilities.length === 0">
+              <mat-card-content>
+                <div class="no-data">
+                  <p>No availability set up yet. Add your first availability above.</p>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </mat-tab>
+
+        
+        <mat-tab label="Time Slots">
+          <div class="tab-content">
+            
+            <mat-card class="form-card">
+              <mat-card-header>
+                <mat-card-title>Generate Time Slots</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <form [formGroup]="generateSlotsForm" (ngSubmit)="generateTimeSlots()" class="generate-form">
+                  <div class="form-row">
+                    <mat-form-field>
+                      <mat-label>Start Date</mat-label>
+                      <input matInput [matDatepicker]="startPicker" formControlName="startDate">
+                      <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+                      <mat-datepicker #startPicker></mat-datepicker>
+                    </mat-form-field>
+
+                    <mat-form-field>
+                      <mat-label>End Date</mat-label>
+                      <input matInput [matDatepicker]="endPicker" formControlName="endDate">
+                      <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+                      <mat-datepicker #endPicker></mat-datepicker>
+                    </mat-form-field>
+                  </div>
+
+                  <div class="form-actions">
+                    <button mat-flat-button class="simple-button" type="submit" [disabled]="!generateSlotsForm.valid || loading">
+                      Generate Slots
+                    </button>
+                  </div>
+                </form>
+              </mat-card-content>
+            </mat-card>
+
+            
+            <mat-card class="table-card">
+              <mat-card-header>
+                <mat-card-title>Upcoming Time Slots</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="table-container">
+                  <table mat-table [dataSource]="timeSlots" class="slots-table">
+                    <ng-container matColumnDef="date">
+                      <th mat-header-cell *matHeaderCellDef>Date</th>
+                      <td mat-cell *matCellDef="let slot">{{ formatDate(slot.date) }}</td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="time">
+                      <th mat-header-cell *matHeaderCellDef>Time</th>
+                      <td mat-cell *matCellDef="let slot">
+                        {{ formatTime(slot.startTime) }} - {{ formatTime(slot.endTime) }}
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="status">
+                      <th mat-header-cell *matHeaderCellDef>Status</th>
+                      <td mat-cell *matCellDef="let slot">
+                        <span class="status-badge" [ngClass]="getSlotStatusClass(slot.status)">
+                          {{ slot.status }}
+                        </span>
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef>Actions</th>
+                      <td mat-cell *matCellDef="let slot">
+                        <button mat-icon-button 
+                                *ngIf="slot.status !== 'BOOKED'"
+                                [color]="slot.status === 'AVAILABLE' ? 'warn' : 'primary'"
+                                (click)="toggleSlotStatus(slot)"
+                                [matTooltip]="slot.status === 'AVAILABLE' ? 'Block slot' : 'Unblock slot'">
+                          <mat-icon>{{ slot.status === 'AVAILABLE' ? 'block' : 'check_circle' }}</mat-icon>
+                        </button>
+                      </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="slotsDisplayedColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: slotsDisplayedColumns;"></tr>
+                  </table>
+
+                  <div *ngIf="timeSlots.length === 0" class="no-data">
+                    
+                    <p>No time slots generated yet. Set up your weekly availability and generate slots.</p>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+</div>

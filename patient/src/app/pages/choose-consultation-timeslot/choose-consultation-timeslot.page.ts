@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { format, addDays } from 'date-fns';
 import {
@@ -19,23 +20,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HeaderComponent } from 'src/app/components/header/header.component';
-
-interface Practitioner {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  specialization?: string;
-  defaultSlotDuration: number;
-}
-
-interface TimeSlot {
-  id: number;
-  startTime: string;
-  endTime: string;
-  date: string;
-  status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED';
-}
+import { AvailabilityService, TimeSlot, Practitioner, CreateConsultationRequest } from '../../services/availability.service';
+import { HttpClient } from '@angular/common/http';
 
 interface BookingRequest {
   timeSlotId: number;
@@ -75,25 +61,66 @@ export class ChooseConsultationTimeslotPage implements OnInit {
   selectedSlot: TimeSlot | null = null;
   loading = false;
   notes = '';
-  currentPatientId = 1;
+  currentPatientId: number = 0;
 
   paymentCompleted = false;
 
   constructor(
     private alertController: AlertController,
     private loadingController: LoadingController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private availabilityService: AvailabilityService,
+    private route: ActivatedRoute,
+    private router: Router,
+    private http: HttpClient
   ) {}
 
   ngOnInit() {
-    this.selectedPractitioner = {
-      id: 2,
-      firstName: 'Dr. Sarah',
-      lastName: 'Johnson',
-      email: 'sarah.johnson@example.com',
-      specialization: 'Dermatology',
-      defaultSlotDuration: 15,
-    };
+
+    this.initializePatientId();
+    
+    const practitionerId = this.route.snapshot.paramMap.get('practitionerId');
+    if (practitionerId) {
+      this.loadPractitioner(parseInt(practitionerId));
+    } else {
+      this.router.navigate(['/home']);
+    }
+  }
+
+  private initializePatientId() {
+    let user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    
+    if (user && user.id && user.role === 'PATIENT') {
+      this.currentPatientId = user.id;
+    } else {
+      console.warn('No authenticated user found');
+    }
+  }
+
+  async loadPractitioner(practitionerId: number) {
+    this.loading = true;
+    try {
+      const response = await this.http.get<any>(`http://localhost:3000/api/v1/user/practitioners`).toPromise();
+      const practitioners = response?.data || [];
+      this.selectedPractitioner = practitioners.find((p: any) => p.id === practitionerId);
+      if (this.selectedPractitioner) {
+        this.generateSlotsForPractitioner();
+      } else {
+        console.error('Practitioner not found with ID:', practitionerId);
+        this.showToast('Practitioner not found. Please try again.', 'danger');
+      }
+    } catch (error) {
+      console.error('Error loading practitioner:', error);
+      this.showToast('Error loading practitioner data. Please check your connection.', 'danger');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  generateSlotsForPractitioner() {
+    if (!this.selectedPractitioner) return;
+
+    this.selectedDate = new Date().toISOString().split('T')[0];
     this.loadAvailableSlots();
   }
 
@@ -112,21 +139,6 @@ export class ChooseConsultationTimeslotPage implements OnInit {
 
     if (!this.selectedPractitioner || !this.selectedDate) return;
 
-    const selected = new Date(this.selectedDate);
-    const day = selected.getDay();
-
-    if (
-      this.selectedPractitioner.firstName === 'Dr. Sarah' &&
-      (day === 0 || day === 3)
-    ) {
-      this.showToast(
-        'Dr. Sarah is unavailable on Sundays and Wednesdays.',
-        'warning'
-      );
-      this.selectedDate = '';
-      return;
-    }
-
     this.loadAvailableSlots();
   }
 
@@ -135,91 +147,74 @@ export class ChooseConsultationTimeslotPage implements OnInit {
 
     const loading = await this.loadingController.create({
       message: 'Loading available slots...',
-      duration: 2000,
     });
     await loading.present();
 
     try {
-      await this.delay(1000);
-      const selected = new Date(this.selectedDate);
-      const day = selected.getDay();
-
-      if (
-        this.selectedPractitioner.firstName === 'Dr. Sarah' &&
-        (day === 0 || day === 3)
-      ) {
-        this.availableSlots = [];
-      } else {
-        this.availableSlots = this.generateMockSlots();
-      }
+      const endDate = addDays(new Date(this.selectedDate), 1);
+      
+      this.availabilityService.getAvailableSlots(
+        this.selectedPractitioner.id,
+        this.selectedDate,
+        endDate.toISOString().split('T')[0]
+      ).subscribe({
+        next: (response) => {
+          const slots = response?.data || [];
+          this.availableSlots = slots.filter((slot: any) => {
+            const slotDate = new Date(slot.date).toISOString().split('T')[0];
+            return slotDate === this.selectedDate;
+          });
+          loading.dismiss();
+        },
+        error: (error) => {
+          console.error('Error loading slots:', error);
+          this.showToast('Error loading available slots', 'danger');
+          loading.dismiss();
+        }
+      });
     } catch (error) {
       console.error('Error loading slots:', error);
       this.showToast('Error loading available slots', 'danger');
-    } finally {
       loading.dismiss();
     }
   }
 
-  private generateMockSlots(): TimeSlot[] {
-    const slots: TimeSlot[] = [];
-    const duration = this.selectedPractitioner?.defaultSlotDuration || 20;
-    let slotId = 1;
-
-    const morningSlots = this.generateSlotsForRange('09:00', '12:00', duration, slotId);
-    slotId += morningSlots.length;
-
-    const afternoonSlots = this.generateSlotsForRange('14:00', '17:00', duration, slotId);
-    slotId += afternoonSlots.length;
-
-    slots.push(...morningSlots, ...afternoonSlots);
-
-    const bookedIndices = [2, 5, 8, 12];
-    bookedIndices.forEach((index) => {
-      if (slots[index]) {
-        slots[index].status = 'BOOKED';
-      }
+  async confirmBooking() {
+    const loading = await this.loadingController.create({
+      message: 'Booking appointment...',
     });
+    await loading.present();
 
-    return slots.filter((slot) => slot.status === 'AVAILABLE');
-  }
+    try {
+      const bookingRequest: CreateConsultationRequest = {
+        timeSlotId: this.selectedSlot!.id,
+        patientId: this.currentPatientId,
+      };
 
-  private generateSlotsForRange(
-    startTime: string,
-    endTime: string,
-    duration: number,
-    startId: number
-  ): TimeSlot[] {
-    const slots: TimeSlot[] = [];
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const [endHour, endMin] = endTime.split(':').map(Number);
+      this.availabilityService.createConsultationWithTimeSlot(bookingRequest).subscribe({
+        next: (response) => {
+          this.availableSlots = this.availableSlots.filter(
+            (slot) => slot.id !== this.selectedSlot!.id
+          );
 
-    let currentTime = startHour * 60 + startMin;
-    const endTimeMinutes = endHour * 60 + endMin;
-    let slotId = startId;
+          this.selectedSlot = null;
+          this.notes = '';
+          this.paymentCompleted = false;
 
-    while (currentTime + duration <= endTimeMinutes) {
-      const startHours = Math.floor(currentTime / 60);
-      const startMinutes = currentTime % 60;
-      const endTimeSlot = currentTime + duration;
-      const endHours = Math.floor(endTimeSlot / 60);
-      const endMinutesSlot = endTimeSlot % 60;
-
-      slots.push({
-        id: slotId++,
-        startTime: `${startHours.toString().padStart(2, '0')}:${startMinutes
-          .toString()
-          .padStart(2, '0')}`,
-        endTime: `${endHours.toString().padStart(2, '0')}:${endMinutesSlot
-          .toString()
-          .padStart(2, '0')}`,
-        date: this.selectedDate,
-        status: 'AVAILABLE',
+          this.showToast('Appointment booked successfully!', 'success');
+          loading.dismiss();
+        },
+        error: (error) => {
+          console.error('Booking error:', error);
+          this.showToast('Failed to book appointment. Please try again.', 'danger');
+          loading.dismiss();
+        }
       });
-
-      currentTime += duration;
+    } catch (error) {
+      console.error('Booking error:', error);
+      this.showToast('Failed to book appointment. Please try again.', 'danger');
+      loading.dismiss();
     }
-
-    return slots;
   }
 
   selectSlot(slot: TimeSlot) {
@@ -260,40 +255,6 @@ export class ChooseConsultationTimeslotPage implements OnInit {
     this.confirmBooking();
   }
 
-  async confirmBooking() {
-    const loading = await this.loadingController.create({
-      message: 'Booking appointment...',
-      duration: 3000,
-    });
-    await loading.present();
-
-    try {
-      const bookingRequest: BookingRequest = {
-        timeSlotId: this.selectedSlot!.id,
-        patientId: this.currentPatientId,
-        notes: this.notes,
-      };
-
-      await this.delay(2000);
-      console.log('Booking request:', bookingRequest);
-
-      this.availableSlots = this.availableSlots.filter(
-        (slot) => slot.id !== this.selectedSlot!.id
-      );
-
-      this.selectedSlot = null;
-      this.notes = '';
-      this.paymentCompleted = false;
-
-      this.showToast('Appointment booked successfully!', 'success');
-    } catch (error) {
-      console.error('Booking error:', error);
-      this.showToast('Failed to book appointment. Please try again.', 'danger');
-    } finally {
-      loading.dismiss();
-    }
-  }
-
   private async showToast(message: string, color: string) {
     const toast = await this.toastController.create({
       message,
@@ -327,5 +288,17 @@ export class ChooseConsultationTimeslotPage implements OnInit {
   getMaxDate(): string {
     const maxDate = addDays(new Date(), 30);
     return format(maxDate, 'yyyy-MM-dd');
+  }
+
+  getSlotDuration(): number {
+    if (this.availableSlots.length > 0) {
+      const slot = this.availableSlots[0];
+      const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      const endTotalMinutes = endHours * 60 + endMinutes;
+      return endTotalMinutes - startTotalMinutes;
+    }
+    return 0;
   }
 }

@@ -5,9 +5,10 @@ import { ConsultationGateway } from './consultation.gateway';
 import { DatabaseService } from 'src/database/database.service';
 import { ConfigModule } from 'src/config/config.module';
 import { ConsultationCleanupService } from './consultation-cleanup.service';
+import { AvailabilityModule } from '../availability/availability.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, AvailabilityModule],
   controllers: [ConsultationController],
   providers: [
     ConsultationService,
