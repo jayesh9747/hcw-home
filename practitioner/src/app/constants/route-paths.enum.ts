@@ -7,4 +7,5 @@ export enum RoutePaths {
   Test = 'test',
   Profile = 'profile',
   Availability = 'availability',
+  Login='login'
 }

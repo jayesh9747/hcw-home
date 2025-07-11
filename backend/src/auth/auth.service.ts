@@ -312,6 +312,13 @@ export class AuthService {
       existingUser = await this.findByEmailRole(user.email, UserRole.ADMIN).catch(() => null);
     }
     if (!existingUser) {
+      const patientUser = await this.findByEmailRole(user.email, UserRole.PATIENT).catch(() => null);
+      if (patientUser) {
+        this.logger.warn(`User with email ${user.email} already exists as PATIENT`);
+        throw HttpExceptionHelper.unauthorized(`Cannot register as PRACTITIONER. Email already exists as PATIENT.`);
+      }  
+    }
+    if (!existingUser) {
       this.logger.log(`Creating new practitioner user with email: ${user.email}`);
       // Create new Practitioner
       const createUserData = {
@@ -330,6 +337,8 @@ export class AuthService {
         data: createUserData,
       });
     }
+
+    
     const { accessToken, refreshToken } = await this.generateToken(existingUser);
     const userDto = new UserResponseDto(existingUser);
     this.logger.log(`Successfully logged in as Practitioner with ${existingUser.email}`);
@@ -352,7 +361,7 @@ export class AuthService {
       case Role.PRACTITIONER:
         return this.validatePractitioner(user);
       default:
-        throw HttpExceptionHelper.badRequest(`Invalid role for OIDC login: ${role}`);
+        return null
     }
   }
 }
