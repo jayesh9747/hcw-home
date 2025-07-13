@@ -8,18 +8,21 @@
           <div>
             <h2 class="title">Send us your feedback!</h2>
           </div>
-          <ion-icon name="close" (click)="close()" class="close-icon"></ion-icon>
         </div>
       </ion-card-header>
 
       <ion-card-content>
         <form [formGroup]="feedbackForm" (ngSubmit)="submit()">
           <div class="section">
-            <label class="label">How was your experience?</label>
-            <div class="emoji-rating">
-              <span (click)="selectMood('happy')" [class.active]="mood === 'happy'">😊</span>
-              <span (click)="selectMood('neutral')" [class.active]="mood === 'neutral'">😐</span>
-              <span (click)="selectMood('sad')" [class.active]="mood === 'sad'">😞</span>
+            <label class="label">Rate your consultation</label>
+            <div class="star-rating">
+              <ion-icon
+                *ngFor="let star of stars; let i = index"
+                name="star"
+                (click)="selectRating(i + 1)"
+                [class.filled]="i < rating"
+                class="star-icon"
+              ></ion-icon>
             </div>
           </div>
 

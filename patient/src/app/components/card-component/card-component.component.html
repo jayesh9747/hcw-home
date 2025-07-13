@@ -12,9 +12,9 @@
         <ion-list lines="full" class="consultation-list">
           <ion-item *ngFor="let consultation of activeConsultations" class="consultation-item">
             <ion-label>
-              <h2 class="doctor-name">{{ consultation.doctorName }}</h2>
-              <h3 class="specialty">{{ consultation.specialty }}</h3>
-              <p class="consultation-date">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
+              <h2 class="doctor-name">{{ consultation.practitionerName }}</h2>
+              <h3 class="specialty">{{ consultation.practitionerSpeciality }}</h3>
+              <p class="consultation-date">{{ consultation.scheduledDate | date:'MMM d, y, h:mm a' }}</p>
               <p class="consultation-status">Status: 
                 <ion-text color="primary">{{ consultation.status }}</ion-text>
               </p>
@@ -22,11 +22,11 @@
 
             <div slot="end" class="consultation-end">
               <ion-button
-                *ngIf="consultation.status === 'Open'"
+                *ngIf="consultation.status === 'ACTIVE'"
                 fill="solid"
                 color="success"
                 size="small"
-                (click)="joinConsultation(consultation.id)"
+                (click)="joinConsultation(consultation.consultationId)"
                 class="join-button"
               >
                 <ion-icon name="videocam-outline" slot="start"></ion-icon>
@@ -34,7 +34,7 @@
               </ion-button>
 
               <ion-chip
-                *ngIf="consultation.status === 'Waiting'"
+                *ngIf="consultation.status === 'WAITING'"
                 color="warning"
                 class="status-chip waiting-chip"
               >
@@ -67,10 +67,9 @@
         <ion-list lines="full" class="consultation-list">
           <ion-item *ngFor="let consultation of completedConsultations" class="consultation-item">
             <ion-label>
-              <h2 class="doctor-name">{{ consultation.doctorName }}</h2>
-              <h3 class="specialty">{{ consultation.specialty }}</h3>
-              <p class="consultation-date">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
-              <p class="consultation-duration">Duration: {{ consultation.duration }} minutes</p>
+              <h2 class="doctor-name">{{ consultation.practitionerName }}</h2>
+              <h3 class="specialty">{{ consultation.practitionerSpeciality }}</h3>
+              <p class="consultation-date">{{ consultation.scheduledDate | date:'MMM d, y, h:mm a' }}</p>
             </ion-label>
 
             <div slot="end" class="action-buttons">
@@ -78,34 +77,21 @@
                 fill="outline"
                 color="tertiary"
                 size="small"
-                *ngIf="!consultation.feedbackSubmitted"
-                (click)="provideFeedback(consultation.id)"
+                *ngIf="!consultation.rating?.done"
+                (click)="navigateToFeedback(consultation.consultationId)"
                 class="action-button"
               >
                 <ion-icon name="star-outline" slot="start"></ion-icon>
                 Rate
               </ion-button>
-
-              <ion-chip
-                color="success"
-                *ngIf="consultation.feedbackSubmitted"
-                class="status-chip rated-chip"
-              >
-                <ion-icon name="checkmark-circle"></ion-icon>
-                <ion-label>Rated</ion-label>
-              </ion-chip>
-
-              <ion-button
-                *ngIf="consultation.feedbackSubmitted"
-                fill="outline"
-                color="primary"
-                size="small"
-                (click)="viewSummary(consultation.id)"
-                class="action-button"
-              >
-                <ion-icon name="document-text-outline" slot="start"></ion-icon>
-                Summary
-              </ion-button>
+              <div class="star-rating" *ngIf="consultation.rating?.done">
+                <ion-icon
+                  *ngFor="let star of [1, 2, 3, 4, 5]"
+                  [name]="star <= (consultation.rating?.value || 0) ? 'star' : 'star-outline'"
+                  color="warning"
+                  class="rating-star"
+                ></ion-icon>
+              </div>
             </div>
           </ion-item>
 
@@ -132,10 +118,9 @@
         <ion-list lines="full" class="consultation-list">
           <ion-item *ngFor="let consultation of upcomingConsultations" class="consultation-item">
             <ion-label>
-              <h2 class="doctor-name">{{ consultation.doctorName }}</h2>
-              <h3 class="specialty">{{ consultation.specialty }}</h3>
-              <p class="consultation-date">{{ consultation.dateTime | date:'MMM d, y, h:mm a' }}</p>
-              <p class="time-until">In {{ consultation.timeUntil }}</p>
+              <h2 class="doctor-name">{{ consultation.practitionerName }}</h2>
+              <h3 class="specialty">{{ consultation.practitionerSpeciality }}</h3>
+              <p class="consultation-date">{{ consultation.scheduledDate | date:'MMM d, y, h:mm a' }}</p>
             </ion-label>
           </ion-item>
 
