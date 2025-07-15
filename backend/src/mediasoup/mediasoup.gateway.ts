@@ -9,10 +9,12 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
+import * as mediasoup from 'mediasoup';
 import { Server, Socket } from 'socket.io';
-import { DatabaseService } from 'src/database/database.service';
 import { MediasoupSessionService } from './mediasoup-session.service';
+import { WsAuthGuard } from 'src/auth/guards/ws-auth.guard';
+import { sanitizePayload } from 'src/common/helpers/sanitize.helper';
 
 @WebSocketGateway({ namespace: '/mediasoup', cors: true })
 export class MediasoupGateway
@@ -20,47 +22,88 @@ export class MediasoupGateway
 {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(MediasoupGateway.name);
+  private clientTransports: Map<string, Set<string>> = new Map();
+  private clientProducers: Map<string, Set<string>> = new Map();
+  private clientConsumers: Map<string, Set<string>> = new Map();
 
-  constructor(
-    private readonly mediasoupService: MediasoupSessionService,
-  ) {}
+  constructor(private readonly mediasoupService: MediasoupSessionService) {}
 
   afterInit() {
     this.logger.log('Mediasoup WebSocket Gateway initialized');
   }
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     this.logger.log(
       `Client connected: ${client.id} [${client.handshake.address}]`,
     );
+    this.clientTransports.set(client.id, new Set());
+    this.clientProducers.set(client.id, new Set());
+    this.clientConsumers.set(client.id, new Set());
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(
       `Client disconnected: ${client.id} [${client.handshake.address}]`,
     );
+    const transports = this.clientTransports.get(client.id) || [];
+    for (const transportId of transports) {
+      try {
+        await this.mediasoupService.closeTransport(transportId);
+      } catch (e) {
+        this.logger.warn(
+          `Failed to cleanup transport ${transportId}: ${e.message}`,
+        );
+      }
+    }
+    const producers = this.clientProducers.get(client.id) || [];
+    for (const producerId of producers) {
+      try {
+        await this.mediasoupService.closeProducer(producerId);
+      } catch (e) {
+        this.logger.warn(
+          `Failed to cleanup producer ${producerId}: ${e.message}`,
+        );
+      }
+    }
+    const consumers = this.clientConsumers.get(client.id) || [];
+    for (const consumerId of consumers) {
+      try {
+        await this.mediasoupService.closeConsumer(consumerId);
+      } catch (e) {
+        this.logger.warn(
+          `Failed to cleanup consumer ${consumerId}: ${e.message}`,
+        );
+      }
+    }
+    this.clientTransports.delete(client.id);
+    this.clientProducers.delete(client.id);
+    this.clientConsumers.delete(client.id);
   }
 
+  @UseGuards(WsAuthGuard)
   @SubscribeMessage('getRouterCapabilities')
   async handleGetCapabilities(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { consultationId: number },
+    @MessageBody() data: { consultationId?: number },
   ) {
     try {
-      this.logger.log(
-        `getRouterCapabilities requested by client ${client.id} for consultation ${data.consultationId}`,
-      );
-      const router = this.mediasoupService.getRouter(data.consultationId);
-      if (!router) {
-        this.logger.warn(
-          `No router found for consultation ${data.consultationId}`,
+      const { consultationId } = sanitizePayload(data, ['consultationId']);
+      if (typeof consultationId !== 'number' || isNaN(consultationId)) {
+        throw new WsException(
+          'consultationId is required and must be a number',
         );
+      }
+      this.logger.log(
+        `getRouterCapabilities requested by client ${client.id} for consultation ${consultationId}`,
+      );
+      const router = this.mediasoupService.getRouter(consultationId);
+      if (!router) {
         throw new WsException('No router found for this consultation');
       }
       return { rtpCapabilities: router.rtpCapabilities };
     } catch (error) {
       this.logger.error(
-        `Error in getRouterCapabilities for client ${client.id} (consultation ${data.consultationId}): ${error.message}`,
+        `Error in getRouterCapabilities for client ${client.id}: ${error.message}`,
         error.stack,
       );
       client.emit('error', {
@@ -71,52 +114,178 @@ export class MediasoupGateway
     }
   }
 
+  @UseGuards(WsAuthGuard)
   @SubscribeMessage('createTransport')
   async handleCreateTransport(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { consultationId: number; type: 'producer' | 'consumer' },
+    data: { consultationId?: number; type: 'producer' | 'consumer' },
   ) {
     try {
-      this.logger.log(
-        `createTransport requested by client ${client.id} for consultation ${data.consultationId}, type: ${data.type}`,
-      );
-      const router = this.mediasoupService.getRouter(data.consultationId);
-      if (!router) {
-        this.logger.warn(
-          `No router found for consultation ${data.consultationId}`,
+      const { consultationId, type } = sanitizePayload(data, [
+        'consultationId',
+        'type',
+      ]);
+      if (typeof consultationId !== 'number' || isNaN(consultationId)) {
+        throw new WsException(
+          'consultationId is required and must be a number',
         );
-        throw new WsException('No router found for this consultation');
       }
-
-      const transport = await router.createWebRtcTransport({
-        listenIps: [
-          { ip: '0.0.0.0', announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP },
-        ],
-        enableUdp: true,
-        enableTcp: true,
-        preferUdp: true,
-      });
-
+      if (type !== 'producer' && type !== 'consumer') {
+        throw new WsException(
+          "type is required and must be either 'producer' or 'consumer'",
+        );
+      }
       this.logger.log(
-        `Transport created for client ${client.id} [consultation ${data.consultationId}], transportId: ${transport.id}`,
+        `createTransport requested by client ${client.id} for consultation ${consultationId}, type: ${type}`,
       );
-
-      return {
-        id: transport.id,
-        iceParameters: transport.iceParameters,
-        iceCandidates: transport.iceCandidates,
-        dtlsParameters: transport.dtlsParameters,
-      };
+      const transportInfo = await this.mediasoupService.createTransport(
+        consultationId,
+        type,
+      );
+      this.clientTransports.get(client.id)?.add(transportInfo.id);
+      return transportInfo;
     } catch (error) {
       this.logger.error(
-        `Error in createTransport for client ${client.id} (consultation ${data.consultationId}): ${error.message}`,
+        `Error in createTransport for client ${client.id}: ${error.message}`,
         error.stack,
       );
       client.emit('error', {
         event: 'createTransport',
         message: error.message,
       });
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('connectTransport')
+  async handleConnectTransport(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { transportId: string; dtlsParameters: any },
+  ) {
+    try {
+      const { transportId, dtlsParameters } = sanitizePayload(data, [
+        'transportId',
+        'dtlsParameters',
+      ]);
+      if (!transportId) {
+        throw new WsException('transportId is required');
+      }
+      await this.mediasoupService.connectTransport(transportId, dtlsParameters);
+      return { connected: true };
+    } catch (error) {
+      this.logger.error(
+        `Error in connectTransport for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', {
+        event: 'connectTransport',
+        message: error.message,
+      });
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('produce')
+  async handleProduce(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      transportId: string;
+      kind: string;
+      rtpParameters: any;
+      appData?: any;
+    },
+  ) {
+    try {
+      const { transportId, kind, rtpParameters, appData } = sanitizePayload(
+        data,
+        ['transportId', 'kind', 'rtpParameters', 'appData'],
+      );
+      if (!transportId || !kind || !rtpParameters) {
+        throw new WsException(
+          'transportId, kind and rtpParameters are required',
+        );
+      }
+      function asMediaKind(value: string): mediasoup.types.MediaKind {
+        if (value === 'audio' || value === 'video') return value;
+        throw new Error(`Invalid media kind: ${value}`);
+      }
+      const validKind = asMediaKind(kind);
+      const producerInfo = await this.mediasoupService.produce(
+        transportId,
+        validKind,
+        rtpParameters,
+        appData,
+      );
+      this.clientProducers.get(client.id)?.add(producerInfo.id);
+      return producerInfo;
+    } catch (error) {
+      this.logger.error(
+        `Error in produce for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', { event: 'produce', message: error.message });
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('consume')
+  async handleConsume(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { transportId: string; producerId: string; rtpCapabilities: any },
+  ) {
+    try {
+      const { transportId, producerId, rtpCapabilities } = sanitizePayload(
+        data,
+        ['transportId', 'producerId', 'rtpCapabilities'],
+      );
+      if (!transportId || !producerId || !rtpCapabilities) {
+        throw new WsException(
+          'transportId, producerId and rtpCapabilities are required',
+        );
+      }
+      const consumerInfo = await this.mediasoupService.consume(
+        transportId,
+        producerId,
+        rtpCapabilities,
+      );
+      this.clientConsumers.get(client.id)?.add(consumerInfo.id);
+      return consumerInfo;
+    } catch (error) {
+      this.logger.error(
+        `Error in consume for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', { event: 'consume', message: error.message });
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('closeTransport')
+  async handleCloseTransport(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { transportId: string },
+  ) {
+    try {
+      const { transportId } = sanitizePayload(data, ['transportId']);
+      if (!transportId) {
+        throw new WsException('transportId is required');
+      }
+      await this.mediasoupService.closeTransport(transportId);
+      this.clientTransports.get(client.id)?.delete(transportId);
+      return { closed: true };
+    } catch (error) {
+      this.logger.error(
+        `Error in closeTransport for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', { event: 'closeTransport', message: error.message });
       throw new WsException(error.message);
     }
   }
