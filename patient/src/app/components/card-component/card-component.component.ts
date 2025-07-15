@@ -13,16 +13,7 @@ import {
 } from 'ionicons/icons';
 
 import { Router } from '@angular/router';
-interface Consultation {
-  id: number;
-  doctorName: string;
-  specialty: string;
-  dateTime: Date;
-  status: 'Open' | 'Waiting' | 'Completed' | 'Upcoming';
-  duration?: number;
-  feedbackSubmitted?: boolean;
-  timeUntil?: string;
-}
+import { Consultation } from 'src/app/services/consultation.service';
 
 @Component({
   selector: 'card-component',
@@ -47,7 +38,11 @@ interface Consultation {
 
 export class CardComponentComponent {
 
-  constructor(private router: Router ,private alertController: AlertController, private toastController: ToastController) {
+  constructor(
+    private router: Router,
+    private alertController: AlertController, 
+    private toastController: ToastController
+  ){
     addIcons({
       videocamOutline, 
       starOutline, 
@@ -71,71 +66,20 @@ export class CardComponentComponent {
   }
 
   // we have to provide it after consultation ends
-  async provideFeedback(consultationId: number) {
-    const alert = await this.alertController.create({
-      header: 'Rate your consultation',
-      inputs: [
-        {
-          name: 'rating',
-          placeholder: 'Choose a rating from 1-5'
-        },
-        {
-          name: 'comment',
-          type: 'textarea',
-          placeholder: 'Additional comments (optional)'
-        }
-      ],
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Submit',
-          handler: (data) => {
-            // Update the consultation object to mark feedback as submitted
-            const consultation = this.completedConsultations.find(c => c.id === consultationId);
-            if (consultation) {
-              consultation.feedbackSubmitted = true;
-            }
-            
-            this.presentToast('Feedback submitted successfully!');
-          }
-        }
-      ]
-    });
 
-    await alert.present();
+  navigateToFeedback(consultationId: number) {
+    this.router.navigate(['/post-consultation-feedback-form'], {
+      queryParams: { consultationId }
+    });
   }
 
   async presentToast(message: string) {
     const toast = await this.toastController.create({
       message: message,
       duration: 2000,
-      color: 'success'
+      color: 'success',
+      position: 'top'
     });
     toast.present();
-  }
-   async viewSummary(consultationId: number) {
-    const consultation = this.completedConsultations.find(c => c.id === consultationId);
-
-    if (consultation) {
-      const alert = await this.alertController.create({
-        header: 'Consultation Summary',
-        subHeader: `${consultation.doctorName} - ${consultation.specialty}`,
-        message: `
-          <p><strong>Date:</strong> ${new Date(consultation.dateTime).toLocaleDateString()}</p>
-          <p><strong>Time:</strong> ${new Date(consultation.dateTime).toLocaleTimeString()}</p>
-          <p><strong>Duration:</strong> ${consultation.duration} minutes</p>
-          <p><strong>Notes:</strong> Follow-up in 30 days. Prescribed medication reviewed. Overall health improving.</p>
-        `,
-        buttons: ['Close']
-      });
-
-      await alert.present();
-    }
-  }
-  goToConsultationRequest() {
-    this.router.navigate(['/consultation-request']);
   }
 }
