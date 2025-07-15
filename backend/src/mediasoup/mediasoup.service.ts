@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { CreateMediasoupServerDto } from './dto/create-mediasoup-server.dto';
 import { UpdateMediasoupServerDto } from './dto/update-mediasoup-server.dto';
@@ -11,6 +11,8 @@ import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception
 
 @Injectable()
 export class MediasoupServerService {
+  private readonly logger = new Logger(MediasoupServerService.name);
+
   constructor(private readonly databaseService: DatabaseService) {}
 
   async create(
@@ -23,6 +25,9 @@ export class MediasoupServerService {
     );
 
     if (existingServer) {
+      this.logger.warn(
+        `Attempt to create duplicate server URL: ${createMediasoupServerDto.url}`,
+      );
       throw HttpExceptionHelper.conflict('Mediasoup server URL already exists');
     }
 
@@ -42,6 +47,8 @@ export class MediasoupServerService {
       data: serverData,
     });
 
+    this.logger.log(`Created Mediasoup server with ID: ${server.id}`);
+
     return plainToInstance(MediasoupServerResponseDto, server, {
       excludeExtraneousValues: true,
     });
@@ -56,8 +63,8 @@ export class MediasoupServerService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = query;
-    const skip = (page - 1) * limit;
 
+    const skip = (page - 1) * limit;
     const where: Prisma.MediasoupServerWhereInput = {};
 
     if (search) {
@@ -66,7 +73,6 @@ export class MediasoupServerService {
         { username: { contains: search, mode: 'insensitive' } },
       ];
     }
-
     if (active !== undefined) {
       where.active = active;
     }
@@ -91,11 +97,11 @@ export class MediasoupServerService {
     );
 
     return {
-      servers: transformedServers, // Changed from 'servers' to 'items'
+      items: transformedServers,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit), // Added totalPages
+      totalPages: Math.ceil(total / limit),
     };
   }
 
@@ -105,6 +111,7 @@ export class MediasoupServerService {
     });
 
     if (!server) {
+      this.logger.warn(`Mediasoup server not found with ID: ${id}`);
       throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
@@ -124,6 +131,7 @@ export class MediasoupServerService {
       });
 
     if (!existingServer) {
+      this.logger.warn(`Update failed, server not found with ID: ${id}`);
       throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
@@ -140,6 +148,9 @@ export class MediasoupServerService {
       });
 
       if (urlExists) {
+        this.logger.warn(
+          `Update failed, duplicate URL: ${updateMediasoupServerDto.url}`,
+        );
         throw HttpExceptionHelper.conflict(
           'Mediasoup server URL already exists',
         );
@@ -150,6 +161,8 @@ export class MediasoupServerService {
       where: { id },
       data: updateMediasoupServerDto,
     });
+
+    this.logger.log(`Updated Mediasoup server with ID: ${id}`);
 
     return plainToInstance(MediasoupServerResponseDto, server, {
       excludeExtraneousValues: true,
@@ -164,6 +177,7 @@ export class MediasoupServerService {
       });
 
     if (!existingServer) {
+      this.logger.warn(`Toggle active failed, server not found with ID: ${id}`);
       throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
@@ -171,6 +185,10 @@ export class MediasoupServerService {
       where: { id },
       data: { active: !existingServer.active },
     });
+
+    this.logger.log(
+      `Toggled active status for Mediasoup server with ID: ${id}`,
+    );
 
     return plainToInstance(MediasoupServerResponseDto, server, {
       excludeExtraneousValues: true,
@@ -185,12 +203,15 @@ export class MediasoupServerService {
       });
 
     if (!existingServer) {
+      this.logger.warn(`Remove failed, server not found with ID: ${id}`);
       throw HttpExceptionHelper.notFound('Mediasoup server not found');
     }
 
     const server = await this.databaseService.mediasoupServer.delete({
       where: { id },
     });
+
+    this.logger.log(`Removed Mediasoup server with ID: ${id}`);
 
     return plainToInstance(MediasoupServerResponseDto, server, {
       excludeExtraneousValues: true,
