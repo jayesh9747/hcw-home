@@ -38,7 +38,7 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Role } from 'src/auth/enums/role.enum';
 import { Roles } from 'src/common/decorators/roles.decorator';
 
-@ApiTags('mediasoup-servers')
+@ApiTags('Mediasoup Servers')
 @Controller('mediasoup-server')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
@@ -48,71 +48,44 @@ export class MediasoupServerController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new mediasoup server' })
+  @ApiOperation({ summary: 'Create a new Mediasoup server' })
   @ApiResponse({
     status: 201,
     description: 'Mediasoup server created successfully',
     type: MediasoupServerResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({
     status: 409,
-    description: 'Conflict - server URL already exists',
+    description: 'Server with given URL already exists',
   })
   async create(
     @Body(new ZodValidationPipe(createMediasoupServerSchema))
-    createMediasoupServerDto: CreateMediasoupServerDto,
+    createDto: CreateMediasoupServerDto,
     @Req() req: Request,
   ) {
-    const server = await this.mediasoupServerService.create(
-      createMediasoupServerDto,
-    );
+    const result = await this.mediasoupServerService.create(createDto);
+
     return ApiResponseDto.created(
-      server,
+      result,
       'Mediasoup server created successfully',
       {
-        requestId: req['id'],
         path: req.path,
+        requestId: req['id'],
       },
     );
   }
 
   @Get()
   @ApiOperation({
-    summary: 'Get all mediasoup servers with pagination and filtering',
+    summary: 'List all Mediasoup servers with filters/pagination',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Mediasoup servers retrieved successfully',
-    type: [MediasoupServerResponseDto],
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search term for URL or username',
-  })
-  @ApiQuery({
-    name: 'active',
-    required: false,
-    type: Boolean,
-    description: 'Filter by active status',
-  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'active', required: false, type: Boolean })
   @ApiQuery({
     name: 'sortBy',
-    required: false,
     enum: [
       'url',
       'username',
@@ -121,13 +94,13 @@ export class MediasoupServerController {
       'createdAt',
       'updatedAt',
     ],
-    description: 'Sort field',
-  })
-  @ApiQuery({
-    name: 'sortOrder',
     required: false,
-    enum: ['asc', 'desc'],
-    description: 'Sort order',
+  })
+  @ApiQuery({ name: 'sortOrder', enum: ['asc', 'desc'], required: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Mediasoup servers retrieved successfully',
+    type: [MediasoupServerResponseDto],
   })
   async findAll(
     @Query(new ZodValidationPipe(queryMediasoupServerSchema))
@@ -137,100 +110,92 @@ export class MediasoupServerController {
     const result = await this.mediasoupServerService.findAll(query);
 
     return PaginatedApiResponseDto.paginatedSuccess(
-      result.servers,
+      result.items,
       result.total,
       result.page,
       result.limit,
       'Mediasoup servers retrieved successfully',
       {
-        requestId: req['id'],
         path: req.path,
+        requestId: req['id'],
       },
     );
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get mediasoup server by ID' })
-  @ApiParam({ name: 'id', description: 'Mediasoup server ID', type: 'string' })
+  @ApiOperation({ summary: 'Get a specific Mediasoup server by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Mediasoup server ID' })
   @ApiResponse({
     status: 200,
-    description: 'Mediasoup server retrieved successfully',
     type: MediasoupServerResponseDto,
+    description: 'Mediasoup server fetched successfully',
   })
   @ApiResponse({ status: 404, description: 'Mediasoup server not found' })
   async findOne(@Param('id') id: string, @Req() req: Request) {
-    const server = await this.mediasoupServerService.findOne(id);
+    const result = await this.mediasoupServerService.findOne(id);
+
     return ApiResponseDto.success(
-      server,
+      result,
       'Mediasoup server retrieved successfully',
       200,
       {
-        requestId: req['id'],
         path: req.path,
+        requestId: req['id'],
       },
     );
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update mediasoup server by ID' })
-  @ApiParam({ name: 'id', description: 'Mediasoup server ID', type: 'string' })
+  @ApiOperation({ summary: 'Update a Mediasoup server by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Server ID to update' })
   @ApiResponse({
     status: 200,
     description: 'Mediasoup server updated successfully',
     type: MediasoupServerResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
-  @ApiResponse({ status: 404, description: 'Mediasoup server not found' })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict - server URL already exists',
-  })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'Server not found' })
+  @ApiResponse({ status: 409, description: 'Duplicate server URL' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(updateMediasoupServerSchema))
-    updateMediasoupServerDto: UpdateMediasoupServerDto,
+    updateDto: UpdateMediasoupServerDto,
     @Req() req: Request,
   ) {
-    const server = await this.mediasoupServerService.update(
-      id,
-      updateMediasoupServerDto,
-    );
+    const result = await this.mediasoupServerService.update(id, updateDto);
+
     return ApiResponseDto.success(
-      server,
+      result,
       'Mediasoup server updated successfully',
       200,
       {
-        requestId: req['id'],
         path: req.path,
+        requestId: req['id'],
       },
     );
   }
 
   @Patch(':id/toggle-active')
-  @ApiOperation({ summary: 'Toggle mediasoup server active status' })
-  @ApiParam({ name: 'id', description: 'Mediasoup server ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Mediasoup server active status toggled successfully',
-    type: MediasoupServerResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Mediasoup server not found' })
+  @ApiOperation({ summary: 'Toggle a Mediasoup server’s active state' })
+  @ApiParam({ name: 'id', type: String, description: 'Server ID' })
+  @ApiResponse({ status: 200, type: MediasoupServerResponseDto })
   async toggleActive(@Param('id') id: string, @Req() req: Request) {
-    const server = await this.mediasoupServerService.toggleActive(id);
+    const result = await this.mediasoupServerService.toggleActive(id);
+
     return ApiResponseDto.success(
-      server,
-      `Mediasoup server ${server.active ? 'activated' : 'deactivated'} successfully`,
+      result,
+      `Mediasoup server ${result.active ? 'activated' : 'deactivated'} successfully`,
       200,
       {
-        requestId: req['id'],
         path: req.path,
+        requestId: req['id'],
       },
     );
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete mediasoup server by ID' })
-  @ApiParam({ name: 'id', description: 'Mediasoup server ID', type: 'string' })
+  @ApiOperation({ summary: 'Delete a Mediasoup server (permanently)' })
+  @ApiParam({ name: 'id', type: String, description: 'Server ID to delete' })
   @ApiResponse({
     status: 200,
     description: 'Mediasoup server deleted successfully',
@@ -238,14 +203,15 @@ export class MediasoupServerController {
   })
   @ApiResponse({ status: 404, description: 'Mediasoup server not found' })
   async remove(@Param('id') id: string, @Req() req: Request) {
-    const server = await this.mediasoupServerService.remove(id);
+    const result = await this.mediasoupServerService.remove(id);
+
     return ApiResponseDto.success(
-      server,
+      result,
       'Mediasoup server deleted successfully',
       200,
       {
-        requestId: req['id'],
         path: req.path,
+        requestId: req['id'],
       },
     );
   }
