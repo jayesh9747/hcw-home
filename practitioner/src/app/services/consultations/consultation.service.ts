@@ -5,84 +5,86 @@ import type { Consultation } from '../../models/consultations/consultation.model
 import { ConsultationStatus } from '../../constants/consultation-status.enum';
 import { formatConsultationTime } from '../../utils/date-utils';
 import type {
-  WaitingRoomResponse,
+  ConsultationWithPatient,
   WaitingRoomItem,
-  OpenConsultationItem,
 } from '../../dtos/consultations/consultation-dashboard-response.dto';
-import type {
-  ApiResponse,
-  OpenConsultationResponse,
-} from '../../dtos/consultations/open-consultation.dto';
+
+
 @Injectable({
   providedIn: 'root',
 })
 export class ConsultationService {
   private baseUrl = 'http://localhost:3000/api/v1/consultation';
-
-  private readonly practitionerId = 7;
+  private readonly practitionerId = 16;
 
   constructor(private http: HttpClient) {}
 
-  getWaitingConsultations(): Observable<Consultation[]> {
+  getWaitingConsultations(): Observable<ConsultationWithPatient[]> {
     const params = new HttpParams().set(
       'userId',
       this.practitionerId.toString()
     );
 
     return this.http
-      .get<ApiResponse<WaitingRoomResponse>>(`${this.baseUrl}/waiting-room`, {
-        params,
-      })
+      .get<any>(`${this.baseUrl}/waiting-room`, { params })
       .pipe(
         map((response) => {
-          // Convert WaitingRoomItem[] to Consultation[] format
-          return response.data.waitingRooms.map((item) =>
-            this.convertWaitingRoomToConsultation(item)
+          const waitingRooms = response?.data?.data?.waitingRooms || [];
+          return waitingRooms.map((item: WaitingRoomItem) =>
+            this.convertWaitingRoomToConsultationWithPatient(item)
           );
         })
       );
   }
 
-  getOpenConsultations(): Observable<Consultation[]> {
+  getOpenConsultations(): Observable<ConsultationWithPatient[]> {
     const params = new HttpParams()
       .set('practitionerId', this.practitionerId.toString())
       .set('page', '1')
       .set('limit', '50'); 
 
     return this.http
-      .get<ApiResponse<OpenConsultationResponse>>(`${this.baseUrl}/open`, {
-        params,
-      })
+      .get<any>(`${this.baseUrl}/open`, { params })
       .pipe(
         map((response) => {
           const consultations = response?.data?.consultations || [];
-          return consultations.map((item) =>
-            this.convertOpenConsultationToConsultation(item)
+          return consultations.map((item: any) =>
+            this.convertOpenConsultationToConsultationWithPatient(item)
           );
         })
       );
   }
 
-  private convertWaitingRoomToConsultation(
+  private convertWaitingRoomToConsultationWithPatient(
     item: WaitingRoomItem
-  ): Consultation {
+  ): ConsultationWithPatient {
     return {
-      id: item.id,
-      scheduledDate: new Date(),
-      createdAt: new Date(),
-      startedAt: item.joinTime ? new Date(item.joinTime) : new Date(),
-      closedAt: undefined,
-      createdBy: this.practitionerId,
-      ownerId: this.practitionerId,
-      groupId: undefined,
-      whatsappTemplateId: undefined,
-      status: ConsultationStatus.WAITING,
+      patient: {
+        id: 0,
+        firstName: null,
+        lastName: null,
+        initials: item.patientInitials,
+        sex: null,
+        isOffline: false,
+      },
+      consultation: {
+        id: item.id,
+        scheduledDate: new Date(),
+        createdAt: new Date(),
+        startedAt: item.joinTime ? new Date(item.joinTime) : new Date(),
+        closedAt: undefined,
+        createdBy: this.practitionerId,
+        ownerId: this.practitionerId,
+        groupId: undefined,
+        whatsappTemplateId: undefined,
+        status: ConsultationStatus.WAITING,
+      }
     };
   }
 
-  private convertOpenConsultationToConsultation(
-    item: OpenConsultationItem | any
-  ): Consultation {
+  private convertOpenConsultationToConsultationWithPatient(
+    item: any
+  ): ConsultationWithPatient {
     const startedAtDate = typeof item.startedAt === 'string' 
       ? new Date(item.startedAt) 
       : (item.startedAt instanceof Date ? item.startedAt : new Date());
@@ -99,21 +101,30 @@ export class ConsultationService {
         status = ConsultationStatus.SCHEDULED;
         break;
       default:
-        console.warn(`Unknown consultation status: ${item.status}, defaulting to WAITING`);
         status = ConsultationStatus.WAITING;
     }
     
     return {
-      id: item.id,
-      scheduledDate: startedAtDate,
-      createdAt: startedAtDate,
-      startedAt: startedAtDate,
-      closedAt: undefined,
-      createdBy: this.practitionerId,
-      ownerId: this.practitionerId,
-      groupId: undefined,
-      whatsappTemplateId: undefined,
-      status: status,
+      patient: {
+        id: item.patient?.id || 0,
+        firstName: item.patient?.firstName || null,
+        lastName: item.patient?.lastName || null,
+        initials: item.patient?.initials || 'N/A',
+        sex: item.patient?.sex || null,
+        isOffline: item.patient?.isOffline || false,
+      },
+      consultation: {
+        id: item.id,
+        scheduledDate: startedAtDate,
+        createdAt: startedAtDate,
+        startedAt: startedAtDate,
+        closedAt: undefined,
+        createdBy: this.practitionerId,
+        ownerId: this.practitionerId,
+        groupId: undefined,
+        whatsappTemplateId: undefined,
+        status: status,
+      }
     };
   }
 

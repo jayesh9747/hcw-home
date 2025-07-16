@@ -4,7 +4,7 @@ import { ConsultationCardComponent } from '../components/consultations-card/cons
 import { InviteFormComponent } from '../components/invite-form/invite-form.component';
 import { RoutePaths } from '../constants/route-paths.enum';
 import { ConsultationService } from '../services/consultations/consultation.service';
-import type { Consultation } from '../models/consultations/consultation.model';
+import { ConsultationWithPatient } from '../dtos';
 
 @Component({
   selector: 'app-dashboard',
@@ -16,8 +16,8 @@ import type { Consultation } from '../models/consultations/consultation.model';
 export class DashboardComponent implements OnInit {
   readonly RoutePaths = RoutePaths;
 
-  waitingConsultations = signal<Consultation[]>([]);
-  openConsultations = signal<Consultation[]>([]);
+  waitingConsultations = signal<ConsultationWithPatient[]>([]);
+  openConsultations = signal<ConsultationWithPatient[]>([]);
 
   isInviting = signal(false);
 
