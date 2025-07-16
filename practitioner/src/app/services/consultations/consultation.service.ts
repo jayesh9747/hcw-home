@@ -19,7 +19,7 @@ import type {
 export class ConsultationService {
   private baseUrl = 'http://localhost:3000/api/v1/consultation';
 
-  private readonly practitionerId = 1;
+  private readonly practitionerId = 7;
 
   constructor(private http: HttpClient) {}
 
@@ -43,7 +43,6 @@ export class ConsultationService {
       );
   }
 
-
   getOpenConsultations(): Observable<Consultation[]> {
     const params = new HttpParams()
       .set('practitionerId', this.practitionerId.toString())
@@ -56,13 +55,13 @@ export class ConsultationService {
       })
       .pipe(
         map((response) => {
-          return response.data.consultations.map((item) =>
+          const consultations = response?.data?.consultations || [];
+          return consultations.map((item) =>
             this.convertOpenConsultationToConsultation(item)
           );
         })
       );
   }
-
 
   private convertWaitingRoomToConsultation(
     item: WaitingRoomItem
@@ -84,7 +83,26 @@ export class ConsultationService {
   private convertOpenConsultationToConsultation(
     item: OpenConsultationItem | any
   ): Consultation {
-    const startedAtDate = item.startedAt instanceof Date ? item.startedAt : new Date(item.startedAt);
+    const startedAtDate = typeof item.startedAt === 'string' 
+      ? new Date(item.startedAt) 
+      : (item.startedAt instanceof Date ? item.startedAt : new Date());
+    
+    let status: ConsultationStatus;
+    switch (item.status) {
+      case 'ACTIVE':
+        status = ConsultationStatus.ACTIVE;
+        break;
+      case 'WAITING':
+        status = ConsultationStatus.WAITING;
+        break;
+      case 'SCHEDULED':
+        status = ConsultationStatus.SCHEDULED;
+        break;
+      default:
+        console.warn(`Unknown consultation status: ${item.status}, defaulting to WAITING`);
+        status = ConsultationStatus.WAITING;
+    }
+    
     return {
       id: item.id,
       scheduledDate: startedAtDate,
@@ -95,10 +113,7 @@ export class ConsultationService {
       ownerId: this.practitionerId,
       groupId: undefined,
       whatsappTemplateId: undefined,
-      status:
-        item.status === 'ACTIVE'
-          ? ConsultationStatus.ACTIVE
-          : ConsultationStatus.WAITING,
+      status: status,
     };
   }
 
