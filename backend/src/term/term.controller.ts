@@ -32,6 +32,8 @@ import { Role } from 'src/auth/enums/role.enum';
 import { CreatetermDto, QueryTermsDto, UpdateTermDto } from './dto/terms.dto';
 import { CreateTermSchema } from './validation/term.validation';
 import { TermService } from './term.service';
+import { ExtendedRequest } from 'src/types/request';
+import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 
 
 
@@ -141,6 +143,16 @@ export class TermController {
         return ApiResponseDto.success(data, ' term retrieved successfully');
     }
 
+
+    @Roles(Role.PRACTITIONER)
+    @Post('accept-term')
+    async acceptTerm(@Req() req:ExtendedRequest){
+        const user = req.user;
+        if(user){
+            throw HttpExceptionHelper.unauthorized("user not found")
+        }
+
+    }
 
 
 

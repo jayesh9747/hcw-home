@@ -59,8 +59,9 @@ export class AuthController {
   @Post('login-local')   
   async login(
     @Req() req: ExtendedRequest,
-  ): Promise<ApiResponseDto<LoginResponseDto>> {
+  ): Promise<ApiResponseDto<TokenDto>> {
     const user = req.user as any;
+    console.log(user);
     this.logger.log(`user attached to the request: ${user}`)    
     const result = await this.authService.loginUser(user);
     return ApiResponseDto.success(result, 'User logged-in successfully', 200);

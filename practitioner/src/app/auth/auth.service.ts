@@ -1,11 +1,11 @@
 import { Injectable, computed, signal } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
-import { map } from "rxjs/operators";
+import { map, switchMap } from "rxjs/operators";
 
 import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
 import { LoginUser } from "../models/user.model";
-
+import { throwError } from "rxjs";
 @Injectable({ providedIn: "root" })
 export class AuthService {
   private baseurl = `${environment.apiUrl}/v1/auth`;
@@ -57,24 +57,19 @@ export class AuthService {
   loginLocal(email: string, password: string) {
     console.log('[AuthService] Attempting loginLocal with:', { email });
     return this.http
-      .post<any>(`${this.baseurl}/login-local`, { email, password })
-      .pipe(map(res => {
-        console.log('[AuthService] loginLocal response:', res);
-        const user = res?.data?.user;
-        const tokens = res?.data?.tokens;
-        if (user && tokens) {
-          const fullUser: LoginUser = {
-            ...user,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken
-          };
-          console.log('[AuthService] Storing user and tokens:', fullUser);
-          this.storeCurrentUser(fullUser);
-        } else {
-          console.warn('[AuthService] Invalid login response structure:', res);
-        }
-        return res;
-      }));
+      .post<any>(`${this.baseurl}/login-local`, { email, password, role: 'PRACTITIONER' })
+      .pipe(
+        switchMap(res => {
+          const accessToken = res.data?.accessToken;
+          const refreshToken = res.data?.refreshToken;
+          if (accessToken && refreshToken) {
+            return this.login(accessToken, refreshToken);
+          } else {
+            console.warn('[AuthService] Invalid login response structure:', res);
+            return throwError(() => new Error('Invalid login response'));
+          }
+        })
+      );
   }
 
   storeCurrentUser(user: LoginUser) {
