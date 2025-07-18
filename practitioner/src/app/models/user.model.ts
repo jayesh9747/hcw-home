@@ -65,6 +65,10 @@ export interface User {
   createdAt: string | Date;
   updatedAt: string | Date;
 
+  //term data 
+  termVersion: number;
+  acceptedAt: string | Date;
+
   organizations: {
     id: number;
     name: string;
@@ -116,6 +120,11 @@ export interface LoginUser {
   createdAt: string | Date;
   updatedAt: string | Date;
 
+
+  //term data 
+  termVersion: number;
+  acceptedAt: string | Date;
+
   // Tokens
   accessToken: string;
   refreshToken: string;
@@ -140,4 +149,15 @@ export interface LoginUser {
     id: number;
     name: string;
   }[];
+}
+
+export interface Term {
+  id: number;
+  language: string;
+  country: string;
+  content: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  organizationId: number;
 }
