@@ -29,7 +29,7 @@ export class AuthService {
   }
 
 
-  login(accessToken: string, refreshToken:string) {  
+  login(accessToken: string, refreshToken: string) {
     const headers = {
       Authorization: `Bearer ${accessToken}`
     };
@@ -39,7 +39,7 @@ export class AuthService {
           const fullUser: LoginUser = {
             ...res.data,
             accessToken: accessToken,
-            refreshToken:refreshToken
+            refreshToken: refreshToken
           };
           this.storeCurrentUser(fullUser);
         }
@@ -72,6 +72,7 @@ export class AuthService {
 
   logout() {
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('latestTerm')
     this._user.set(null);
     this.router.navigate(['/login']);
   }
@@ -82,38 +83,38 @@ export class AuthService {
     return token;
   }
 
-  getrefreshToken():string | undefined{
+  getrefreshToken(): string | undefined {
     const token = this._user()?.refreshToken;
     return token;
   }
-  getCurrentTerm(){
-    const current=this._user()?.termVersion
+  getCurrentTerm() {
+    const current = this._user()?.termVersion
     return current
   }
 
   updateTokens(accessToken?: string, refreshToken?: string): void {
     const currentUser = this._user();
     if (!currentUser) return;
-  
+
     const updatedUser = {
       ...currentUser,
       accessToken: accessToken ?? currentUser.accessToken,
       refreshToken: refreshToken ?? currentUser.refreshToken
     };
-  
+
     this.storeCurrentUser(updatedUser);
   }
-  
+
   refreshToken() {
     console.log("refresh token called");
-    
+
     const rToken = this.getrefreshToken();
-  
+
     return this.http.post<any>(`${this.baseurl}/refresh-token`, { refreshToken: rToken }).pipe(
       map(res => {
         if (res.data?.accessToken) {
           const currentUser = this.getCurrentUser();
-  
+
           if (!currentUser) {
             throw new Error('[AuthService] No current user found for refreshToken');
           }
@@ -121,17 +122,17 @@ export class AuthService {
             ...currentUser,
             accessToken: res.data.accessToken,
           };
-  
+
           this.storeCurrentUser(updatedUser);
-  
-          return updatedUser; 
+
+          return updatedUser;
         } else {
           throw new Error('[AuthService] No access token found in refresh response');
         }
       })
     );
   }
-  
+
   getCurrentUser(): LoginUser | null {
     const user = this._user();
     return user;

@@ -1,10 +1,12 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { catchError, map, Observable, of, tap } from 'rxjs';
 import { ApiResponse } from '../dtos';
 import { Term } from '../models/user.model';
 import { AuthService } from '../auth/auth.service';
+import { Router } from '@angular/router';
+import { RoutePaths } from '../constants/route-paths.enum';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +14,7 @@ import { AuthService } from '../auth/auth.service';
 export class TermService {
   private baseUrl = `${environment.apiUrl}/v1/term`;
   private _term = signal<Term | null>(null);
+  private router = inject(Router)
   islatestTermAvailable = computed(() => !!this._term());
 
   constructor(
@@ -38,6 +41,7 @@ export class TermService {
         if (!currentVersion || currentVersion < latest.version) {
           this.setLatestTerm(latest);
           console.log('Stored new term version:', latest);
+          this.router.navigate([RoutePaths.AcceptTerm])
         }
       }),
       catchError(err => {
@@ -57,7 +61,22 @@ export class TermService {
     return term;
   }
 
-  
+  deletelatestTerm(){
+    localStorage.removeItem('latestTerm');
+    this._term.set(null)
+  }
+
+
+  acceptTerm(termId:number):Observable<string>{
+    console.log("called");
+    
+    return this.http.post<ApiResponse<string>>(`${this.baseUrl}/accept-term/${termId}`,'').pipe(
+      map((res)=>res.data)
+    )
+  }
+
+
+
 }
 
 
