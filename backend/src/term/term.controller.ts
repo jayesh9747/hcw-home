@@ -127,10 +127,12 @@ export class TermController {
     @ApiOperation({ summary: 'Get latest terms for language and country in org' })
     @ApiQuery({ name: 'language', required: true })
     @ApiQuery({ name: 'country', required: true })
-    async getLatest(
-        @Query(new ValidationPipe({ transform: true })) query: QueryTermsDto
-    ) {
-        const data = await this.termsService.getLatest(query);
+    async getLatest(@Req() req: ExtendedRequest) {
+        const userId = req.user?.id;
+        if (typeof userId !== 'number') {
+            throw HttpExceptionHelper.unauthorized('Unauthorized');
+        }
+        const data = await this.termsService.getLatest(userId);
         return ApiResponseDto.success(data, 'Latest term retrieved');
     }
 
@@ -144,15 +146,17 @@ export class TermController {
     }
 
 
-    @Roles(Role.PRACTITIONER)
-    @Post('accept-term')
-    async acceptTerm(@Req() req:ExtendedRequest){
-        const user = req.user;
-        if(user){
-            throw HttpExceptionHelper.unauthorized("user not found")
+    // @Roles(Role.PRACTITIONER)
+    @Post('accept-term/:id')
+    async acceptTerms(@Param('id') termId: number, @Req() req: ExtendedRequest): Promise<ApiResponseDto<string>> {
+        const userId = req.user?.id
+        if (typeof userId !== 'number') {
+            throw HttpExceptionHelper.unauthorized('Unauthorized');
         }
-
+        const message = await this.termsService.acceptTerms({ userId, termId });
+        return ApiResponseDto.success('', message);
     }
+
 
 
 

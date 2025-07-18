@@ -160,6 +160,8 @@ export class TermFormComponent implements OnInit, OnDestroy {
   
 
   onSubmit(): void {
+    console.log(this.termForm.value);
+
     if (this.termForm.invalid) {
       this.termForm.markAllAsTouched();
       this.snackBarService.showError('Please fill out all required fields.');
