@@ -34,6 +34,16 @@ export class UserResponseDto {
   @Expose()
   email: string;
 
+
+  @ApiProperty({ description: 'term version' })
+  @Expose()
+  termVersion:number
+  @ApiProperty({ description: 'term acccepted  date' })
+  @Expose()
+  acceptedAt: Date;
+
+
+
   @Exclude()
   password: string;
 

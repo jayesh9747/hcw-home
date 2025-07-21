@@ -12,6 +12,9 @@ import { LoginComponent } from './login/login.component';
 import { AuthGuard } from './auth/guard/auth.guard';
 
 import { AvailabilityComponent } from './pages/availability/availability.component';
+import { Component } from '@angular/core';
+import { TermComponent } from './pages/term/term.component';
+import { TermGuard } from './auth/guard/terms.guard';
 
 
 
@@ -23,7 +26,7 @@ export const routes: Routes = [
   },
   {
     path: '',
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard,TermGuard],
     children: [
       {
         path: RoutePaths.Dashboard,
@@ -66,5 +69,11 @@ export const routes: Routes = [
     path: RoutePaths.Login,
     component: LoginComponent,
   },
+
+  {
+    path:RoutePaths.AcceptTerm,
+    component:TermComponent
+  }
+
 ];
 

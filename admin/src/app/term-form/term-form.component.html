@@ -47,10 +47,7 @@
       <div class="form-grid full-width">
         <label class="editor-label">Content</label>
         <div class="editor-container">
-          <app-md-editor
-          [initialContent]="termForm.get('content')?.value"
-          (contentChange)="termForm.get('content')?.setValue($event)">
-        </app-md-editor>
+          <app-md-editor formControlName="content"></app-md-editor>
         </div>
       </div>
   
