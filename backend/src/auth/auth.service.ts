@@ -397,7 +397,6 @@ export class AuthService {
 
 
 
-
   encryptPassword(password: string): Promise<string> {
     const saltRounds = 12;
     return bcrypt.hash(password, saltRounds);

@@ -125,6 +125,7 @@ export interface LoginUser {
   termVersion: number;
   acceptedAt: string | Date;
 
+
   // Tokens
   accessToken: string;
   refreshToken: string;
@@ -161,3 +162,4 @@ export interface Term {
   updatedAt: string;
   organizationId: number;
 }
+

@@ -62,7 +62,6 @@ export const routes: Routes = [
       },
 
 
-
     ],
   },
   // Public routes
@@ -70,9 +69,11 @@ export const routes: Routes = [
     path: RoutePaths.Login,
     component: LoginComponent,
   },
+
   {
     path:RoutePaths.AcceptTerm,
     component:TermComponent
   }
+
 ];
 
