@@ -26,5 +26,10 @@ export const routes: Routes = [
     path: 'choose-consultation-timeslot/:practitionerId',
     loadComponent: () => import('./pages/choose-consultation-timeslot/choose-consultation-timeslot.page').then( m => m.ChooseConsultationTimeslotPage)
   },
+  {
+    path: 'login',
+    loadComponent: () => import('./pages/login/login.page').then( m => m.LoginPage)
+  },
+
 
 ];
