@@ -6,7 +6,7 @@ import { ConfigService } from './config/config.service';
 import { CustomLoggerService } from './logger/logger.service';
 import { Environment } from './config/environment.enum';
 import * as passport from 'passport';
-import * as session from 'express-session';
+import session from 'express-session';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 

@@ -17,21 +17,27 @@ export default () => ({
       process.env.PATIENT_URL,
     ].filter(Boolean),
   },
-  
   swagger: {
-    enabled: process.env.NODE_ENV === 'development',
     title: 'HCW-Home Backend API',
     description:
       'Comprehensive API documentation for HCW-Home Backend services',
     version: '1.0.0',
-    path: 'api/docs',
   },
-  frontend: {
+  frontendConfig: {
     loginMethod: process.env.LOGIN_METHOD || 'password',
     branding: process.env.BRANDING || '@HOME',
     logo: process.env.LOGO || '',
   },
-  log_formatter: {
-    format: process.env.LOGFORMAT || 'default',
-  },
+  logFormat: process.env.LOGFORMAT || 'default',
+  mediasoupAnnouncedIp: process.env.MEDIASOUP_ANNOUNCED_IP,
+  redisUrl: process.env.REDIS_URL,
+  serverId: process.env.SERVER_ID || 'server1',
+  consultationRetentionHours: parseInt(
+    process.env.CONSULTATION_RETENTION_HOURS ?? '24',
+    10,
+  ),
+  consultationDeletionBufferHours: parseInt(
+    process.env.CONSULTATION_DELETION_BUFFER_HOURS ?? '1',
+    10,
+  ),
 });
