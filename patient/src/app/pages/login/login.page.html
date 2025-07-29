@@ -1,0 +1,75 @@
+<app-header [title]="'Login'"></app-header>
+
+<ion-content class="custom-content" fullscreen>
+  <div class="form-card">
+    <h2 class="form-title">Welcome Back</h2>
+    <p class="form-subtitle">Please enter your email or phone number to continue</p>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onLogin()">
+      <ion-grid>
+        <ion-row>
+          <!-- Email Field -->
+          <ion-col size="12">
+            <ion-item lines="none" class="input-item" [class.invalid]="email?.invalid && email?.touched">
+              <ion-label position="stacked">Email Address</ion-label>
+              <ion-input
+                type="email"
+                formControlName="email"
+                [disabled]="phoneNumber?.value?.length > 0"
+                placeholder="Enter your email address">
+              </ion-input>
+            </ion-item>
+            <div class="error-message" *ngIf="email?.invalid && email?.touched && phoneNumber?.value?.length === 0">
+              <ion-text color="danger">
+                <small *ngIf="email?.errors?.['email']">Invalid email format</small>
+              </ion-text>
+            </div>
+          </ion-col>
+
+          <!-- OR Separator -->
+          <ion-col size="12" class="or-separator">
+            <div class="or-line">
+              <span>OR</span>
+            </div>
+          </ion-col>
+
+          <!-- Phone Number Field -->
+          <ion-col size="12">
+            <ion-item lines="none" class="input-item" [class.invalid]="phoneNumber?.invalid && phoneNumber?.touched">
+              <ion-label position="stacked">Phone Number</ion-label>
+              <ion-input
+                type="tel"
+                formControlName="phoneNumber"
+                maxlength="10"
+                minlength="10"
+                [disabled]="email?.value?.length > 0"
+                placeholder="Enter your 10-digit phone number">
+              </ion-input>
+            </ion-item>
+            <div class="error-message" *ngIf="phoneNumber?.invalid && phoneNumber?.touched && email?.value?.length === 0">
+              <ion-text color="danger">
+                <small *ngIf="phoneNumber?.errors?.['pattern']">Enter a valid 10-digit phone number</small>
+              </ion-text>
+            </div>
+          </ion-col>
+        </ion-row>
+
+        <!-- Submit Button -->
+        <ion-row>
+          <ion-col size="12">
+            <ion-button
+              expand="block"
+              type="submit"
+              class="submit-button"
+              color="success"
+              [disabled]="isLoading || (!email?.value && !phoneNumber?.value) || (email?.invalid && !phoneNumber?.value) || (phoneNumber?.invalid && !email?.value)">
+              <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
+              <ion-icon *ngIf="!isLoading" name="log-in-outline" slot="start"></ion-icon>
+              {{ isLoading ? 'Signing in...' : 'Continue' }}
+            </ion-button>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+    </form>
+  </div>
+</ion-content>
