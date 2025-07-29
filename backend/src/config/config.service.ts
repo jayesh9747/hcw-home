@@ -38,7 +38,7 @@ export class ConfigService {
   }
 
   get jwtSecret(): string {
-    const secret = this.configService.get<string>('JWT_SECRET', '');
+    const secret = this.configService.get<string>('APP_SECRET', '');
     if (!secret && this.isProduction) {
       throw new Error('JWT secret is required in production environment');
     }
@@ -46,8 +46,20 @@ export class ConfigService {
   }
 
   get jwtExpiresIn(): string {
-    return this.configService.get<string>('JWT_EXPIRES_IN', '24h');
+    return this.configService.get<string>('ACCESS_TOKEN_LIFE', '24h');
   }
+
+  get jwtRefreshSecret(): string {
+    return this.configService.get<string>(
+      'JWT_REFRESH_SECRET',
+      'default_refresh_secret',
+    );
+  }
+
+  get jwtRefreshExpiresIn(): string {
+    return this.configService.get<string>('REFRESH_TOKEN_LIFE', '7d');
+  }
+
   get corsOrigin(): string[] {
     return [
       this.configService.get<string>('ADMIN_URL'),
@@ -55,12 +67,25 @@ export class ConfigService {
       this.configService.get<string>('PATIENT_URL'),
     ].filter(Boolean) as string[];
   }
-  
-  
-  
+
+  get mediasoupAnnouncedIp(): string {
+    return this.getRequired<string>(
+      'MEDIASOUP_ANNOUNCED_IP',
+      'Announced IP is required',
+    );
+  }
+
+  get redisUrl(): string {
+    return this.getRequired<string>('REDIS_URL', 'Redis URL is required');
+  }
+
+  get serverId(): string {
+    return this.getRequired<string>('SERVER_ID', 'Server ID is required');
+  }
 
   get swaggerConfig() {
     return {
+      enabled: this.isDevelopment,
       title: this.configService.get<string>(
         'SWAGGER_TITLE',
         'HCW-Home Backend API',
@@ -70,10 +95,10 @@ export class ConfigService {
         'Comprehensive API documentation for HCW-Home Backend services',
       ),
       version: this.configService.get<string>('SWAGGER_VERSION', '1.0.0'),
+      path: this.configService.get<string>('SWAGGER_PATH', 'api/docs'),
     };
   }
 
-  // Helper methods for common checks
   get shouldEnableCors(): boolean {
     return !this.isProduction;
   }
@@ -86,15 +111,30 @@ export class ConfigService {
     return this.isProduction;
   }
 
-  get frontendConfig() {
-    return this.configService.get('frontend');
+  get frontendConfig(): {
+    loginMethod: string;
+    branding: string;
+    logo: string;
+  } {
+    return {
+      loginMethod: this.configService.get<string>('LOGIN_METHOD', 'password'),
+      branding: this.configService.get<string>('BRANDING', '@HOME'),
+      logo: this.configService.get<string>('LOGO', ''),
+    };
   }
 
   get logFormat(): string {
     return this.configService.get<string>('LOGFORMAT', 'default');
   }
 
-  // Additional helper methods for getting optional values
+  get consultationRetentionHours(): number {
+    return this.getNumber('CONSULTATION_RETENTION_HOURS', 24);
+  }
+
+  get consultationDeletionBufferHours(): number {
+    return this.getNumber('CONSULTATION_DELETION_BUFFER_HOURS', 1);
+  }
+
   getOptional<T = string>(key: string): T | undefined {
     return this.configService.get<T>(key);
   }
@@ -107,14 +147,6 @@ export class ConfigService {
       );
     }
     return value;
-  }
-
-  get consultationRetentionHours(): number {
-    return this.getNumber('CONSULTATION_RETENTION_HOURS', 24);
-  }
-
-  get consultationDeletionBufferHours(): number {
-    return this.getNumber('CONSULTATION_DELETION_BUFFER_HOURS', 1);
   }
 
   private getNumber(key: string, defaultValue: number): number {
