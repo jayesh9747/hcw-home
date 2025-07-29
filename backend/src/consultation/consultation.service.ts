@@ -10,7 +10,7 @@ import {
 } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
-import getStream from 'get-stream';
+import concat from 'concat-stream';
 import { ConsultationGateway } from './consultation.gateway';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
@@ -95,39 +95,54 @@ export class ConsultationService {
     if (patient.role !== UserRole.PATIENT)
       throw HttpExceptionHelper.badRequest('Target user is not a patient');
 
-    const ownerId = createDto.ownerId ?? userId;
-    const practitioner = await this.db.user.findUnique({
-      where: { id: ownerId },
-    });
-    if (!practitioner || practitioner.role !== UserRole.PRACTITIONER)
-      throw HttpExceptionHelper.badRequest(
-        'Owner must be a valid practitioner',
-      );
+    const isDraft = !createDto.ownerId;
 
-    const existing = await this.db.consultation.findFirst({
-      where: {
-        participants: {
-          some: { userId: createDto.patientId },
-        },
-        status: {
-          in: [
-            ConsultationStatus.SCHEDULED,
-            ConsultationStatus.WAITING,
-            ConsultationStatus.ACTIVE,
-          ],
-        },
-      },
-    });
-    if (existing)
-      throw HttpExceptionHelper.conflict(
-        'Patient already has an active consultation',
-      );
+    let ownerConnect: { connect: { id: number } } | undefined;
+    let status: ConsultationStatus;
 
-    const createData = {
-      owner: { connect: { id: ownerId } },
+    if (isDraft) {
+      ownerConnect = undefined;
+      status = ConsultationStatus.DRAFT;
+    } else {
+      const ownerId = createDto.ownerId ?? userId;
+      const practitioner = await this.db.user.findUnique({
+        where: { id: ownerId },
+      });
+      if (!practitioner || practitioner.role !== UserRole.PRACTITIONER)
+        throw HttpExceptionHelper.badRequest(
+          'Owner must be a valid practitioner',
+        );
+      ownerConnect = { connect: { id: ownerId } };
+      status = ConsultationStatus.SCHEDULED;
+    }
+
+    if (!isDraft) {
+      const existing = await this.db.consultation.findFirst({
+        where: {
+          participants: {
+            some: { userId: createDto.patientId },
+          },
+          status: {
+            in: [
+              ConsultationStatus.SCHEDULED,
+              ConsultationStatus.WAITING,
+              ConsultationStatus.ACTIVE,
+            ],
+          },
+        },
+      });
+      if (existing)
+        throw HttpExceptionHelper.conflict(
+          'Patient already has an active consultation',
+        );
+    }
+
+    const createData: any = {
       scheduledDate: createDto.scheduledDate,
       createdBy: userId,
-      status: ConsultationStatus.SCHEDULED,
+      status: status,
+      symptoms: createDto.symptoms,
+      specialityId: createDto.specialityId,
       participants: {
         create: {
           userId: createDto.patientId,
@@ -139,6 +154,11 @@ export class ConsultationService {
         group: { connect: { id: createDto.groupId } },
       }),
     };
+
+    if (ownerConnect) {
+      createData.owner = ownerConnect;
+    }
+
     const consultation = await this.db.consultation.create({
       data: createData,
       include: { participants: true },
@@ -263,31 +283,30 @@ export class ConsultationService {
       consultation.status = ConsultationStatus.WAITING;
     }
 
-      let routerCreated = false;
-      let mediasoupRouter;
-      try {
+    let routerCreated = false;
+    let mediasoupRouter;
+    try {
+      mediasoupRouter = this.mediasoupSessionService.getRouter(consultationId);
+      if (!mediasoupRouter) {
         mediasoupRouter =
-          this.mediasoupSessionService.getRouter(consultationId);
-        if (!mediasoupRouter) {
-          mediasoupRouter =
-            await this.mediasoupSessionService.createRouterForConsultation(
-              consultationId,
-            );
-          routerCreated = true;
-          this.logger.log(
-            `Mediasoup router initialized for consultation ${consultationId} (patient join)`,
+          await this.mediasoupSessionService.createRouterForConsultation(
+            consultationId,
           );
-        }
-      } catch (mediaErr) {
-        this.logger.error(
-          `Mediasoup router setup failed for consultation ${consultationId}: ${mediaErr.message}`,
-          mediaErr.stack,
-        );
-        throw HttpExceptionHelper.internalServerError(
-          'Failed to setup media session for consultation',
-          mediaErr,
+        routerCreated = true;
+        this.logger.log(
+          `Mediasoup router initialized for consultation ${consultationId} (patient join)`,
         );
       }
+    } catch (mediaErr) {
+      this.logger.error(
+        `Mediasoup router setup failed for consultation ${consultationId}: ${mediaErr.message}`,
+        mediaErr.stack,
+      );
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to setup media session for consultation',
+        mediaErr,
+      );
+    }
 
     if (consultation.ownerId && this.consultationGateway.server) {
       this.consultationGateway.server
@@ -300,34 +319,33 @@ export class ConsultationService {
         });
     }
 
-     if (routerCreated && this.consultationGateway.server) {
-       this.consultationGateway.server
-         .to(`consultation:${consultationId}`)
-         .emit('media_session_live', { consultationId });
-     }
+    if (routerCreated && this.consultationGateway.server) {
+      this.consultationGateway.server
+        .to(`consultation:${consultationId}`)
+        .emit('media_session_live', { consultationId });
+    }
 
-     const responsePayload: JoinConsultationResponseDto = {
-       success: true,
-       statusCode: 200,
-       message: 'Patient joined consultation and entered waiting room.',
-       consultationId,
-       mediasoup: { routerId: consultationId, active: true },
-       status: consultation.status,
-       participants: consultation.participants.map((p) => ({
-         id: p.user.id,
-         firstName: p.user.firstName,
-         lastName: p.user.lastName,
-         role: p.user.role,
-         isActive: p.isActive,
-       })),
-       messages: (consultation.messages ?? []).map((m) => ({
-         id: m.id,
-         userId: m.userId,
-         content: m.content,
-         createdAt: m.createdAt,
-       })),
-     };
-
+    const responsePayload: JoinConsultationResponseDto = {
+      success: true,
+      statusCode: 200,
+      message: 'Patient joined consultation and entered waiting room.',
+      consultationId,
+      mediasoup: { routerId: consultationId, active: true },
+      status: consultation.status,
+      participants: consultation.participants.map((p) => ({
+        id: p.user.id,
+        firstName: p.user.firstName,
+        lastName: p.user.lastName,
+        role: p.user.role,
+        isActive: p.isActive,
+      })),
+      messages: (consultation.messages ?? []).map((m) => ({
+        id: m.id,
+        userId: m.userId,
+        content: m.content,
+        createdAt: m.createdAt,
+      })),
+    };
 
     return ApiResponseDto.success(
       responsePayload,
@@ -378,15 +396,16 @@ export class ConsultationService {
         userId: practitionerId,
         isActive: true,
         joinedAt: new Date(),
+        role: UserRole.PRACTITIONER, 
       };
 
-       await this.db.participant.upsert({
-         where: {
-           consultationId_userId: { consultationId, userId: practitionerId },
-         },
-         create: participantData,
-         update: { isActive: true, joinedAt: new Date() },
-       });
+      await this.db.participant.upsert({
+        where: {
+          consultationId_userId: { consultationId, userId: practitionerId },
+        },
+        create: participantData,
+        update: { isActive: true, joinedAt: new Date() },
+      });
 
       if (consultation.status !== ConsultationStatus.ACTIVE) {
         await this.db.consultation.update({
@@ -395,30 +414,30 @@ export class ConsultationService {
         });
         consultation.status = ConsultationStatus.ACTIVE;
       }
-        let routerCreated = false;
-        try {
-          let mediasoupRouter =
-            this.mediasoupSessionService.getRouter(consultationId);
-          if (!mediasoupRouter) {
-            mediasoupRouter =
-              await this.mediasoupSessionService.createRouterForConsultation(
-                consultationId,
-              );
-            routerCreated = true;
-            this.logger.log(
-              `Mediasoup router created for consultation ${consultationId} (practitioner join)`,
+      let routerCreated = false;
+      try {
+        let mediasoupRouter =
+          this.mediasoupSessionService.getRouter(consultationId);
+        if (!mediasoupRouter) {
+          mediasoupRouter =
+            await this.mediasoupSessionService.createRouterForConsultation(
+              consultationId,
             );
-          }
-        } catch (mediaErr) {
-          this.logger.error(
-            `Mediasoup router setup failed for consultation ${consultationId}: ${mediaErr.message}`,
-            mediaErr.stack,
-          );
-          throw HttpExceptionHelper.internalServerError(
-            'Failed to setup media session for consultation',
-            mediaErr,
+          routerCreated = true;
+          this.logger.log(
+            `Mediasoup router created for consultation ${consultationId} (practitioner join)`,
           );
         }
+      } catch (mediaErr) {
+        this.logger.error(
+          `Mediasoup router setup failed for consultation ${consultationId}: ${mediaErr.message}`,
+          mediaErr.stack,
+        );
+        throw HttpExceptionHelper.internalServerError(
+          'Failed to setup media session for consultation',
+          mediaErr,
+        );
+      }
 
       if (this.consultationGateway.server) {
         this.consultationGateway.server
@@ -430,38 +449,38 @@ export class ConsultationService {
           });
       }
 
-       if (routerCreated && this.consultationGateway.server) {
-         this.consultationGateway.server
-           .to(`consultation:${consultationId}`)
-           .emit('media_session_live', { consultationId });
-       }
+      if (routerCreated && this.consultationGateway.server) {
+        this.consultationGateway.server
+          .to(`consultation:${consultationId}`)
+          .emit('media_session_live', { consultationId });
+      }
 
-        const responsePayload: JoinConsultationResponseDto = {
-          success: true,
-          statusCode: 200,
-          message: 'Practitioner joined and activated the consultation.',
-          consultationId,
-          mediasoup: { routerId: consultationId, active: true },
-          sessionUrl: `/session/consultation/${consultationId}`,
-          status: consultation.status,
-          participants: consultation.participants.map((p) => ({
-            id: p.user.id,
-            firstName: p.user.firstName,
-            lastName: p.user.lastName,
-            role: p.user.role,
-            isActive: p.isActive,
-          })),
-          messages: (consultation.messages ?? []).map((m) => ({
-            id: m.id,
-            userId: m.userId,
-            content: m.content,
-            createdAt: m.createdAt,
-          })),
-        };
+      const responsePayload: JoinConsultationResponseDto = {
+        success: true,
+        statusCode: 200,
+        message: 'Practitioner joined and activated the consultation.',
+        consultationId,
+        mediasoup: { routerId: consultationId, active: true },
+        sessionUrl: `/session/consultation/${consultationId}`,
+        status: consultation.status,
+        participants: consultation.participants.map((p) => ({
+          id: p.user.id,
+          firstName: p.user.firstName,
+          lastName: p.user.lastName,
+          role: p.user.role,
+          isActive: p.isActive,
+        })),
+        messages: (consultation.messages ?? []).map((m) => ({
+          id: m.id,
+          userId: m.userId,
+          content: m.content,
+          createdAt: m.createdAt,
+        })),
+      };
 
-        this.logger.log(
-          `Practitioner ${practitionerId} joined consultation ${consultationId}`,
-        );
+      this.logger.log(
+        `Practitioner ${practitionerId} joined consultation ${consultationId}`,
+      );
 
       return ApiResponseDto.success(
         responsePayload,
@@ -514,32 +533,31 @@ export class ConsultationService {
         },
       });
 
-       let routerCreated = false;
-       try {
-         let mediasoupRouter = this.mediasoupSessionService.getRouter(
-           dto.consultationId,
-         );
-         if (!mediasoupRouter) {
-           mediasoupRouter =
-             await this.mediasoupSessionService.createRouterForConsultation(
-               dto.consultationId,
-             );
-           routerCreated = true;
-           this.logger.log(
-             `Mediasoup router created for consultation ${dto.consultationId} (admitPatient)`,
-           );
-         }
-       } catch (mediaErr) {
-         this.logger.error(
-           `Mediasoup router setup failed during admitPatient for consultation ${dto.consultationId}: ${mediaErr.message}`,
-           mediaErr.stack,
-         );
-         throw HttpExceptionHelper.internalServerError(
-           'Failed to setup media session for consultation',
-           mediaErr,
-         );
-       }
-
+      let routerCreated = false;
+      try {
+        let mediasoupRouter = this.mediasoupSessionService.getRouter(
+          dto.consultationId,
+        );
+        if (!mediasoupRouter) {
+          mediasoupRouter =
+            await this.mediasoupSessionService.createRouterForConsultation(
+              dto.consultationId,
+            );
+          routerCreated = true;
+          this.logger.log(
+            `Mediasoup router created for consultation ${dto.consultationId} (admitPatient)`,
+          );
+        }
+      } catch (mediaErr) {
+        this.logger.error(
+          `Mediasoup router setup failed during admitPatient for consultation ${dto.consultationId}: ${mediaErr.message}`,
+          mediaErr.stack,
+        );
+        throw HttpExceptionHelper.internalServerError(
+          'Failed to setup media session for consultation',
+          mediaErr,
+        );
+      }
 
       if (this.consultationGateway.server) {
         try {
@@ -848,53 +866,52 @@ export class ConsultationService {
         include: { participants: true },
       });
 
-       let mediasoupCleanupSuccess = false;
-       try {
-         await this.mediasoupSessionService.cleanupRouterForConsultation(
-           endDto.consultationId,
-         );
-         mediasoupCleanupSuccess = true;
-         this.logger.log(
-           `Mediasoup cleanup completed for consultation ${endDto.consultationId}`,
-         );
-       } catch (mediasoupError) {
-         this.logger.error(
-           `Mediasoup cleanup failed for consultation ${endDto.consultationId}: ${mediasoupError.message}`,
-           mediasoupError.stack,
-         );
-       }
+      let mediasoupCleanupSuccess = false;
+      try {
+        await this.mediasoupSessionService.cleanupRouterForConsultation(
+          endDto.consultationId,
+        );
+        mediasoupCleanupSuccess = true;
+        this.logger.log(
+          `Mediasoup cleanup completed for consultation ${endDto.consultationId}`,
+        );
+      } catch (mediasoupError) {
+        this.logger.error(
+          `Mediasoup cleanup failed for consultation ${endDto.consultationId}: ${mediasoupError.message}`,
+          mediasoupError.stack,
+        );
+      }
 
-       if (this.consultationGateway.server) {
-         try {
-           this.consultationGateway.server
-             .to(`consultation:${endDto.consultationId}`)
-             .emit('consultation_ended', {
-               status: newStatus,
-               action: endDto.action,
-               terminatedBy: userId,
-               deletionTime: deletionScheduledAt,
-               retentionHours: retentionHours,
-               bufferHours:
-                 endDto.action === 'close'
-                   ? this.configService.consultationDeletionBufferHours
-                   : null,
-             });
-           this.consultationGateway.server
-             .to(`consultation:${endDto.consultationId}`)
-             .emit('media_session_closed', {
-               consultationId: endDto.consultationId,
-               mediasoupCleanupSuccess,
-             });
-         } catch (socketError) {
-           this.logger.error('WebSocket emission failed:', socketError);
-         }
-       }
+      if (this.consultationGateway.server) {
+        try {
+          this.consultationGateway.server
+            .to(`consultation:${endDto.consultationId}`)
+            .emit('consultation_ended', {
+              status: newStatus,
+              action: endDto.action,
+              terminatedBy: userId,
+              deletionTime: deletionScheduledAt,
+              retentionHours: retentionHours,
+              bufferHours:
+                endDto.action === 'close'
+                  ? this.configService.consultationDeletionBufferHours
+                  : null,
+            });
+          this.consultationGateway.server
+            .to(`consultation:${endDto.consultationId}`)
+            .emit('media_session_closed', {
+              consultationId: endDto.consultationId,
+              mediasoupCleanupSuccess,
+            });
+        } catch (socketError) {
+          this.logger.error('WebSocket emission failed:', socketError);
+        }
+      }
 
-       const durationMs = Date.now() - start;
-       this.logger.log(
-         `Consultation ${endDto.consultationId} ended by user ${userId} in ${durationMs}ms`,
-       );
-
+      const durationMs = Date.now() - start;
+      this.logger.log(
+        `Consultation ${endDto.consultationId} ended by user ${userId} in ${durationMs}ms`,
+      );
 
       const responsePayload: EndConsultationResponseDto = {
         success: true,
@@ -903,6 +920,7 @@ export class ConsultationService {
         status: newStatus,
         deletionScheduledAt,
         retentionHours,
+        action: endDto.action,
       };
 
       return ApiResponseDto.success(
@@ -1071,7 +1089,6 @@ export class ConsultationService {
       },
     });
 
-
     if (!consultation) {
       throw HttpExceptionHelper.notFound('Consultation not found');
     }
@@ -1100,88 +1117,150 @@ export class ConsultationService {
       );
     }
 
-    const doc = new PDFDocument({ margin: 40 });
-    const stream = new PassThrough();
-    doc.pipe(stream);
+    return new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 40 });
+      const stream = new PassThrough();
 
-    doc.fontSize(20).text('Consultation Summary', { align: 'center' });
-    doc.moveDown();
-
-    doc.fontSize(12).text(`Consultation ID: ${consultation.id}`);
-    doc.text(
-      `Scheduled Date: ${consultation.scheduledDate?.toLocaleString() || 'Not scheduled'}`,
-    );
-    doc.text(`Status: ${consultation.status}`);
-    doc.text(`Created At: ${consultation.createdAt?.toLocaleString() || '-'}`);
-    doc.text(`Closed At: ${consultation.closedAt?.toLocaleString() || '-'}`);
-    doc.moveDown();
-
-    if (consultation.ownerId) {
-      doc.fontSize(14).text('Practitioner:', { underline: true });
-      const owner = await this.db.user.findUnique({
-        where: { id: consultation.ownerId },
-        select: {
-          firstName: true,
-          lastName: true,
-          specialities: {
-            select: { speciality: { select: { name: true } } },
-          },
-        },
+      const concatStream = concat((data: Buffer) => {
+        resolve(data);
       });
-      if (!owner) throw HttpExceptionHelper.notFound('Owner not found');
-      const name = `${owner.firstName} ${owner.lastName}`;
-      const specialities = owner.specialities
-        .map((s) => s.speciality.name)
-        .join(', ');
-      doc.fontSize(12).text(`Name: ${name}`);
-      doc.text(`Specialities: ${specialities || 'N/A'}`);
-      doc.moveDown();
-    }
 
-    const patient = consultation.participants.find(
-      (p) => p.user.role === UserRole.PATIENT,
-    )?.user;
-    if (patient) {
-      doc.fontSize(14).text('Patient:', { underline: true });
-      doc.fontSize(12).text(`Name: ${patient.firstName} ${patient.lastName}`);
-      doc.text(`Sex: ${patient.sex ?? 'NA'}`);
-      doc.text(`Phone: ${patient.phoneNumber ?? 'NA'}`);
-      doc.text(`Country: ${patient.country ?? 'NA'}`);
-      doc.moveDown();
-    }
+      stream.on('error', reject);
+      concatStream.on('error', reject);
 
-    if (consultation.rating) {
-      doc.fontSize(14).text('Patient Rating:', { underline: true });
-      doc.fontSize(12).text(`Rating: ${consultation.rating.rating}/5`);
-      if (consultation.rating.comment) {
-        doc.text(`Comment: ${consultation.rating.comment}`);
+      doc.pipe(stream).pipe(concatStream);
+
+      doc.fontSize(20).text('Consultation Summary', { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(12).text(`Consultation ID: ${consultation.id}`);
+      doc.text(
+        `Scheduled Date: ${consultation.scheduledDate?.toLocaleString() || 'Not scheduled'}`,
+      );
+      doc.text(`Status: ${consultation.status}`);
+      doc.text(
+        `Created At: ${consultation.createdAt?.toLocaleString() || '-'}`,
+      );
+      doc.text(`Closed At: ${consultation.closedAt?.toLocaleString() || '-'}`);
+      doc.moveDown();
+
+      if (consultation.ownerId) {
+        doc.fontSize(14).text('Practitioner:', { underline: true });
+        this.db.user
+          .findUnique({
+            where: { id: consultation.ownerId },
+            select: {
+              firstName: true,
+              lastName: true,
+              specialities: {
+                select: { speciality: { select: { name: true } } },
+              },
+            },
+          })
+          .then((owner) => {
+            if (!owner) {
+              reject(HttpExceptionHelper.notFound('Owner not found'));
+              return;
+            }
+            const name = `${owner.firstName} ${owner.lastName}`;
+            const specialities = (owner.specialities ?? [])
+              .map((s) => s.speciality.name)
+              .join(', ');
+            doc.fontSize(12).text(`Name: ${name}`);
+            doc.text(`Specialities: ${specialities || 'N/A'}`);
+            doc.moveDown();
+
+            const patient = consultation.participants.find(
+              (p) => p.user.role === UserRole.PATIENT,
+            )?.user;
+            if (patient) {
+              doc.fontSize(14).text('Patient:', { underline: true });
+              doc
+                .fontSize(12)
+                .text(`Name: ${patient.firstName} ${patient.lastName}`);
+              doc.text(`Sex: ${patient.sex ?? 'NA'}`);
+              doc.text(`Phone: ${patient.phoneNumber ?? 'NA'}`);
+              doc.text(`Country: ${patient.country ?? 'NA'}`);
+              doc.moveDown();
+            }
+
+            if (consultation.rating) {
+              doc.fontSize(14).text('Patient Rating:', { underline: true });
+              doc.fontSize(12).text(`Rating: ${consultation.rating.rating}/5`);
+              if (consultation.rating.comment) {
+                doc.text(`Comment: ${consultation.rating.comment}`);
+              }
+              doc.moveDown();
+            }
+
+            if (consultation.messages?.length) {
+              doc.addPage();
+              doc.fontSize(14).text('Messages Exchanged:', { underline: true });
+              doc.moveDown(0.5);
+
+              consultation.messages.forEach((msg) => {
+                const sender = `${msg.user.firstName ?? ''} ${msg.user.lastName ?? ''}`;
+                const role = msg.user.role;
+                const time = msg.createdAt.toLocaleString();
+                doc
+                  .fontSize(11)
+                  .fillColor('black')
+                  .text(`[${time}] ${sender} (${role}):`, { continued: true })
+                  .fillColor('blue')
+                  .text(` ${msg.content}`);
+                doc.moveDown(0.4);
+              });
+            }
+
+            doc.end();
+          })
+          .catch(reject);
+      } else {
+        const patient = consultation.participants.find(
+          (p) => p.user.role === UserRole.PATIENT,
+        )?.user;
+        if (patient) {
+          doc.fontSize(14).text('Patient:', { underline: true });
+          doc
+            .fontSize(12)
+            .text(`Name: ${patient.firstName} ${patient.lastName}`);
+          doc.text(`Sex: ${patient.sex ?? 'NA'}`);
+          doc.text(`Phone: ${patient.phoneNumber ?? 'NA'}`);
+          doc.text(`Country: ${patient.country ?? 'NA'}`);
+          doc.moveDown();
+        }
+
+        if (consultation.rating) {
+          doc.fontSize(14).text('Patient Rating:', { underline: true });
+          doc.fontSize(12).text(`Rating: ${consultation.rating.rating}/5`);
+          if (consultation.rating.comment) {
+            doc.text(`Comment: ${consultation.rating.comment}`);
+          }
+          doc.moveDown();
+        }
+
+        if (consultation.messages?.length) {
+          doc.addPage();
+          doc.fontSize(14).text('Messages Exchanged:', { underline: true });
+          doc.moveDown(0.5);
+
+          consultation.messages.forEach((msg) => {
+            const sender = `${msg.user.firstName ?? ''} ${msg.user.lastName ?? ''}`;
+            const role = msg.user.role;
+            const time = msg.createdAt.toLocaleString();
+            doc
+              .fontSize(11)
+              .fillColor('black')
+              .text(`[${time}] ${sender} (${role}):`, { continued: true })
+              .fillColor('blue')
+              .text(` ${msg.content}`);
+            doc.moveDown(0.4);
+          });
+        }
+
+        doc.end();
       }
-      doc.moveDown();
-    }
-
-    if (consultation.messages?.length) {
-      doc.addPage(); 
-      doc.fontSize(14).text('Messages Exchanged:', { underline: true });
-      doc.moveDown(0.5);
-
-      consultation.messages.forEach((msg) => {
-        const sender = `${msg.user.firstName ?? ''} ${msg.user.lastName ?? ''}`;
-        const role = msg.user.role;
-        const time = msg.createdAt.toLocaleString();
-        doc
-          .fontSize(11)
-          .fillColor('black')
-          .text(`[${time}] ${sender} (${role}):`, { continued: true })
-          .fillColor('blue')
-          .text(` ${msg.content}`);
-        doc.moveDown(0.4);
-      });
-    }
-
-    doc.end();
-    const pdfString = await getStream(stream);
-    const pdfBuffer = Buffer.from(pdfString, 'binary');
-    return pdfBuffer;
+    });
   }
 
   private mapToHistoryItem(c: any): ConsultationHistoryItemDto {
@@ -1395,5 +1474,51 @@ export class ConsultationService {
     }
 
     return this.getConsultationDetails(consultationId);
+  }
+
+  async assignPractitionerToConsultation(
+    consultationId: number,
+    practitionerId: number,
+    adminUserId: number,
+  ): Promise<Consultation | null> {
+    const adminUser = await this.db.user.findUnique({
+      where: { id: adminUserId },
+    });
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      throw HttpExceptionHelper.forbidden(
+        'Only admins can assign practitioners',
+      );
+    }
+
+    const consultation = await this.db.consultation.findUnique({
+      where: { id: consultationId },
+    });
+    if (!consultation) {
+      throw HttpExceptionHelper.notFound('Consultation not found');
+    }
+    if (consultation.status !== ConsultationStatus.DRAFT) {
+      throw HttpExceptionHelper.badRequest(
+        'Only draft consultations can be assigned a practitioner',
+      );
+    }
+
+    const practitioner = await this.db.user.findUnique({
+      where: { id: practitionerId },
+    });
+    if (!practitioner || practitioner.role !== UserRole.PRACTITIONER) {
+      throw HttpExceptionHelper.badRequest('Invalid practitioner');
+    }
+
+    const updatedConsultation = await this.db.consultation.update({
+      where: { id: consultationId },
+      data: {
+        ownerId: practitionerId,
+        status: ConsultationStatus.SCHEDULED,
+        version: { increment: 1 },
+      },
+      include: { owner: true },
+    });
+
+    return updatedConsultation;
   }
 }

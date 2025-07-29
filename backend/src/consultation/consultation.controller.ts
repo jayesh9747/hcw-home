@@ -6,11 +6,13 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   Res,
   UsePipes,
   ValidationPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
 import {
@@ -30,6 +32,7 @@ import {
   CreateConsultationWithTimeSlotDto,
   ConsultationResponseDto,
 } from './dto/create-consultation.dto';
+import { AssignPractitionerDto } from './dto/assign-practitioner.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -474,6 +477,45 @@ export class ConsultationController {
       message: 'Open consultation details fetched successfully',
       timestamp: new Date().toISOString(),
       data,
+    };
+  }
+
+  @Patch(':id/assign-practitioner')
+  @ApiOperation({
+    summary: 'Assign a practitioner to a draft consultation (admin only)',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Draft consultation ID' })
+  @ApiBody({ type: AssignPractitionerDto })
+  @ApiOkResponse({
+    description: 'Practitioner assigned successfully',
+    type: ApiResponseDto<ConsultationResponseDto>,
+  })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
+  @Patch(':id/assign-practitioner')
+  async assignPractitioner(
+    @Param('id', ConsultationIdParamPipe) consultationId: number,
+    @Body() body: AssignPractitionerDto,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<any> {
+    const updatedConsultation =
+      await this.consultationService.assignPractitionerToConsultation(
+        consultationId,
+        body.practitionerId,
+        userId, 
+      );
+
+    return {
+      ...ApiResponseDto.success(
+        updatedConsultation,
+        'Practitioner assigned successfully',
+      ),
+      timestamp: new Date().toISOString(),
     };
   }
 }
