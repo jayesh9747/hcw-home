@@ -18,29 +18,30 @@ export class MediasoupServerService {
   async create(
     createMediasoupServerDto: CreateMediasoupServerDto,
   ): Promise<MediasoupServerResponseDto> {
+    const { url, password, maxNumberOfSessions, active, ...rest } =
+      createMediasoupServerDto;
+
     const existingServer = await this.databaseService.mediasoupServer.findFirst(
       {
-        where: { url: createMediasoupServerDto.url },
+        where: { url },
       },
     );
 
     if (existingServer) {
-      this.logger.warn(
-        `Attempt to create duplicate server URL: ${createMediasoupServerDto.url}`,
-      );
+      this.logger.warn(`Attempt to create duplicate server URL: ${url}`);
       throw HttpExceptionHelper.conflict('Mediasoup server URL already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(
-      createMediasoupServerDto.password,
-      10,
-    );
+    // Hash the password securely
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const serverData = {
-      ...createMediasoupServerDto,
+      ...rest,
+      url,
       password: hashedPassword,
-      maxNumberOfSessions: createMediasoupServerDto.maxNumberOfSessions || 100,
-      active: createMediasoupServerDto.active ?? true,
+      maxNumberOfSessions:
+        maxNumberOfSessions !== undefined ? maxNumberOfSessions : 100,
+      active: active ?? true,
     };
 
     const server = await this.databaseService.mediasoupServer.create({
