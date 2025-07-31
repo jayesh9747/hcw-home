@@ -40,6 +40,8 @@ export class MediasoupSessionService implements OnModuleDestroy {
     message: string,
     meta: Record<string, any> = {},
   ) {
+
+    if (level === 'verbose' && process.env.NODE_ENV !== 'production') return;
     const logEntry = {
       timestamp: new Date().toISOString(),
       service: 'mediasoup-session',
