@@ -113,27 +113,18 @@ export class ConsultationRequestPage implements OnInit {
 
   loadSpecialities() {
     this.loading = true;
-    this.specialities = [
-      {
-        name: 'dentist',
-        id: 1
+
+    this.specialityService.getAllSpecialities().subscribe({
+      next: (data) => {
+        this.specialities = data;
+        this.loading = false;
       },
-      {
-        name: "surgeon",
-        id: 2
+      error: (error) => {
+        console.error('Error loading specialities:', error);
+        this.showDetailsfillError('Failed to load specialities');
+        this.loading = false;
       }
-    ]
-    // this.specialityService.getAllSpecialities().subscribe({
-    //   next: (data) => {
-    //     this.specialities = data;
-    //     this.loading = false;
-    //   },
-    //   error: (error) => {
-    //     console.error('Error loading specialities:', error);
-    //     this.showDetailsfillError('Failed to load specialities');
-    //     this.loading = false;
-    //   }
-    // });
+    });
   }
 
   // Toasts
