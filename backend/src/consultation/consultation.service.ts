@@ -148,6 +148,7 @@ export class ConsultationService {
           userId: createDto.patientId,
           isActive: false,
           isBeneficiary: true,
+          role: UserRole.PATIENT
         },
       },
       ...(typeof createDto.groupId === 'number' && {

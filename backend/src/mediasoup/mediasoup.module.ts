@@ -1,6 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { MediasoupServerService } from './mediasoup.service';
 import { MediasoupSessionService } from './mediasoup-session.service';
+import { ConfigModule } from 'src/config/config.module';
 import { MediasoupServerController } from './mediasoup.controller';
 import { MediasoupGateway } from './mediasoup.gateway';
 import { DatabaseModule } from 'src/database/database.module';
@@ -10,7 +11,7 @@ import { ConsultationModule } from 'src/consultation/consultation.module';
 ConsultationModule
 
 @Module({
-  imports: [DatabaseModule, UserModule, AuthModule, forwardRef(() => ConsultationModule),],
+  imports: [ConfigModule, DatabaseModule, UserModule, AuthModule, forwardRef(() => ConsultationModule),],
   controllers: [MediasoupServerController],
   providers: [
     MediasoupServerService,
