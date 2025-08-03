@@ -15,7 +15,7 @@ import {
   HttpException,
   ValidationPipe
 } from '@nestjs/common';
-import * as passport from 'passport';
+import passport from 'passport';
 import { AuthService } from './auth.service';
 import { PassportLocalGuard } from './guards/passport-local.guard';
 import {  LoginResponseDto, LoginUserDto } from './dto/login-user.dto';
@@ -106,14 +106,14 @@ export class AuthController {
   
     const strategy = strategyMap[Reqrole];
   
-    return passport.authenticate(strategy, {
-      scope: ['openid', 'profile', 'email'],
-    })(req, res, (err) => {
-      if (err) {
-        this.logger.error('Passport middleware failed during login', err);
-        throw HttpExceptionHelper.internalServerError("Passport login failed");
-      }
-    });
+    try {
+      return passport.authenticate(strategy, {
+        scope: ['openid', 'profile', 'email'],
+      })(req, res);
+    } catch (error) {
+      this.logger.error('OIDC authenticate() failed', error.stack);
+      throw HttpExceptionHelper.internalServerError('OIDC authenticate() failed');
+    }
   }
   
   @Get('callback/:provider')

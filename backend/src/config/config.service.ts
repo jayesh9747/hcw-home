@@ -156,4 +156,35 @@ export class ConfigService {
     const parsed = parseInt(value, 10);
     return isNaN(parsed) ? defaultValue : parsed;
   }
+
+  getAdminOidcConfig() {
+    const oidc = this.configService.get('oidc')
+    const callbackURL = `${oidc.callbackBaseURL}/openidconnect_admin?role=admin`;
+    return {
+      issuer: oidc.issuer,
+      authorizationURL: oidc.authorizationURL,
+      tokenURL: oidc.tokenURL,
+      userInfoURL: oidc.userInfoURL,
+      clientID: oidc.clientID,
+      clientSecret: oidc.clientSecret,
+      callbackURL,
+      scope: oidc.scope,
+    };
+  }
+  getPractitionerOidcConfig() {
+    const oidc = this.configService.get('oidc')
+    const callbackURL = `${oidc.callbackBaseURL}/openidconnect_practitioner?role=practitioner`;
+  
+    return {
+      issuer: oidc.issuer,
+      authorizationURL: oidc.authorizationURL,
+      tokenURL: oidc.tokenURL,
+      userInfoURL: oidc.userInfoURL,
+      clientID: oidc.clientID,
+      clientSecret: oidc.clientSecret,
+      callbackURL,
+      scope: oidc.scope,
+    };
+  }
+  
 }
