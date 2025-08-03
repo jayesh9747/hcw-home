@@ -50,13 +50,3 @@ export class AdminStrategy extends PassportStrategy(OpenIDConnectStrategy, 'open
 }
 
 
-
-// issuer: "http://localhost:8080/realms/keyclock-2",
-// authorizationURL: "http://localhost:8080/realms/keyclock-2/protocol/openid-connect/auth",
-// tokenURL: "http://localhost:8080/realms/keyclock-2/protocol/openid-connect/token",
-// userInfoURL: "http://localhost:8080/realms/keyclock-2/protocol/openid-connect/userinfo",
-// clientID: "hcw-backend",
-// clientSecret: "DhjcVq6POXGKTDCeh3323az13218t6Ui",
-// callbackURL: "http://localhost:3000/api/v1/auth/callback/keycloak",
-// scope: ['openid', 'profile', 'email'],
-// passReqToCallback: true,
