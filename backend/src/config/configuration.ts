@@ -40,4 +40,15 @@ export default () => ({
     process.env.CONSULTATION_DELETION_BUFFER_HOURS ?? '1',
     10,
   ),
+
+  oidc: {
+    issuer: process.env.OPENID_ISSUER_URL,
+    authorizationURL: process.env.OPENID_AUTHORIZATION_URL,
+    tokenURL: process.env.OPENID_TOKEN_URL,
+    userInfoURL:process.env.OPENID_USERINFO_URL,
+    clientID: process.env.OPENID_CLIENT_ID,
+    clientSecret: process.env.OPENID_CLIENT_SECRET,
+    callbackBaseURL: process.env.OPENID_CALLBACK_BASE_URL,
+    scope: (process.env.OPENID_SCOPE || 'openid,profile,email').split(','),
+  },  
 });
