@@ -34,6 +34,9 @@ CREATE TABLE "users" (
     "status" "UserStatus" NOT NULL DEFAULT 'NOT_APPROVED',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "acceptedAt" TIMESTAMP(3),
+    "termId" INTEGER DEFAULT 0,
+    "termVersion" DOUBLE PRECISION NOT NULL DEFAULT 0.00,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
@@ -195,6 +198,7 @@ CREATE TABLE "Message" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
     "content" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "consultationId" INTEGER,
 
     CONSTRAINT "Message_pkey" PRIMARY KEY ("id")
@@ -355,6 +359,9 @@ CREATE UNIQUE INDEX "time_slots_consultationId_key" ON "time_slots"("consultatio
 
 -- CreateIndex
 CREATE INDEX "time_slots_practitionerId_date_idx" ON "time_slots"("practitionerId", "date");
+
+-- AddForeignKey
+ALTER TABLE "users" ADD CONSTRAINT "users_termId_fkey" FOREIGN KEY ("termId") REFERENCES "terms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "organization_members" ADD CONSTRAINT "organization_members_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -414,4 +414,22 @@ export class AuthService {
   }
 
 
+  async updatePassword(email: string, password: string) {
+    const user = await this.findByEmail(email);
+    if (!user) {
+      throw HttpExceptionHelper.notFound("User not found");
+    }
+  
+    if (!password) {
+      throw HttpExceptionHelper.badRequest("Password is required");
+    }
+    const encryptedPassword = await this.encryptPassword(password);
+    await this.databaseService.user.update({
+      where: { email },
+      data: { password: encryptedPassword },
+    });
+    return { message: 'Password reset successful' };
+  }
+  
+
 }

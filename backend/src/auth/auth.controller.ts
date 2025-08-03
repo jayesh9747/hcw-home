@@ -36,6 +36,7 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { Request, Response } from 'express';
 import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
+import { log } from 'console';
 
 @Controller('auth')
 export class AuthController {
@@ -234,5 +235,25 @@ export class AuthController {
     const result = await this.authService.refreshToken(refreshTokenDto);
     return ApiResponseDto.success(result, 'Tokens created successfully', 200);
   }
+
+  
+  @Post('update-password')
+  async resetPassword(@Body() body: {username:string, password: string }, @Req() req :ExtendedRequest) {
+    const { username, password } = body;
+    console.log(body);
+    
+    if (!username || !password) {
+      throw new HttpException('Email and password are required', HttpStatus.BAD_REQUEST);
+    }
+
+    await this.authService.updatePassword(username, password);
+
+    return ApiResponseDto.success({}, 'Password updated successfully', 200);
+
+  }
+
+
+
+  
   
 }
