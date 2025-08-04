@@ -15,7 +15,7 @@ import {
   HttpException,
   ValidationPipe
 } from '@nestjs/common';
-import * as passport from 'passport';
+import passport from 'passport';
 import { AuthService } from './auth.service';
 import { PassportLocalGuard } from './guards/passport-local.guard';
 import {  LoginResponseDto, LoginUserDto } from './dto/login-user.dto';
@@ -36,6 +36,7 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { Request, Response } from 'express';
 import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
+import { log } from 'console';
 
 @Controller('auth')
 export class AuthController {
@@ -105,14 +106,14 @@ export class AuthController {
   
     const strategy = strategyMap[Reqrole];
   
-    return passport.authenticate(strategy, {
-      scope: ['openid', 'profile', 'email'],
-    })(req, res, (err) => {
-      if (err) {
-        this.logger.error('Passport middleware failed during login', err);
-        throw HttpExceptionHelper.internalServerError("Passport login failed");
-      }
-    });
+    try {
+      return passport.authenticate(strategy, {
+        scope: ['openid', 'profile', 'email'],
+      })(req, res);
+    } catch (error) {
+      this.logger.error('OIDC authenticate() failed', error.stack);
+      throw HttpExceptionHelper.internalServerError('OIDC authenticate() failed');
+    }
   }
   
   @Get('callback/:provider')
@@ -234,5 +235,25 @@ export class AuthController {
     const result = await this.authService.refreshToken(refreshTokenDto);
     return ApiResponseDto.success(result, 'Tokens created successfully', 200);
   }
+
+  
+  @Post('update-password')
+  async resetPassword(@Body() body: {username:string, password: string }, @Req() req :ExtendedRequest) {
+    const { username, password } = body;
+    console.log(body);
+    
+    if (!username || !password) {
+      throw new HttpException('Email and password are required', HttpStatus.BAD_REQUEST);
+    }
+
+    await this.authService.updatePassword(username, password);
+
+    return ApiResponseDto.success({}, 'Password updated successfully', 200);
+
+  }
+
+
+
+  
   
 }
