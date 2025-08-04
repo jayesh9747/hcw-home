@@ -8,19 +8,26 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { DatabaseService } from 'src/database/database.service';
+import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
+import { DatabaseService } from 'src/database/database.service';
+import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import { ConsultationStatus, UserRole } from '@prisma/client';
 import { EndConsultationDto } from './dto/end-consultation.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
-import { ConsultationStatus, UserRole } from '@prisma/client';
-import { forwardRef, Inject } from '@nestjs/common';
-import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
 
 @WebSocketGateway({ namespace: '/consultation', cors: true })
 export class ConsultationGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
-  @WebSocketServer() server: Server;
+  @WebSocketServer()
+  server: Server;
+
+  private readonly logger = new Logger(ConsultationGateway.name);
+  private clientRooms = new Map<string, number>();
+  private clientTransports = new Map<string, Set<string>>();
+  private clientProducers = new Map<string, Set<string>>();
+  private clientConsumers = new Map<string, Set<string>>();
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -32,49 +39,58 @@ export class ConsultationGateway
 
   async handleConnection(client: Socket) {
     try {
-      const cId = Number(client.handshake.query.consultationId);
-      const uId = Number(client.handshake.query.userId);
-      const role = client.handshake.query.role as UserRole | undefined;
+      const q = client.handshake.query;
+      const consultationId = Number(q.consultationId);
+      const userId = Number(q.userId);
+      const role = q.role as UserRole;
 
-      if (
-        !cId ||
-        !uId ||
-        (role !== UserRole.PRACTITIONER && role !== UserRole.PATIENT)
-      ) {
+      const allowedRoles = [UserRole.PATIENT, UserRole.PRACTITIONER] as const;
+      if (!consultationId || !userId || !allowedRoles.includes(role as any)) {
         client.emit('error', { message: 'Invalid connection parameters.' });
-        client.disconnect();
+        client.disconnect(true);
         return;
       }
 
-      const existing = await this.databaseService.participant.findMany({
-        where: {
-          consultationId: cId,
-          isActive: true,
-          user: { role },
-        },
-      });
-
-      if (existing.length > 0 && !existing.some((p) => p.userId === uId)) {
-        client.emit('error', {
-          message: `A ${role.toLowerCase()} is already connected to this consultation.`,
-        });
-        client.disconnect();
-        return;
-      }
-
-      client.join(`consultation:${cId}`);
-      client.data = { consultationId: cId, userId: uId, role };
-
+      // Check if the same role already connected (except patient can have multiple)
       if (role === UserRole.PRACTITIONER) {
-        client.join(`practitioner:${uId}`);
+        const connectedPractitioners =
+          await this.databaseService.participant.findMany({
+            where: {
+              consultationId,
+              isActive: true,
+              role: UserRole.PRACTITIONER,
+            },
+          });
+        if (
+          connectedPractitioners.length > 0 &&
+          !connectedPractitioners.some((p) => p.userId === userId)
+        ) {
+          client.emit('error', {
+            message:
+              'Another practitioner is already connected to this consultation.',
+          });
+          client.disconnect(true);
+          return;
+        }
       }
+
+      await client.join(`consultation:${consultationId}`);
+      if (role === UserRole.PRACTITIONER) {
+        await client.join(`practitioner:${userId}`);
+      }
+
+      client.data = { consultationId, userId, role };
+      this.clientRooms.set(client.id, consultationId);
+      this.clientTransports.set(client.id, new Set());
+      this.clientProducers.set(client.id, new Set());
+      this.clientConsumers.set(client.id, new Set());
 
       await this.databaseService.participant.upsert({
-        where: { consultationId_userId: { consultationId: cId, userId: uId } },
+        where: { consultationId_userId: { consultationId, userId } },
         create: {
-          consultationId: cId,
-          userId: uId,
-          role: role,
+          consultationId,
+          userId,
+          role,
           isActive: true,
           joinedAt: new Date(),
           lastActiveAt: new Date(),
@@ -86,80 +102,70 @@ export class ConsultationGateway
         },
       });
 
-      // Doctor joined event for patients (optimized to emit once)
-      if (role === UserRole.PRACTITIONER) {
-        try {
-          const patientParticipants =
-            await this.databaseService.participant.findMany({
-              where: {
-                consultationId: cId,
-                user: { role: UserRole.PATIENT },
-              },
-            });
+      this.logger.log(
+        `Client connected: ${client.id}, Consultation: ${consultationId}, User: ${userId}, Role: ${role}`,
+      );
 
-          if (patientParticipants.length > 0) {
-            this.server.to(`consultation:${cId}`).emit('doctor_joined', {
-              consultationId: cId,
-              practitionerId: uId,
-              message: 'Doctor has joined. You can join the consultation.',
+      // Notify patients when practitioner joins
+      if (role === UserRole.PRACTITIONER) {
+        const patientParticipants =
+          await this.databaseService.participant.findMany({
+            where: { consultationId, role: UserRole.PATIENT, isActive: true },
+          });
+
+        if (patientParticipants.length > 0) {
+          this.server
+            .to(`consultation:${consultationId}`)
+            .emit('doctor_joined', {
+              consultationId,
+              practitionerId: userId,
+              message: 'Doctor has joined. You may now join the consultation.',
             });
-          }
-        } catch (err) {
-          console.error(
-            `Error emitting doctor_joined event for consultation ${cId}:`,
-            err,
-          );
         }
       }
 
-      // For patient, send initial consultation status
+      // Send consultation status snapshot to patient
       if (role === UserRole.PATIENT) {
-        try {
-          const consultation =
-            await this.databaseService.consultation.findUnique({
-              where: { id: cId },
-              include: { owner: true, rating: true },
-            });
+        const consultation = await this.databaseService.consultation.findUnique(
+          {
+            where: { id: consultationId },
+            include: { owner: true, rating: true },
+          },
+        );
 
-          if (consultation) {
-            const canJoin = consultation.status === ConsultationStatus.ACTIVE;
-            const waitingForDoctor =
-              consultation.status === ConsultationStatus.WAITING ||
-              consultation.status === ConsultationStatus.DRAFT;
+        if (consultation) {
+          const canJoin = consultation.status === ConsultationStatus.ACTIVE;
+          const waitingForDoctor =
+            consultation.status === ConsultationStatus.WAITING ||
+            consultation.status === ConsultationStatus.DRAFT;
 
-            client.emit('consultation_status_patient', {
-              status: consultation.status,
-              canJoin,
-              waitingForDoctor,
-              scheduledDate: consultation.scheduledDate,
-              doctorName: consultation.owner
-                ? `${consultation.owner.firstName} ${consultation.owner.lastName}`
-                : '',
-              rating: consultation.rating
-                ? {
-                    value: consultation.rating.rating,
-                    color: consultation.rating.rating >= 4 ? 'green' : 'red',
-                    done: true,
-                  }
-                : { value: 0, color: null, done: false },
-            });
-          }
-        } catch (err) {
-          console.error(
-            `Error fetching consultation status for patient ${uId}:`,
-            err,
-          );
+          client.emit('consultation_status_patient', {
+            status: consultation.status,
+            canJoin,
+            waitingForDoctor,
+            scheduledDate: consultation.scheduledDate,
+            doctorName: consultation.owner
+              ? `${consultation.owner.firstName} ${consultation.owner.lastName}`
+              : '',
+            rating: consultation.rating
+              ? {
+                  value: consultation.rating.rating,
+                  color: consultation.rating.rating >= 4 ? 'green' : 'red',
+                  done: true,
+                }
+              : { value: 0, color: null, done: false },
+          });
         }
       }
     } catch (error) {
-      console.error('Error in handleConnection:', error);
-      client.disconnect();
+      this.logger.error(`Connection error: ${error.message}`, error.stack);
+      client.disconnect(true);
     }
   }
 
   async handleDisconnect(client: Socket) {
     try {
-      const { consultationId, userId, role } = client.data;
+      const { consultationId, userId, role } = client.data ?? {};
       if (!consultationId || !userId || !role) return;
 
       await this.databaseService.participant.updateMany({
@@ -167,51 +173,78 @@ export class ConsultationGateway
         data: { isActive: false, lastActiveAt: new Date() },
       });
 
+      for (const transportId of this.clientTransports.get(client.id) ?? []) {
+        try {
+          await this.mediasoupSessionService.closeTransport(transportId);
+        } catch (e) {
+          this.logger.warn(
+            `Failed to close transport ${transportId}: ${e.message}`,
+          );
+        }
+      }
+      for (const producerId of this.clientProducers.get(client.id) ?? []) {
+        try {
+          await this.mediasoupSessionService.closeProducer(producerId);
+        } catch (e) {
+          this.logger.warn(
+            `Failed to close producer ${producerId}: ${e.message}`,
+          );
+        }
+      }
+      for (const consumerId of this.clientConsumers.get(client.id) ?? []) {
+        try {
+          await this.mediasoupSessionService.closeConsumer(consumerId);
+        } catch (e) {
+          this.logger.warn(
+            `Failed to close consumer ${consumerId}: ${e.message}`,
+          );
+        }
+      }
+
+      this.clientTransports.delete(client.id);
+      this.clientProducers.delete(client.id);
+      this.clientConsumers.delete(client.id);
+
       const consultation = await this.databaseService.consultation.findUnique({
         where: { id: consultationId },
       });
+      if (!consultation) return;
 
-      if (
-        !consultation ||
-        consultation.status === ConsultationStatus.TERMINATED_OPEN ||
-        consultation.status === ConsultationStatus.COMPLETED
-      ) {
-        return;
-      }
-
-      // Practitoner disconnects: terminate and cleanup Mediasoup
+      // Practitioner leaves => terminate session and cleanup
       if (role === UserRole.PRACTITIONER) {
         await this.databaseService.consultation.update({
           where: { id: consultationId },
           data: { status: ConsultationStatus.TERMINATED_OPEN },
         });
 
-        let mediasoupCleaned = false;
         try {
           await this.mediasoupSessionService.cleanupRouterForConsultation(
             consultationId,
           );
-          mediasoupCleaned = true;
-        } catch {}
-        this.server
-          .to(`consultation:${consultationId}`)
-          .emit('media_session_closed', { consultationId, mediasoupCleaned });
+        } catch (e) {
+          this.logger.warn(
+            `Mediasoup cleanup failed for consultation ${consultationId}: ${e.message}`,
+          );
+        }
 
         this.server
           .to(`consultation:${consultationId}`)
-          .emit('consultation_status', {
-            status: ConsultationStatus.TERMINATED_OPEN,
-            terminatedBy: 'PRACTITIONER',
+          .emit('media_session_closed', {
+            consultationId,
+            mediasoupCleaned: true,
+          });
+        this.server
+          .to(`consultation:${consultationId}`)
+          .emit('consultation_terminated', {
+            consultationId,
+            reason: 'Practitioner disconnected',
           });
       }
-      // All patients gone: can revert to SCHEDULED if in waiting
-      else if (role === UserRole.PATIENT) {
+
+      // When all patients leave and status is waiting, revert status to scheduled
+      if (role === UserRole.PATIENT) {
         const activePatients = await this.databaseService.participant.findMany({
-          where: {
-            consultationId,
-            isActive: true,
-            user: { role: UserRole.PATIENT },
-          },
+          where: { consultationId, role: UserRole.PATIENT, isActive: true },
         });
 
         if (
@@ -227,15 +260,12 @@ export class ConsultationGateway
             .to(`consultation:${consultationId}`)
             .emit('consultation_status', {
               status: ConsultationStatus.SCHEDULED,
-              triggeredBy: 'PATIENT_LEFT',
+              triggeredBy: 'All patients left',
             });
         }
       }
     } catch (error) {
-      console.error(
-        `Error during disconnect for user ${client.data?.userId} in consultation ${client.data?.consultationId}:`,
-        error,
-      );
+      this.logger.error(`Disconnect error: ${error.message}`, error.stack);
     }
   }
 
@@ -246,47 +276,50 @@ export class ConsultationGateway
   ) {
     try {
       const { consultationId } = data;
-      const { role } = client.data;
+      const { role, userId } = client.data;
 
-      if (role !== UserRole.PRACTITIONER) {
-        throw new Error('Only practitioners can admit patients');
+      if (role !== UserRole.PRACTITIONER && role !== UserRole.ADMIN) {
+        throw new Error('Only practitioners or admins can admit patients');
       }
 
-      await this.databaseService.consultation.update({
-        where: { id: consultationId },
-        data: { status: ConsultationStatus.ACTIVE },
-      });
+      const admissionResult = await this.consultationService.admitPatient(
+        { consultationId },
+        userId,
+      );
 
-      // Ensure Mediasoup router exists (optional if handled in service)
-      let mediasoupRouter =
-        this.mediasoupSessionService.getRouter(consultationId);
-      if (!mediasoupRouter) {
-        await this.mediasoupSessionService.createRouterForConsultation(
-          consultationId,
-        );
+      if (admissionResult.success) {
+        // Ensure mediasoup router is ready for the consultation
+        let mediasoupRouter =
+          this.mediasoupSessionService.getRouter(consultationId);
+        if (!mediasoupRouter) {
+          mediasoupRouter =
+            await this.mediasoupSessionService.createRouterForConsultation(
+              consultationId,
+            );
+          this.logger.log(
+            `Mediasoup router created for consultation ${consultationId} on admit_patient`,
+          );
+        }
+
+        // Notify all participants of status change and mediasoup session
+        this.server
+          .to(`consultation:${consultationId}`)
+          .emit('consultation_status', {
+            status: ConsultationStatus.ACTIVE,
+            initiatedBy: role,
+          });
+
         this.server
           .to(`consultation:${consultationId}`)
           .emit('media_session_live', { consultationId });
       }
 
-      this.server
-        .to(`consultation:${consultationId}`)
-        .emit('consultation_status', {
-          status: ConsultationStatus.ACTIVE,
-          initiatedBy: 'PRACTITIONER',
-        });
-
-      this.server
-        .to(`consultation:${consultationId}`)
-        .emit('consultation_status_patient', {
-          status: ConsultationStatus.ACTIVE,
-          canJoin: true,
-          waitingForDoctor: false,
-        });
+      return admissionResult;
     } catch (error) {
+      this.logger.error('Admit patient failed', error.stack);
       client.emit('error', {
         message: 'Failed to admit patient',
-        details: error?.message ?? error,
+        details: error.message,
       });
     }
   }
@@ -298,7 +331,7 @@ export class ConsultationGateway
   ) {
     try {
       const { consultationId, action } = endDto;
-      const { userId, role } = client.data;
+      const { role, userId } = client.data;
 
       if (role !== UserRole.PRACTITIONER && role !== UserRole.ADMIN) {
         throw new Error('Only practitioners or admins can end consultations');
@@ -309,17 +342,17 @@ export class ConsultationGateway
         userId,
       );
 
-      if (result.data) {
+      if (result.success && result.data) {
         this.server
           .to(`consultation:${consultationId}`)
           .emit('consultation_ended', {
             status: result.data.status,
             action,
             terminatedBy: userId,
-            ...(result.data.deletionScheduledAt && {
-              deletionTime: result.data.deletionScheduledAt,
-            }),
+            deletionScheduledAt: result.data.deletionScheduledAt ?? undefined,
+            retentionHours: result.data.retentionHours ?? undefined,
           });
+
         this.server
           .to(`consultation:${consultationId}`)
           .emit('media_session_closed', {
@@ -339,13 +372,17 @@ export class ConsultationGateway
         }
       } else {
         client.emit('error', {
-          message: 'Failed to end consultation: No data returned',
+          message: 'Failed to end consultation: No response from service',
         });
       }
     } catch (error) {
+      this.logger.error(
+        `End consultation error: ${error.message}`,
+        error.stack,
+      );
       client.emit('error', {
         message: 'Failed to end consultation',
-        details: error?.message ?? error,
+        details: error.message,
       });
     }
   }
@@ -354,7 +391,13 @@ export class ConsultationGateway
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody()
-    data: { consultationId: number; userId: number; content: string },
+    data: {
+      consultationId: number;
+      userId: number;
+      content: string;
+      mediaUrl?: string;
+      mediaType?: string;
+    },
   ) {
     try {
       if (
@@ -363,6 +406,7 @@ export class ConsultationGateway
         data.content.trim().length === 0 ||
         data.content.length > 2000
       ) {
+        // Invalid or empty message, ignore silently
         return;
       }
 
@@ -371,6 +415,8 @@ export class ConsultationGateway
           consultationId: data.consultationId,
           userId: data.userId,
           content: data.content,
+          mediaUrl: data.mediaUrl ?? null,
+          mediaType: data.mediaType ?? null,
         },
       });
 
@@ -380,15 +426,77 @@ export class ConsultationGateway
           id: message.id,
           userId: data.userId,
           content: data.content,
-          timestamp: new Date().toISOString(),
+          mediaUrl: data.mediaUrl ?? null,
+          mediaType: data.mediaType ?? null,
+          timestamp: message.createdAt,
           role: client.data.role,
         });
     } catch (error) {
+      this.logger.error('Send message error', error.stack);
       client.emit('error', {
         message: 'Failed to send message',
-        details: error?.message ?? error,
+        details: error.message,
       });
     }
+  }
+
+  @SubscribeMessage('message_read')
+  async handleMessageRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { messageId: number; userId: number },
+  ) {
+    try {
+      await this.databaseService.messageReadReceipt.upsert({
+        where: {
+          messageId_userId: { messageId: data.messageId, userId: data.userId },
+        },
+        update: { readAt: new Date() },
+        create: {
+          messageId: data.messageId,
+          userId: data.userId,
+          readAt: new Date(),
+        },
+      });
+
+      const message = await this.databaseService.message.findUnique({
+        where: { id: data.messageId },
+      });
+      if (message?.consultationId) {
+        this.server
+          .to(`consultation:${message.consultationId}`)
+          .emit('message_read', {
+            messageId: data.messageId,
+            userId: data.userId,
+            readAt: new Date(),
+          });
+      }
+    } catch (error) {
+      this.logger.error('Message read update failed', error.stack);
+      client.emit('error', {
+        message: 'Failed to update read receipt',
+        details: error.message,
+      });
+    }
+  }
+
+  @SubscribeMessage('typing')
+  async handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; userId: number },
+  ) {
+    this.server
+      .to(`consultation:${data.consultationId}`)
+      .emit('typing', { userId: data.userId });
+  }
+
+  @SubscribeMessage('stop_typing')
+  async handleStopTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; userId: number },
+  ) {
+    this.server
+      .to(`consultation:${data.consultationId}`)
+      .emit('stop_typing', { userId: data.userId });
   }
 
   @SubscribeMessage('rate_consultation')
@@ -432,9 +540,10 @@ export class ConsultationGateway
           },
         });
     } catch (error) {
+      this.logger.error('Rate consultation failed', error.stack);
       client.emit('error', {
         message: 'Failed to rate consultation',
-        details: error?.message ?? error,
+        details: error.message,
       });
     }
   }
@@ -449,35 +558,19 @@ export class ConsultationGateway
       const { userId } = client.data;
 
       const participant = await this.databaseService.participant.findUnique({
-        where: {
-          consultationId_userId: {
-            consultationId,
-            userId,
-          },
-        },
+        where: { consultationId_userId: { consultationId, userId } },
       });
 
       if (!participant) {
-        throw new Error('Participant not found');
+        return;
       }
 
       await this.databaseService.participant.update({
-        where: {
-          consultationId_userId: {
-            consultationId,
-            userId,
-          },
-        },
-        data: {
-          lastActiveAt: new Date(),
-        },
+        where: { consultationId_userId: { consultationId, userId } },
+        data: { lastActiveAt: new Date() },
       });
-    } catch (error) {
-      console.error(
-        `KeepAlive error for user ${client.data?.userId} in consultation ${data.consultationId}:`,
-        error,
-      );
-      // intentionally no emit for keep_alive errors to avoid flooding
+    } catch {
+      // Silently ignore to avoid flooding errors
     }
   }
 
@@ -490,36 +583,40 @@ export class ConsultationGateway
       const { consultationId, practitionerId } = data;
       const { role, userId } = client.data;
 
-      const updatedConsultation =
+      if (role !== UserRole.ADMIN) {
+        throw new Error('Only admins can assign practitioners');
+      }
+
+      const updated =
         await this.consultationService.assignPractitionerToConsultation(
           consultationId,
           practitionerId,
           userId,
         );
 
-      if (!updatedConsultation) {
-        throw new Error('Consultation assignment failed');
+      if (!updated) {
+        throw new Error('Failed to assign practitioner');
       }
 
-      // Emit assignment event to patient and practitioner rooms
       this.server
         .to(`consultation:${consultationId}`)
         .emit('practitioner_assigned', {
           consultationId,
           practitionerId,
-          message: 'A practitioner has been assigned to your consultation',
-          status: updatedConsultation.status,
+          message: 'Practitioner assigned to this consultation',
+          status: updated.status,
         });
 
       this.server.to(`practitioner:${practitionerId}`).emit('new_assignment', {
         consultationId,
         message: 'You have been assigned a new consultation',
-        status: updatedConsultation.status,
+        status: updated.status,
       });
     } catch (error) {
+      this.logger.error('Assign practitioner failed', error.stack);
       client.emit('error', {
         message: 'Failed to assign practitioner',
-        details: error?.message ?? error,
+        details: error.message,
       });
     }
   }

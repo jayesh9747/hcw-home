@@ -344,6 +344,8 @@ export class ConsultationService {
         id: m.id,
         userId: m.userId,
         content: m.content,
+        mediaUrl: m.mediaUrl ?? null,
+        mediaType: m.mediaType ?? null,
         createdAt: m.createdAt,
       })),
     };
@@ -475,6 +477,8 @@ export class ConsultationService {
           id: m.id,
           userId: m.userId,
           content: m.content,
+          mediaUrl: m.mediaUrl ?? null,
+          mediaType: m.mediaType ?? null,
           createdAt: m.createdAt,
         })),
       };
@@ -1035,7 +1039,10 @@ export class ConsultationService {
         id: m.id,
         userId: m.userId,
         content: m.content,
+        mediaUrl: m.mediaUrl ?? null,
+        mediaType: m.mediaType ?? null,
         consultationId: m.consultationId,
+        createdAt: m.createdAt,
       })),
     };
   }

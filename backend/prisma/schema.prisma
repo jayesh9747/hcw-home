@@ -47,6 +47,7 @@ model User {
   ConsultationRating ConsultationRating[]
 
   @@map("users")
+  MessageReadReceipt MessageReadReceipt[]
 }
 
 enum UserRole {
@@ -325,19 +326,35 @@ model Participant {
 }
 
 model Message {
-  id      Int    @id @default(autoincrement())
-  userId  Int
-  content String @db.Text
-  createdAt     DateTime  @default(now())
-  isSystem Boolean @default(false)
-  senderRole UserRole?
-  // Relations
-  user           User          @relation(fields: [userId], references: [id])
-  consultation   Consultation? @relation(fields: [consultationId], references: [id])
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+  isSystem       Boolean  @default(false)
+  senderRole     UserRole?
   consultationId Int?
+  mediaUrl       String?
+  mediaType      String?
+  readReceipts   MessageReadReceipt[]
+  user           User      @relation(fields: [userId], references: [id])
+  consultation   Consultation? @relation(fields: [consultationId], references: [id])
 
   @@map("message")
 }
+
+model MessageReadReceipt {
+  id         Int      @id @default(autoincrement())
+  messageId  Int
+  userId     Int
+  readAt     DateTime @default(now())
+
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([messageId, userId])
+
+  @@map("message_read_receipt")
+}
+
 
 model WhatsappTemplate {
   id              String @id
