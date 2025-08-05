@@ -9,10 +9,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { forkJoin, Subject, of } from 'rxjs';
-import { takeUntil, catchError, finalize, single } from 'rxjs/operators';
+import { takeUntil, catchError, finalize } from 'rxjs/operators';
 
-// import { SpecialityService } from '../../services/speciality.service';
-import { User, UserSex, Language, Speciality, UpdateUserProfileDto,LoginUser } from '../../models/user.model';
+import { User, UserSex, Language, Speciality, UpdateUserProfileDto, LoginUser } from '../../models/user.model';
 import { AuthService } from 'src/app/services/auth.service';
 import { ButtonVariant, ButtonSize, ButtonType } from 'src/app/constants/button.enums';
 import { ButtonComponent } from 'src/app/components/button/button.component';
@@ -24,8 +23,6 @@ import { UserService } from 'src/app/services/user.service';
 const PHONE_NUMBER_REGEX = /^[+]?[1-9][\d\s\-\(\)]{7,15}$/;
 const MIN_NAME_LENGTH = 2;
 const MAX_NAME_LENGTH = 50;
-
-
 
 const GENDER_OPTIONS = [
   { value: UserSex.MALE, label: 'Male' },
@@ -64,10 +61,9 @@ interface GenderOption {
 export class ProfileComponent implements OnInit, OnDestroy {
   private readonly userService = inject(UserService);
   private readonly languageService = inject(LanguageService);
-  // private readonly specialityService = inject(SpecialityService);
-  private readonly configService= inject(ConfigService)
-  private readonly authservice= inject(AuthService)
-  private readonly snackBarService = inject(SnackbarService)
+  private readonly configService = inject(ConfigService);
+  private readonly authservice = inject(AuthService);
+  private readonly snackBarService = inject(SnackbarService);
   private readonly fb = inject(FormBuilder);
   private readonly destroy$ = new Subject<void>();
 
@@ -81,20 +77,25 @@ export class ProfileComponent implements OnInit, OnDestroy {
   readonly isLoading = signal<boolean>(true);
   readonly isSaving = signal<boolean>(false);
 
-  readonly isFormValid = computed(() => this.profileForm?.valid ?? false);
+  readonly formValid = signal<boolean>(false);
   readonly hasUnsavedChanges = computed(() => this.profileForm?.dirty && !this.isSaving());
 
   readonly ButtonVariant = ButtonVariant;
   readonly ButtonSize = ButtonSize;
   readonly ButtonType = ButtonType;
 
+  showEmailField = false;
+
   constructor() {
     this.profileForm = this.createProfileForm();
   }
 
-
-
   ngOnInit(): void {
+    this.formValid.set(this.profileForm.valid);
+    this.profileForm.statusChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.formValid.set(this.profileForm.valid));
+  
     this.loadProfileData();
   }
 
@@ -105,74 +106,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   private createProfileForm(): FormGroup {
     return this.fb.group({
-      firstName: ['', [
-        Validators.required,
-        Validators.minLength(MIN_NAME_LENGTH),
-        Validators.maxLength(MAX_NAME_LENGTH)
-      ]],
-      lastName: ['', [
-        Validators.required,
-        Validators.minLength(MIN_NAME_LENGTH),
-        Validators.maxLength(MAX_NAME_LENGTH)
-      ]],
+      firstName: ['', [Validators.required, Validators.minLength(MIN_NAME_LENGTH), Validators.maxLength(MAX_NAME_LENGTH)]],
+      lastName: ['', [Validators.required, Validators.minLength(MIN_NAME_LENGTH), Validators.maxLength(MAX_NAME_LENGTH)]],
       phoneNumber: ['', [Validators.pattern(PHONE_NUMBER_REGEX)]],
       country: [''],
       sex: [''],
       practitioner_languages: [[]],
-      practitioner_specialities: [[]]
+      practitioner_specialities: [[]],
+      email: ['']
     });
   }
 
-  loadProfileData(): void {
-    this.isLoading.set(true);
-
-    forkJoin({
-      user: this.userService.getCurrentUser().pipe(
-        catchError(error => {
-          console.error('Error loading user profile:', error);
-          this.snackBarService.showError('Failed to load user profile');
-          return of(null);
-        })
-      ),
-      languages: this.languageService.getAllLanguages().pipe(
-        catchError(error => {
-          console.error('Error loading languages:', error);
-          this.snackBarService.showError('Failed to load languages');
-          return of([]);
-        })
-      ),
-      // specialities: this.specialityService.getAllSpecialities().pipe(
-      //   catchError(error => {
-      //     console.error('Error loading specialities:', error);
-      //     this.snackBarService.showError('Failed to load specialities');
-      //     return of([]);
-      //   })
-      // ),
-      countries : this.configService.getCountries().pipe(
-        catchError(error=>{
-          console.error('Error loading specialities:', error);
-          this.snackBarService.showError('Failed to load countries');
-          return of([]);
-        })
-      )
-    }).pipe(
-      takeUntil(this.destroy$),
-      finalize(() => this.isLoading.set(false))
-    ).subscribe({
-      next: ({ user, languages,countries }) => {
-        this.currentUser.set(user);
-        this.languages.set(languages);
-        // this.specialities.set(specialities);
-        this.countries.set(countries)
-        if (user) {
-          this.populateForm(user);
-        }
-      },
-      error: (error) => {
-        console.error('Error loading profile data:', error);
-        this.snackBarService.showError('Failed to load profile data');
-      }
-    });
+  private isTemporaryEmail(email?: string | null): boolean {
+    return email ? /^\s*temp(_|-|orary)?/i.test(email) : false;
   }
 
   private populateForm(user: User): void {
@@ -183,16 +129,63 @@ export class ProfileComponent implements OnInit, OnDestroy {
       country: user.country || '',
       sex: user.sex || '',
       practitioner_languages: user.languages?.map(l => l.id) || [],
-      practitioner_specialities: user.specialities?.map(l => l.id) || []
+      practitioner_specialities: user.specialities?.map(l => l.id) || [],
+    });
+
+    const email = user.email ?? '';
+    this.showEmailField = this.isTemporaryEmail(email);
+
+    const emailControl = this.profileForm.get('email');
+    if (this.showEmailField) {
+      emailControl?.setValidators([Validators.required, Validators.email, Validators.maxLength(255)]);
+    } else {
+      emailControl?.clearValidators();
+    }
+    emailControl?.updateValueAndValidity({ onlySelf: true, emitEvent: false });
+  }
+
+  loadProfileData(): void {
+    this.isLoading.set(true);
+    forkJoin({
+      user: this.userService.getCurrentUser().pipe(
+        catchError(() => {
+          this.snackBarService.showError('Failed to load user profile');
+          return of(null);
+        })
+      ),
+      languages: this.languageService.getAllLanguages().pipe(
+        catchError(() => {
+          this.snackBarService.showError('Failed to load languages');
+          return of([]);
+        })
+      ),
+      countries: this.configService.getCountries().pipe(
+        catchError(() => {
+          this.snackBarService.showError('Failed to load countries');
+          return of([]);
+        })
+      )
+    }).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => this.isLoading.set(false))
+    ).subscribe({
+      next: ({ user, languages, countries }) => {
+        this.currentUser.set(user);
+        this.languages.set(languages);
+        this.countries.set(countries);
+        if (user) this.populateForm(user);
+      },
+      error: (err) => {this.snackBarService.showError('Failed to load profile data')
+        console.error('Profile data load error:', err);
+      }
     });
   }
 
   onSave(): void {
-    if (!this.isFormValid() || !this.currentUser()) {
+    if (!this.formValid() || !this.currentUser()) {
       this.markFormGroupTouched();
       return;
     }
-
     this.isSaving.set(true);
     this.profileForm.disable();
 
@@ -206,10 +199,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
       country: formValue.country || null,
       sex: formValue.sex || null,
       languageIds: formValue.practitioner_languages || [],
-      specialityIds: formValue.practitioner_specialities || []
+      specialityIds: formValue.practitioner_specialities || [],
+      email: this.showEmailField ? formValue.email?.trim() || null : user.email
     };
 
-    this.userService.updateUserProfile(user.id, updateData).pipe(
+    this.userService.updateUserProfile(updateData).pipe(
       takeUntil(this.destroy$),
       finalize(() => {
         this.isSaving.set(false);
@@ -218,23 +212,21 @@ export class ProfileComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (updatedUser) => {
         this.snackBarService.showSuccess('Profile updated successfully');
-        const existingUser = this.authservice.getCurrentUser()
-        console.log(updatedUser);
-        
+        const existingUser = this.authservice.getCurrentUser();
         if (existingUser) {
           const loginUser: LoginUser = {
             ...updatedUser,
-            accessToken: existingUser.accessToken,    
-            refreshToken: existingUser.refreshToken,   
+            accessToken: existingUser.accessToken,
+            refreshToken: existingUser.refreshToken,
           };
           this.authservice.storeCurrentUser(loginUser);
-        }    
+        }
         this.currentUser.set(updatedUser);
         this.profileForm.markAsPristine();
       },
-      error: (error) => {
-        console.error('Error updating profile:', error);
-        this.snackBarService.showError('Failed to update profile. Please try again.');
+      error: (err) => {
+        this.snackBarService.showError(err.error?.message || 'Failed to update profile. Please try again.')
+        console.error('Profile update error:', err);
       }
     });
   }
@@ -249,18 +241,15 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   private markFormGroupTouched(): void {
     Object.keys(this.profileForm.controls).forEach(key => {
-      const control = this.profileForm.get(key);
-      if (control) {
-        control.markAsTouched();
-      }
+      this.profileForm.get(key)?.markAsTouched();
     });
   }
 
-  trackByLanguageId = (index: number, language: Language): number => language.id;
-  trackBySpecialityId = (index: number, speciality: Speciality): number => speciality.id;
-  trackByCountryCode = (index: number, country: CountryOption): string => country.code;
-  trackByGenderValue = (index: number, gender: GenderOption): UserSex => gender.value;
-  
+  trackByLanguageId = (_: number, language: Language): number => language.id;
+  trackBySpecialityId = (_: number, speciality: Speciality): number => speciality.id;
+  trackByCountryCode = (_: number, country: CountryOption): string => country.code;
+  trackByGenderValue = (_: number, gender: GenderOption): UserSex => gender.value;
+
   get firstName(): FormControl { return this.profileForm.get('firstName') as FormControl; }
   get lastName(): FormControl { return this.profileForm.get('lastName') as FormControl; }
   get phoneNumber(): FormControl { return this.profileForm.get('phoneNumber') as FormControl; }

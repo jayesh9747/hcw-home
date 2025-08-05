@@ -101,6 +101,17 @@
               </mat-select>
             </mat-form-field>
           </div>
+          @if (showEmailField) {
+          <div class="form-row">
+            <mat-form-field class="form-field">
+              <mat-label>Add your email</mat-label>
+              <input matInput formControlName="email" placeholder="Enter your email" autocomplete="email" required
+                aria-describedby="firstName-error">
+
+            </mat-form-field>
+          </div>
+          }
+
         </mat-card-content>
       </mat-card>
 
@@ -114,7 +125,7 @@
           <div class="form-row">
             <mat-form-field class="form-field">
               <mat-label>Languages</mat-label>
-              <mat-select formControlName="practitioner_languages" multiple placeholder="Select languages you speak" >
+              <mat-select formControlName="practitioner_languages" multiple placeholder="Select languages you speak">
                 @for (language of languages(); track trackByLanguageId($index, language)) {
                 <mat-option [value]="language.id">
                   {{ language.name }}
@@ -148,10 +159,12 @@
         </mat-card-header>
 
         <mat-card-content>
+          @if (!showEmailField) {
           <div class="readonly-field">
             <label class="readonly-label">Email</label>
             <span class="readonly-value">{{ user.email }}</span>
           </div>
+        }
 
           <div class="readonly-field">
             <label class="readonly-label">Role</label>
@@ -197,7 +210,7 @@
         </app-button>
 
         <app-button [type]="ButtonType.Submit" [variant]="ButtonVariant.Primary" [size]="ButtonSize.Medium"
-          [disabled]="!isFormValid() || isSaving()">
+          [disabled]="!formValid() || isSaving()">
           @if (isSaving()) {
           <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
           }

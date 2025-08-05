@@ -13,7 +13,8 @@ import {
   Next,
   Param,
   HttpException,
-  ValidationPipe
+  ValidationPipe,
+  Patch
 } from '@nestjs/common';
 import passport from 'passport';
 import { AuthService } from './auth.service';
@@ -28,7 +29,7 @@ import { Role } from './enums/role.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
-import { ApiResponse, ApiOperation,ApiQuery } from '@nestjs/swagger';
+import { ApiResponse, ApiOperation,ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RefreshTokenDto, TokenDto } from './dto/token.dto';
 import { registerUserSchema } from './validation/auth.validation';
@@ -39,7 +40,8 @@ import { CustomLoggerService } from 'src/logger/logger.service';
 import { TokenType } from '@prisma/client';
 import { MagicLinkGuard } from './guards/magic-link.guard';
 import { log } from 'console';
-
+import { updateUserSchema } from 'src/user/validation/user.validation';
+import { UpdateUserDto } from 'src/user/dto/update-user.dto';
 
 
 @Controller('auth')
@@ -101,6 +103,31 @@ export class AuthController {
       throw err;
     }
   }
+
+    @UseGuards(AuthGuard)
+    @Post('update')
+    @ApiOperation({ summary: 'Update user by ID' })
+    @ApiParam({ name: 'id', description: 'User ID', type: 'number' })
+    @ApiResponse({
+      status: 200,
+      description: 'User updated successfully',
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    @ApiResponse({ status: 409, description: 'Conflict - email already exists' })
+    async update(
+      @Body(new ZodValidationPipe(updateUserSchema)) updateUserDto: UpdateUserDto,
+      @Req() req: ExtendedRequest,
+    ) {
+      const userId = req.user?.id;
+      if (!userId) {
+        this.logger.error('User ID not found in request');
+        throw HttpExceptionHelper.unauthorized('User ID not found');
+      }
+
+      const user = await this.authService.update(userId, updateUserDto);
+      return ApiResponseDto.success(user, 'User updated successfully', 200);
+    }
   
 
   @Get('session')

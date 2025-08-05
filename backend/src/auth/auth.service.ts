@@ -13,6 +13,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { plainToInstance } from 'class-transformer';
 import { OidcUserDto } from './dto/oidc-user.dto';
 import { randomUUID } from 'crypto';
+import { UpdateUserDto } from 'src/user/dto/update-user.dto';
 
 function generateStrongPassword(length = 12): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
@@ -153,9 +154,9 @@ export class AuthService {
       throw HttpExceptionHelper.badRequest('Refresh token is required');
     }
     try {
-      const { userEmail } = await this.verifyRefreshToken(refreshToken);
+      const { userEmail,userId } = await this.verifyRefreshToken(refreshToken);
 
-      const user = await this.findByEmail(userEmail);
+      const user = await this.findById(userId);
 
       if (!user || user.status !== 'APPROVED') {
         this.logger.warn(`User with ID ${user.id} not found or unapproved`);
@@ -540,6 +541,101 @@ export class AuthService {
   }
 
 
+    async update(
+      id: number,
+      updateUserDto: UpdateUserDto,
+    ): Promise<UserResponseDto> {
+      const {
+        email,
+        organisationIds,
+        groupIds,
+        languageIds,
+        specialityIds,
+        ...rest
+      } = updateUserDto;
+  
+      // Check if user exists
+      const existingUser = await this.databaseService.user.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+  
+      if (!existingUser) {
+        throw HttpExceptionHelper.unauthorized('User not found');
+      }
+  
+      // Check email uniqueness if email is being updated
+      if (email) {
+        const emailExists = await this.databaseService.user.findFirst({
+          where: {
+            email,
+            id: { not: id },
+          },
+          select: { id: true },
+        });
+  
+        if (emailExists) {
+          throw HttpExceptionHelper.conflict('Email already exists');
+        }
+      }
+      let user;
+      await this.databaseService.$transaction(async (tx) => {
+        user = await tx.user.update({
+          where: { id },
+          data: { ...rest, email,temporaryAccount: false },
+        });
+  
+        if (organisationIds) {
+          await tx.organizationMember.deleteMany({ where: { userId: id } });
+          if (organisationIds.length > 0) {
+            await tx.organizationMember.createMany({
+              data: organisationIds.map((orgId) => ({
+                userId: id,
+                organizationId: orgId,
+              })),
+            });
+          }
+        }
+  
+        if (groupIds) {
+          await tx.groupMember.deleteMany({ where: { userId: id } });
+          if (groupIds.length > 0) {
+            await tx.groupMember.createMany({
+              data: groupIds.map((groupId) => ({
+                userId: id,
+                groupId,
+              })),
+            });
+          }
+        }
+  
+        if (languageIds) {
+          await tx.userLanguage.deleteMany({ where: { userId: id } });
+          if (languageIds.length > 0) {
+            await tx.userLanguage.createMany({
+              data: languageIds.map((languageId) => ({
+                userId: id,
+                languageId,
+              })),
+            });
+          }
+        }
+  
+        if (specialityIds) {
+          await tx.userSpeciality.deleteMany({ where: { userId: id } });
+          if (specialityIds.length > 0) {
+            await tx.userSpeciality.createMany({
+              data: specialityIds.map((specialityId) => ({
+                userId: id,
+                specialityId,
+              })),
+            });
+          }
+        }
+      });
+      this.logger.log(`User with ID ${id} updated successfully`);
+      return await this.getcurrentuser(user.id);
+    }
 }
 
 

@@ -97,6 +97,7 @@ export interface UpdateUserProfileDto {
   sex?: UserSex;
   languageIds?: number[];
   specialityIds?: number[];
+  email?: string; // Optional, for temporary accounts
 }
 
 export interface ApiResponse<T> {

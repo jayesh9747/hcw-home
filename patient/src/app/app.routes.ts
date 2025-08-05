@@ -6,8 +6,8 @@ import { PostConsultationFeedbackPage } from './pages/post-consultation-feedback
 import { ChooseConsultationTimeslotPage } from './pages/choose-consultation-timeslot/choose-consultation-timeslot.page';
 import { LoginPage } from './pages/login/login.page';
 import { RoutePaths } from './constants/route-path.enum';
-import { AuthGuard } from './guards/auth.guard';
-import { ProfileComponent } from './pages/profile/profile.component';
+import { AuthGuard } from './auth/guards/auth.guard';
+import { ProfileComponent } from './components/profile/profile.component';
 
 export const routes: Routes = [
   {

@@ -1,9 +1,8 @@
 .profile-container {
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 24px;
   background: #f5f5f5;
   min-height: 100vh;
+  overflow: scroll;
 }
 
 .profile-header {

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject,effect,EffectRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -27,6 +27,9 @@ import { HeaderComponent } from 'src/app/components/header/header.component';
 import { AuthService } from 'src/app/services/auth.service';
 import { lastValueFrom, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+
+
+
 
 function atLeastOneRequired(controlNames: string[]) {
   return (group: AbstractControl): ValidationErrors | null => {
@@ -65,6 +68,9 @@ export class LoginPage implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private toastController = inject(ToastController);
   private authService = inject(AuthService);
+  private authEffect?: EffectRef;
+
+  isLoggedIn = computed(() => this.authService.isLoggedIn());
 
   private destroy$ = new Subject<void>();
 
@@ -79,6 +85,12 @@ export class LoginPage implements OnInit, OnDestroy {
   }, { validators: [atLeastOneRequired(['email', 'phoneNumber'])] });
 
   ngOnInit() {
+    if (this.isLoggedIn()) {
+      if (!this.router.url.startsWith('/home')) {
+        void this.router.navigateByUrl('/home', { replaceUrl: true });
+      }
+      return;
+    }
     const queryParams = this.route.snapshot.queryParams;
     const token = queryParams['token'];
     this.returnUrl = (queryParams['returnUrl'] as string) || '/home';
@@ -90,7 +102,9 @@ export class LoginPage implements OnInit, OnDestroy {
       (async () => {
         try {
           await lastValueFrom(this.authService.loginMagic(String(token)));
-          // ensure returnUrl is a string
+          if(this.authService.getCurrentUser()?.temporaryAccount){
+            await this.router.navigate(['/profile']);
+          }
           await this.router.navigateByUrl(String(this.returnUrl || '/home'));
         } catch (e: unknown) {
           const err = e as any;
