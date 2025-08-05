@@ -45,7 +45,6 @@ model User {
   timeSlots          TimeSlot[]                 @relation("PractitionerTimeSlots")
   Consultation       Consultation[]
   ConsultationRating ConsultationRating[]
-  MagicToken         MagicToken[]
 
   @@map("users")
   MessageReadReceipt MessageReadReceipt[]
@@ -493,18 +492,4 @@ enum TokenType {
   password_reset
 }
 
-model MagicToken {
-  id        String    @id @default(uuid())
-  token     String    @unique
-  contact   String // email or phone
-  type      TokenType
-  expiresAt DateTime
-  used      Boolean   @default(false)
-  createdAt DateTime  @default(now())
-  userId Int? // optional if user is not created yet
 
-  user   User?   @relation(fields: [userId], references: [id])
-
-  @@index([token])
-  @@map("magic_tokens")
-}

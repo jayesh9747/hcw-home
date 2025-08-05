@@ -5,36 +5,42 @@ import { PatientDashboard } from './pages/patient-dashboard/patient-dashboard.pa
 import { PostConsultationFeedbackPage } from './pages/post-consultation-feedback/post-consultation-feedback.page';
 import { ChooseConsultationTimeslotPage } from './pages/choose-consultation-timeslot/choose-consultation-timeslot.page';
 import { LoginPage } from './pages/login/login.page';
-import { routePaths } from './constants/route-path.enum';
+import { RoutePaths } from './constants/route-path.enum';
+import { AuthGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
-    path: routePaths.home,
+    path: RoutePaths.Home,
     component: HomePage,
+    canActivate: [AuthGuard],
   },
   {
     path: '',
-    redirectTo: routePaths.home,
+    redirectTo: RoutePaths.Home,
     pathMatch: 'full',
   },
-  {
-    path: routePaths.consultationRequest,
+  {  
+    path: RoutePaths.ConsultationRequest,
     component: ConsultationRequestPage,
+    canActivate: [AuthGuard],
   },
   {
-    path: routePaths.patientDashboard,
+    path: RoutePaths.PatientDashboard,
     component: PatientDashboard,
+    canActivate: [AuthGuard],
   },
   {
-    path: routePaths.postConsultationFeedback,
+    path: RoutePaths.PostConsultationFeedback,
     component: PostConsultationFeedbackPage,
+    canActivate: [AuthGuard],
   },
   {
-    path: routePaths.chooseConsultationTimeslot,
+    path: RoutePaths.ChooseConsultationTimeslot,
     component: ChooseConsultationTimeslotPage,
+    canActivate: [AuthGuard],
   },
   {
-    path: routePaths.login,
+    path: RoutePaths.Login,
     component: LoginPage,
   },
 ];

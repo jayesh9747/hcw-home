@@ -1,9 +1,9 @@
-export const routePaths = {
-  dashboard: 'dashboard',
-  home: 'home',
-  consultationRequest: 'consultation-request',
-  patientDashboard: 'patient-dashboard',
-  postConsultationFeedback: 'post-consultation-feedback',
-  chooseConsultationTimeslot: 'choose-consultation-timeslot/:practitionerId',
-  login: 'login',
+export const RoutePaths = {
+  Dashboard: 'dashboard',
+  Home: 'home',
+  ConsultationRequest: 'consultation-request',
+  PatientDashboard: 'patient-dashboard',
+  PostConsultationFeedback: 'post-consultation-feedback',
+  ChooseConsultationTimeslot: 'choose-consultation-timeslot/:practitionerId',
+  Login: 'login',
 };

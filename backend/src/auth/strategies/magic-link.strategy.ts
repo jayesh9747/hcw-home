@@ -9,33 +9,26 @@ import { AuthService } from '../auth.service';
 export class MagicLinkStrategy extends PassportStrategy(Strategy, 'magic-link') {
   constructor(
     private readonly logger: CustomLoggerService,
-    private readonly authService:AuthService
+    private readonly authService: AuthService
   ) {
-    super();
+    super(); // ✅ no options needed
   }
 
   async validate(req: Request): Promise<any> {
     try {
       const token = req.body?.token || req.query?.token || req.headers['x-magic-token'];
-  
       this.logger.log(`Token received: ${token ? '[REDACTED]' : 'None'}`);
-  
+
       if (!token) {
         this.logger.warn('Token is missing from request');
         throw new UnauthorizedException('Magic token is required');
       }
 
-      const userpayload =  await this.authService.validateMagicToken(token)
-  
-      // TEMPORARY DUMMY RETURN
-      return {
-        userId: userpayload.userId,
-        email: userpayload.userEmail,
-      };
+      const { userId } = await this.authService.validateMagicToken(token);
+      return { id: userId }; 
     } catch (err) {
-      this.logger.error('Error inside MagicLinkStrategy.validate()', err?.message || err);
-      throw err; // make sure you throw the actual error
+      this.logger.error('Error in MagicLinkStrategy.validate()', err?.message || err);
+      throw err;
     }
   }
-  
 }

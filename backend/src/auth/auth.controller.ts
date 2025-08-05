@@ -38,6 +38,7 @@ import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
 import { TokenType } from '@prisma/client';
 import { MagicLinkGuard } from './guards/magic-link.guard';
+import { log } from 'console';
 
 
 
@@ -65,11 +66,42 @@ export class AuthController {
     @Req() req: ExtendedRequest,
   ): Promise<ApiResponseDto<TokenDto>> {
     const user = req.user as any;
-    console.log(user);
     this.logger.log(`user attached to the request: ${user}`)    
-    const result = await this.authService.loginUser(user);
+    const result = await this.authService.loginUser(user.id);
     return ApiResponseDto.success(result, 'User logged-in successfully', 200);
   }
+
+  @UseGuards(MagicLinkGuard)
+  @Post('magic-login')
+  async loginWithMagic(@Req() req: ExtendedRequest): Promise<ApiResponseDto<TokenDto>> {
+    this.logger.log('Magic login request received');
+    this.logger.debug(`Request body: ${JSON.stringify(req.body)}`);
+  
+    const user = req.user as any;
+  
+    // Better logging
+    this.logger.debug(`req.user raw: ${JSON.stringify(user)}`);
+  
+    if (!user) {
+      this.logger.warn('No user attached to request (req.user is falsy)');
+      throw HttpExceptionHelper.unauthorized('Authentication failed: no user');
+    }
+    if (typeof user.id === 'undefined' || user.id === null) {
+      this.logger.error('req.user.id is missing or undefined', JSON.stringify(user));
+      throw HttpExceptionHelper.unauthorized('Authentication failed: user id missing');
+    }
+  
+    try {
+      this.logger.log(`Logging in user id=${user.id}`);
+      const result = await this.authService.loginUser(user.id);
+      this.logger.debug(`loginUser result: ${JSON.stringify(result)}`);
+      return ApiResponseDto.success(result, 'User logged-in successfully', 200);
+    } catch (err) {
+      this.logger.error('Error in loginWithMagic', err?.message ?? err, { user });
+      throw err;
+    }
+  }
+  
 
   @Get('session')
   @UseGuards(AuthenticatedGuard) 
@@ -263,7 +295,7 @@ export class AuthController {
     const pateintUrl = process.env.PATIENT_URL
 
 
-    const magicLink = `${pateintUrl}/magic-login?token=${token}`;
+    const magicLink = `${pateintUrl}/login?token=${token}`;
 
     // await this.messageService.send({
     //   to: contact,
@@ -281,18 +313,7 @@ export class AuthController {
     };
   }
 
-  @UseGuards(MagicLinkGuard)
-  @Post('magic')
-  async loginWithMagic(@Req() req) {
-    this.logger.log('Magic login request received');
-    this.logger.debug(`Request body: ${JSON.stringify(req.body)}`);
-    this.logger.debug(`Authenticated user: ${JSON.stringify(req.user)}`);
 
-    return {
-      message: 'Authenticated using magic link',
-      user: req.user,
-    };
-  }
 
 
 

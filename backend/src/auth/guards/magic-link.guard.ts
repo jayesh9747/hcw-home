@@ -33,7 +33,7 @@ export class MagicLinkGuard extends AuthGuard('magic-link') {
       throw new Error('Unauthorized');
     }
 
-    this.logger.log(`User authenticated: ${user.email || user.id}`);
+    this.logger.log(`User authenticated: ${user.id}`);
     return user;
   }
 }

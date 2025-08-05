@@ -87,8 +87,8 @@ export class AuthService {
     };
   }
 
-  async loginUser(userDto: { id: string, email: string }): Promise<TokenDto> {
-    const userEntity = await this.findByEmail(userDto.email)
+  async loginUser(id: number): Promise<TokenDto> {
+    const userEntity = await this.findById(id)
     const user = new UserResponseDto(userEntity);
     const tokens = await this.generateToken(user);
     return tokens;
@@ -245,7 +245,21 @@ export class AuthService {
     this.logger.log(`user found with email:${email}`);
     return user;
   }
+  async findById(id: number): Promise<any | null> {
+    if (!id) {
+      throw new Error('User ID is required');
+    }
+    const user = await this.databaseService.user.findUnique({
+      where: { id },
+    });
 
+    if (!user) {
+      this.logger.log(`user not found with id:${id}`);
+      return
+    }
+    this.logger.log(`user found with id:${id}`);
+    return user;
+  }
   async findByEmailRole(
     email: string,
     role: UserRole)
@@ -263,9 +277,7 @@ export class AuthService {
     });
   }
 
-
   // oidc user validation
-
   async validateAdmin(  //validate admin
     user: OidcUserDto,
   ): Promise<LoginResponseDto> {
@@ -373,8 +385,6 @@ export class AuthService {
     }
   }
 
-
-
   async getcurrentuser(id: number): Promise<UserResponseDto> {
     const user = await this.databaseService.user.findUnique({
       where: { id },
@@ -394,8 +404,6 @@ export class AuthService {
     });
   }
 
-
-
   encryptPassword(password: string): Promise<string> {
     const saltRounds = 12;
     return bcrypt.hash(password, saltRounds);
@@ -411,7 +419,6 @@ export class AuthService {
     if (normalizedUserRole === Role.PATIENT.toUpperCase()) return normalizedUiRole === Role.PATIENT;
     return false;
   }
-
 
   async updatePassword(email: string, password: string) {
     const user = await this.findByEmail(email);
@@ -433,7 +440,7 @@ export class AuthService {
   async generateMagicToken(contact: string, type: TokenType) {
     const isEmail = contact.includes('@');
     let user;
-  
+
     if (isEmail) {
       // Try to find existing PATIENT by email
       user = await this.databaseService.user.findFirst({
@@ -442,55 +449,65 @@ export class AuthService {
           role: UserRole.PATIENT,
         },
       });
+
+      // Check if the user is an ADMIN or PRACTITIONER
+      if (!user) {
+        user = await this.databaseService.user.findFirst({
+          where: {
+            email: contact,
+            role: {
+              in: [UserRole.ADMIN, UserRole.PRACTITIONER],
+            },
+          },
+        });
+
+        if (user) {
+          this.logger.warn(
+            `Cannot generate magic token for ADMIN or PRACTITIONER with email ${contact}`
+          );
+          throw HttpExceptionHelper.unauthorized(
+            `Cannot generate magic token for ADMIN or PRACTITIONER`
+          );
+        }
+      }
     }
-  
+
     // If no user found, create temp user
     if (!user) {
       user = await this.databaseService.user.create({
         data: {
           email: isEmail ? contact : `temp-${randomUUID()}@example.com`,
-                    phoneNumber: isEmail ? null : contact,
+          phoneNumber: isEmail ? null : contact,
           firstName: 'Guest',
           lastName: 'User',
-          password: 'defaultpassword', // or dummy hash
+          password: 'defaultpassword', // Placeholder password
           role: UserRole.PATIENT,
           status: UserStatus.NOT_APPROVED,
           temporaryAccount: true,
         },
       });
     }
-  
+
     const payload = {
       contact,
       type,
       userId: user.id,
     };
-  
+
     const magicToken = this.JwtService.sign(payload, {
       secret: this.configService.get<string>('jwt.accessSecret'),
       expiresIn: this.configService.get<string>('jwt.accessExpiresIn') || '24h',
     });
-  
-    await this.databaseService.magicToken.create({
-      data: {
-        token: magicToken,
-        contact,
-        type,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        used: false,
-        userId: user.id,
-      },
-    });
-  
+    this.logger.log(
+      `Magic token generated for user ${user.id} with contact ${contact}`
+    );
     return {
       token: magicToken,
       user,
     };
   }
 
-
-
-  async validateMagicToken(token: string): Promise<{ userId: number; userEmail: string }> {
+  async validateMagicToken(token: string): Promise<{ userId: number }> {
     const secret = this.configService.get<string>('jwt.accessSecret');
   
     // Step 1: Ensure token is provided
@@ -504,49 +521,25 @@ export class AuthService {
     try {
       // Step 2: Verify JWT token using the secret
       const decoded = await this.JwtService.verify(token, { secret });
-  console.log(decoded);
+      console.log(decoded);
   
       // Optional: Check for required fields in decoded payload
       if (!decoded?.userId || !decoded?.contact || !decoded?.type) {
         this.logger.error('Decoded JWT token is missing required fields');
         throw HttpExceptionHelper.unauthorized('Invalid token payload');
       }
-  
       this.logger.log(`JWT token verified for user: ${decoded.userId}`);
   
-      // Step 3: Check if token exists in the database
-      const tokenRecord = await this.databaseService.magicToken.findUnique({
-        where: { token },
-      });
-  
-      if (!tokenRecord) {
-        this.logger.warn('Token not found in database');
-        throw HttpExceptionHelper.unauthorized('Invalid or revoked magic token');
-      }
-  
-      // Optional: Check if the token is expired or already used
-      if (tokenRecord.expiresAt && new Date() > tokenRecord.expiresAt) {
-        this.logger.warn('Token has expired');
-        throw HttpExceptionHelper.unauthorized('Magic token has expired');
-      }
-  
-      if (tokenRecord.used) {
-        this.logger.warn('Token has already been used');
-        throw HttpExceptionHelper.unauthorized('Magic token already used');
-      }
-  
-      // Step 4: Return valid decoded token data
       return {
         userId: decoded.userId,
-        userEmail: decoded.userEmail,
       };
-  
     } catch (error) {
       this.logger.error('Error validating magic token:', error?.message || error);
       throw HttpExceptionHelper.unauthorized('Invalid or expired magic token');
     }
   }
-  
+
+
 }
 
 
