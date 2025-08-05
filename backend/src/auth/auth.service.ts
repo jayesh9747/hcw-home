@@ -6,14 +6,13 @@ import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
 import { Role } from './enums/role.enum';
 import { RegisterUserDto } from './dto/register-user.dto';
-import { User, UserRole, UserStatus } from '@prisma/client';
+import { TokenType, User, UserRole, UserStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenDto, TokenDto } from './dto/token.dto';
 import { DatabaseService } from 'src/database/database.service';
 import { plainToInstance } from 'class-transformer';
 import { OidcUserDto } from './dto/oidc-user.dto';
-import { promises } from 'dns';
-
+import { randomUUID } from 'crypto';
 
 function generateStrongPassword(length = 12): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
@@ -51,7 +50,7 @@ export class AuthService {
     loginUserDto: LoginUserDto,
   ): Promise<{ userId: number; userEmail: string, userRole: string }> {
     const user = await this.findByEmail(loginUserDto.email);
-    const userRole= user.role
+    const userRole = user.role
     if (!user || user.temporaryAccount) {
       this.logger.warn(`No valid user found for email ${loginUserDto.email}`);
       throw HttpExceptionHelper.notFound('user not found/user not valid');
@@ -419,7 +418,7 @@ export class AuthService {
     if (!user) {
       throw HttpExceptionHelper.notFound("User not found");
     }
-  
+
     if (!password) {
       throw HttpExceptionHelper.badRequest("Password is required");
     }
@@ -430,6 +429,124 @@ export class AuthService {
     });
     return { message: 'Password reset successful' };
   }
-  
 
+  async generateMagicToken(contact: string, type: TokenType) {
+    const isEmail = contact.includes('@');
+    let user;
+  
+    if (isEmail) {
+      // Try to find existing PATIENT by email
+      user = await this.databaseService.user.findFirst({
+        where: {
+          email: contact,
+          role: UserRole.PATIENT,
+        },
+      });
+    }
+  
+    // If no user found, create temp user
+    if (!user) {
+      user = await this.databaseService.user.create({
+        data: {
+          email: isEmail ? contact : `temp-${randomUUID()}@example.com`,
+                    phoneNumber: isEmail ? null : contact,
+          firstName: 'Guest',
+          lastName: 'User',
+          password: 'defaultpassword', // or dummy hash
+          role: UserRole.PATIENT,
+          status: UserStatus.NOT_APPROVED,
+          temporaryAccount: true,
+        },
+      });
+    }
+  
+    const payload = {
+      contact,
+      type,
+      userId: user.id,
+    };
+  
+    const magicToken = this.JwtService.sign(payload, {
+      secret: this.configService.get<string>('jwt.accessSecret'),
+      expiresIn: this.configService.get<string>('jwt.accessExpiresIn') || '24h',
+    });
+  
+    await this.databaseService.magicToken.create({
+      data: {
+        token: magicToken,
+        contact,
+        type,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        used: false,
+        userId: user.id,
+      },
+    });
+  
+    return {
+      token: magicToken,
+      user,
+    };
+  }
+
+
+
+  async validateMagicToken(token: string): Promise<{ userId: number; userEmail: string }> {
+    const secret = this.configService.get<string>('jwt.accessSecret');
+  
+    // Step 1: Ensure token is provided
+    if (!token) {
+      this.logger.warn('Magic token not provided');
+      throw HttpExceptionHelper.badRequest('Magic token is required');
+    }
+  
+    this.logger.log('Verifying magic token');
+  
+    try {
+      // Step 2: Verify JWT token using the secret
+      const decoded = await this.JwtService.verify(token, { secret });
+  console.log(decoded);
+  
+      // Optional: Check for required fields in decoded payload
+      if (!decoded?.userId || !decoded?.contact || !decoded?.type) {
+        this.logger.error('Decoded JWT token is missing required fields');
+        throw HttpExceptionHelper.unauthorized('Invalid token payload');
+      }
+  
+      this.logger.log(`JWT token verified for user: ${decoded.userId}`);
+  
+      // Step 3: Check if token exists in the database
+      const tokenRecord = await this.databaseService.magicToken.findUnique({
+        where: { token },
+      });
+  
+      if (!tokenRecord) {
+        this.logger.warn('Token not found in database');
+        throw HttpExceptionHelper.unauthorized('Invalid or revoked magic token');
+      }
+  
+      // Optional: Check if the token is expired or already used
+      if (tokenRecord.expiresAt && new Date() > tokenRecord.expiresAt) {
+        this.logger.warn('Token has expired');
+        throw HttpExceptionHelper.unauthorized('Magic token has expired');
+      }
+  
+      if (tokenRecord.used) {
+        this.logger.warn('Token has already been used');
+        throw HttpExceptionHelper.unauthorized('Magic token already used');
+      }
+  
+      // Step 4: Return valid decoded token data
+      return {
+        userId: decoded.userId,
+        userEmail: decoded.userEmail,
+      };
+  
+    } catch (error) {
+      this.logger.error('Error validating magic token:', error?.message || error);
+      throw HttpExceptionHelper.unauthorized('Invalid or expired magic token');
+    }
+  }
+  
 }
+
+

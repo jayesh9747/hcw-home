@@ -36,7 +36,10 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { Request, Response } from 'express';
 import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
-import { log } from 'console';
+import { TokenType } from '@prisma/client';
+import { MagicLinkGuard } from './guards/magic-link.guard';
+
+
 
 @Controller('auth')
 export class AuthController {
@@ -251,6 +254,47 @@ export class AuthController {
     return ApiResponseDto.success({}, 'Password updated successfully', 200);
 
   }
+  @Post('request-magic-link')
+  async requestMagicLink(
+    @Body('contact') contact: string,
+    @Body('type') type: TokenType = 'login', // default to 'login'
+  ) {
+    const { token, user } = await this.authService.generateMagicToken(contact, type);
+    const pateintUrl = process.env.PATIENT_URL
+
+
+    const magicLink = `${pateintUrl}/magic-login?token=${token}`;
+
+    // await this.messageService.send({
+    //   to: contact,
+    //   payload: {
+    //     link: magicLink,
+    //     userId: user.id,
+    //   },
+    // });
+
+    this.logger.log(`magic link created and sent`,{magicLink})
+
+    return {
+      message: `Magic link sent to ${contact}`,
+      contact,
+    };
+  }
+
+  @UseGuards(MagicLinkGuard)
+  @Post('magic')
+  async loginWithMagic(@Req() req) {
+    this.logger.log('Magic login request received');
+    this.logger.debug(`Request body: ${JSON.stringify(req.body)}`);
+    this.logger.debug(`Authenticated user: ${JSON.stringify(req.user)}`);
+
+    return {
+      message: 'Authenticated using magic link',
+      user: req.user,
+    };
+  }
+
+
 
 
 

@@ -1,35 +1,40 @@
 import { Routes } from '@angular/router';
+import { HomePage } from './pages/home/home.page';
+import { ConsultationRequestPage } from './pages/consultation-request/consultation-request.page';
+import { PatientDashboard } from './pages/patient-dashboard/patient-dashboard.page';
+import { PostConsultationFeedbackPage } from './pages/post-consultation-feedback/post-consultation-feedback.page';
+import { ChooseConsultationTimeslotPage } from './pages/choose-consultation-timeslot/choose-consultation-timeslot.page';
+import { LoginPage } from './pages/login/login.page';
+import { routePaths } from './constants/route-path.enum';
 
 export const routes: Routes = [
   {
-    path: 'home',
-    loadComponent: () => import('./pages/home/home.page').then((m) => m.HomePage),
+    path: routePaths.home,
+    component: HomePage,
   },
   {
     path: '',
-    redirectTo: 'home',
+    redirectTo: routePaths.home,
     pathMatch: 'full',
   },
   {
-    path: 'consultation-request',
-    loadComponent: () => import('./pages/consultation-request/consultation-request.page').then( m => m.ConsultationRequestPage)
+    path: routePaths.consultationRequest,
+    component: ConsultationRequestPage,
   },
   {
-    path: 'patient-dashboard',
-    loadComponent: () => import('./pages/patient-dashboard/patient-dashboard.page').then( m => m.PatientDashboard)
+    path: routePaths.patientDashboard,
+    component: PatientDashboard,
   },
   {
-    path: 'post-consultation-feedback',
-    loadComponent: () => import('./pages/post-consultation-feedback/post-consultation-feedback.page').then( m => m.PostConsultationFeedbackPage)
+    path: routePaths.postConsultationFeedback,
+    component: PostConsultationFeedbackPage,
   },
   {
-    path: 'choose-consultation-timeslot/:practitionerId',
-    loadComponent: () => import('./pages/choose-consultation-timeslot/choose-consultation-timeslot.page').then( m => m.ChooseConsultationTimeslotPage)
+    path: routePaths.chooseConsultationTimeslot,
+    component: ChooseConsultationTimeslotPage,
   },
   {
-    path: 'login',
-    loadComponent: () => import('./pages/login/login.page').then( m => m.LoginPage)
+    path: routePaths.login,
+    component: LoginPage,
   },
-
-
 ];

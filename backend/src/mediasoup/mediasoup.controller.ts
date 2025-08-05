@@ -16,6 +16,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { MediasoupServerService } from './mediasoup.service';
@@ -77,6 +78,7 @@ export class MediasoupServerController {
   }
 
   @Get()
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'List all Mediasoup servers with filters/pagination',
   })

@@ -10,17 +10,21 @@ import { SessionSerializer } from './strategies/serialize';
 import { AdminStrategy } from './strategies/admin.strategy';
 import { PractitionerStrategy } from './strategies/practitionner.stretegy';
 import { ConfigModule } from 'src/config/config.module';
+import { InviteController } from './invite/invite.controller';
+import { InviteModule } from './invite/invite.module';
+import { MagicLinkStrategy } from './strategies/magic-link.strategy';
 
 @Module({
-  imports: [ConfigModule, JwtModule, PassportModule.register({session:true})],
-  controllers: [AuthController],
+  imports: [ConfigModule, JwtModule, PassportModule.register({session:true}), InviteModule],
+  controllers: [AuthController, InviteController],
   providers: [
     AuthService,
     LocalStrategy, 
     AuthGuard,
     SessionSerializer,
     AdminStrategy,
-    PractitionerStrategy
+    PractitionerStrategy,
+    MagicLinkStrategy
   ],
   exports: [AuthService, AuthGuard, JwtModule],
 })

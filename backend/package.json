@@ -47,6 +47,7 @@
     "multer": "^2.0.1",
     "nestjs-zod": "^4.3.1",
     "passport": "^0.7.0",
+    "passport-custom": "^1.1.1",
     "passport-local": "^1.0.0",
     "passport-openidconnect": "^0.1.2",
     "pdfkit": "^0.17.1",

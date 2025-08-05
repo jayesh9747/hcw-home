@@ -23,6 +23,7 @@ import {
 } from '@ionic/angular/standalone';
 import { ToastController } from '@ionic/angular';
 import { HeaderComponent } from 'src/app/components/header/header.component';
+import { AuthService } from 'src/app/services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -49,6 +50,7 @@ import { HeaderComponent } from 'src/app/components/header/header.component';
 export class LoginPage implements OnInit {
   private router = inject(Router);
   private toastController = inject(ToastController);
+  private authService = inject(AuthService)
 
   loginForm!: FormGroup;
   isLoading = false;
@@ -116,6 +118,22 @@ export class LoginPage implements OnInit {
     await new Promise(resolve => setTimeout(resolve, 1500));
     if (phone && /^\d{10}$/.test(phone)) return Promise.resolve();
     else throw new Error('Invalid phone');
+  }
+
+  requestLink() {
+    this.successMessage = '';
+    this.errorMessage = '';
+
+    const contact = this.magicForm.value.contact;
+
+    this.authService.requestMagicLink(contact, 'login').subscribe({
+      next: (res) => {
+        this.successMessage = res.message;
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'Something went wrong';
+      },
+    });
   }
 
   async showToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary') {
