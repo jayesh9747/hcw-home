@@ -6,4 +6,5 @@ export const RoutePaths = {
   PostConsultationFeedback: 'post-consultation-feedback',
   ChooseConsultationTimeslot: 'choose-consultation-timeslot/:practitionerId',
   Login: 'login',
+  Profile: 'profile',
 };

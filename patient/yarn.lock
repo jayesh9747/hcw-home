@@ -171,10 +171,10 @@
   dependencies:
     "@angular-eslint/bundled-angular-compiler" "19.8.1"
 
-"@angular/animations@^19.0.0":
-  version "19.2.14"
-  resolved "https://registry.yarnpkg.com/@angular/animations/-/animations-19.2.14.tgz#2683c23849bad5d90f3d9f65360992c06ab25821"
-  integrity sha512-xhl8fLto5HHJdVj8Nb6EoBEiTAcXuWDYn1q5uHcGxyVH3kiwENWy/2OQXgCr2CuWo2e6hNUGzSLf/cjbsMNqEA==
+"@angular/animations@^20.1.4":
+  version "20.1.4"
+  resolved "https://registry.yarnpkg.com/@angular/animations/-/animations-20.1.4.tgz#010bb027dd4f4e7cd5df9a485fc88ba583b239a0"
+  integrity sha512-y4mq2r6jhAj5QuA3UnWkVfok0EcA22uH+XVb4HBKY7q23/xaQYu2CGdVOVpdUsaPTf3zRD1DkAnTkV3J3ZHIiA==
   dependencies:
     tslib "^2.3.0"
 
@@ -211,6 +211,14 @@
     watchpack "2.4.2"
   optionalDependencies:
     lmdb "3.2.6"
+
+"@angular/cdk@^20.1.4":
+  version "20.1.4"
+  resolved "https://registry.yarnpkg.com/@angular/cdk/-/cdk-20.1.4.tgz#f3525198dbdedfbf145266bfc6d0d4fee66a8e60"
+  integrity sha512-Uz0fLZRWpKG7xniXSw3Hr4QEvTlVurov07BBz6nRWseGxeHCDkFqKc3UEriovCQ7ylJdR6miIu7j+h4PWLH48g==
+  dependencies:
+    parse5 "^8.0.0"
+    tslib "^2.3.0"
 
 "@angular/cli@^19.0.0":
   version "19.2.15"
@@ -282,10 +290,10 @@
   resolved "https://registry.yarnpkg.com/@angular/language-service/-/language-service-19.2.14.tgz#dc79c34ef8ab92be34f3583b32369d86e4a93245"
   integrity sha512-XgzZdBCe/obCrck5I6GIG4qSI9UGaOtbrvNuw0QAK0DySKaW5inRm6/QwCMPRmPkJBY0wLeYUVz//rtHpEjeTQ==
 
-"@angular/material@19.2.19":
-  version "19.2.19"
-  resolved "https://registry.yarnpkg.com/@angular/material/-/material-19.2.19.tgz#dd10669e260109c4f944303dcff3d92fed2e5566"
-  integrity sha512-auIE6JUzTIA3LyYklh9J/T7u64crmphxUBgAa0zcOMDog6SYfwbNe9YeLQqua5ek4OUAOdK/BHHfVl5W5iaUoQ==
+"@angular/material@^20.1.4":
+  version "20.1.4"
+  resolved "https://registry.yarnpkg.com/@angular/material/-/material-20.1.4.tgz#dce24db83231d48ba770c1c7df8d881a8935bbb1"
+  integrity sha512-V+EyzKwgqzUIAwXpr8chSMN0nKw+FEs5A/WgC2+CuW7T/FCFp6BW7Am2H51gR8onlqjLpduxyx8HLTifQ0hS6A==
   dependencies:
     tslib "^2.3.0"
 
@@ -7013,6 +7021,13 @@ parse5@^7.0.0:
   version "7.3.0"
   resolved "https://registry.yarnpkg.com/parse5/-/parse5-7.3.0.tgz#d7e224fa72399c7a175099f45fc2ad024b05ec05"
   integrity sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==
+  dependencies:
+    entities "^6.0.0"
+
+parse5@^8.0.0:
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/parse5/-/parse5-8.0.0.tgz#aceb267f6b15f9b6e6ba9e35bfdd481fc2167b12"
+  integrity sha512-9m4m5GSgXjL4AjumKzq1Fgfp3Z8rsvjRNbnkVwfu2ImRqE5D0LnY2QfDen18FSY9C573YU5XxSapdHZTZ2WolA==
   dependencies:
     entities "^6.0.0"
 

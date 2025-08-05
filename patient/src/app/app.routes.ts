@@ -7,6 +7,7 @@ import { ChooseConsultationTimeslotPage } from './pages/choose-consultation-time
 import { LoginPage } from './pages/login/login.page';
 import { RoutePaths } from './constants/route-path.enum';
 import { AuthGuard } from './guards/auth.guard';
+import { ProfileComponent } from './pages/profile/profile.component';
 
 export const routes: Routes = [
   {
@@ -37,6 +38,11 @@ export const routes: Routes = [
   {
     path: RoutePaths.ChooseConsultationTimeslot,
     component: ChooseConsultationTimeslotPage,
+    canActivate: [AuthGuard],
+  },
+  {
+    path: RoutePaths.Profile,
+    component: ProfileComponent,
     canActivate: [AuthGuard],
   },
   {
