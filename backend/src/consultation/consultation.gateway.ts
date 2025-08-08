@@ -29,6 +29,8 @@ export class ConsultationGateway
   private clientProducers = new Map<string, Set<string>>();
   private clientConsumers = new Map<string, Set<string>>();
 
+  private joinNotificationDebounce = new Map<string, number>();
+
   constructor(
     private readonly databaseService: DatabaseService,
     @Inject(forwardRef(() => ConsultationService))
@@ -106,6 +108,39 @@ export class ConsultationGateway
         `Client connected: ${client.id}, Consultation: ${consultationId}, User: ${userId}, Role: ${role}`,
       );
 
+      const nowISO = new Date().toISOString();
+      this.server.to(`consultation:${consultationId}`).emit('system_message', {
+        type: 'user_joined',
+        userId,
+        role,
+        timestamp: nowISO,
+        message:
+          role === UserRole.PATIENT
+            ? `Patient joined the consultation`
+            : `Practitioner joined the consultation`,
+      });
+
+      // If patient joins and consultation is waiting, emit "waiting for participant" system message
+      if (role === UserRole.PATIENT) {
+        const consultation = await this.databaseService.consultation.findUnique(
+          {
+            where: { id: consultationId },
+            select: { status: true },
+          },
+        );
+        if (consultation?.status === ConsultationStatus.WAITING) {
+          this.server
+            .to(`consultation:${consultationId}`)
+            .emit('system_message', {
+              type: 'waiting_for_participant',
+              userId,
+              role,
+              timestamp: nowISO,
+              message: `Patient is waiting for practitioner to join`,
+            });
+        }
+      }
+
       // Notify patients when practitioner joins
       if (role === UserRole.PRACTITIONER) {
         const patientParticipants =
@@ -124,7 +159,7 @@ export class ConsultationGateway
         }
       }
 
-      // Send consultation status snapshot to patient
+      // Patient connection logic
       if (role === UserRole.PATIENT) {
         const consultation = await this.databaseService.consultation.findUnique(
           {
@@ -138,6 +173,27 @@ export class ConsultationGateway
           const waitingForDoctor =
             consultation.status === ConsultationStatus.WAITING ||
             consultation.status === ConsultationStatus.DRAFT;
+
+          const practitionerId = consultation.owner?.id ?? consultation.ownerId;
+
+          if (practitionerId) {
+            const debounceKey = `patient_join_notify:${consultationId}:${practitionerId}`;
+            const now = Date.now();
+            const lastNotified =
+              this.joinNotificationDebounce.get(debounceKey) ?? 0;
+            const debounceDurationMs = 60 * 1000; // 1 minute debounce
+
+            if (now - lastNotified > debounceDurationMs) {
+              this.server
+                .to(`practitioner:${practitionerId}`)
+                .emit('patient_waiting', {
+                  consultationId,
+                  patientId: userId,
+                  message: 'Patient is waiting in the consultation room.',
+                });
+              this.joinNotificationDebounce.set(debounceKey, now);
+            }
+          }
 
           client.emit('consultation_status_patient', {
             status: consultation.status,
@@ -209,6 +265,18 @@ export class ConsultationGateway
         where: { id: consultationId },
       });
       if (!consultation) return;
+
+      const nowISO = new Date().toISOString();
+      this.server.to(`consultation:${consultationId}`).emit('system_message', {
+        type: 'user_left',
+        userId,
+        role,
+        timestamp: nowISO,
+        message:
+          role === UserRole.PATIENT
+            ? `Patient left the consultation`
+            : `Practitioner left the consultation`,
+      });
 
       // Practitioner leaves => terminate session and cleanup
       if (role === UserRole.PRACTITIONER) {
@@ -387,6 +455,57 @@ export class ConsultationGateway
     }
   }
 
+  @SubscribeMessage('fetch_messages')
+  async handleFetchMessages(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { consultationId: number; beforeId?: number; limit?: number },
+  ) {
+    try {
+      const messages = await this.consultationService.getMessages(
+        data.consultationId,
+        data.beforeId,
+        data.limit ?? 30,
+      );
+      client.emit('messages_page', { messages: messages.reverse() });
+    } catch (err) {
+      this.logger.error('Fetch messages error', err.stack);
+      client.emit('error', {
+        message: 'Failed to fetch messages',
+        details: err.message,
+      });
+    }
+  }
+
+  @SubscribeMessage('sync_read_receipts')
+  async handleSyncReadReceipts(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; readMessageIds: number[] },
+  ) {
+    try {
+      const { userId } = client.data;
+      const { consultationId, readMessageIds } = data;
+      for (const messageId of readMessageIds) {
+        await this.databaseService.messageReadReceipt.upsert({
+          where: { messageId_userId: { messageId, userId } },
+          update: { readAt: new Date() },
+          create: { messageId, userId, readAt: new Date() },
+        });
+        this.server.to(`consultation:${consultationId}`).emit('message_read', {
+          messageId,
+          userId,
+          readAt: new Date(),
+        });
+      }
+    } catch (err) {
+      this.logger.error('Sync read receipts error', err.stack);
+      client.emit('error', {
+        message: 'Failed to synchronize read receipts',
+        details: err.message,
+      });
+    }
+  }
+
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @ConnectedSocket() client: Socket,
@@ -395,6 +514,7 @@ export class ConsultationGateway
       consultationId: number;
       userId: number;
       content: string;
+      clientUuid: string;
       mediaUrl?: string;
       mediaType?: string;
     },
@@ -406,7 +526,6 @@ export class ConsultationGateway
         data.content.trim().length === 0 ||
         data.content.length > 2000
       ) {
-        // Invalid or empty message, ignore silently
         return;
       }
 
@@ -415,6 +534,7 @@ export class ConsultationGateway
           consultationId: data.consultationId,
           userId: data.userId,
           content: data.content,
+          clientUuid: data.clientUuid,
           mediaUrl: data.mediaUrl ?? null,
           mediaType: data.mediaType ?? null,
         },
@@ -426,6 +546,7 @@ export class ConsultationGateway
           id: message.id,
           userId: data.userId,
           content: data.content,
+          clientUuid: data.clientUuid,
           mediaUrl: data.mediaUrl ?? null,
           mediaType: data.mediaType ?? null,
           timestamp: message.createdAt,
@@ -616,6 +737,143 @@ export class ConsultationGateway
       this.logger.error('Assign practitioner failed', error.stack);
       client.emit('error', {
         message: 'Failed to assign practitioner',
+        details: error.message,
+      });
+    }
+  }
+
+  @SubscribeMessage('media_permission_status')
+  async handleMediaPermissionStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      camera: 'enabled' | 'disabled' | 'blocked';
+      microphone: 'enabled' | 'disabled' | 'blocked';
+    },
+  ) {
+    try {
+      const { consultationId, userId, camera, microphone } = data;
+      const role = client.data.role as UserRole;
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('media_permission_status_update', {
+          userId,
+          role,
+          camera,
+          microphone,
+          timestamp: new Date().toISOString(),
+        });
+
+      await this.consultationService.saveMediaPermissionStatus(
+        consultationId,
+        userId,
+        { camera, microphone },
+      );
+    } catch (error) {
+      this.logger.error(
+        'Error handling media_permission_status event',
+        error.stack,
+      );
+      client.emit('error', {
+        message: 'Failed to update media permission status',
+      });
+    }
+  }
+
+  @SubscribeMessage('media_permission_denied')
+  async handleMediaPermissionDenied(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      camera: 'denied' | 'blocked';
+      microphone: 'denied' | 'blocked';
+    },
+  ) {
+    try {
+      const { consultationId, userId, camera, microphone } = data;
+      const role = client.data.role as UserRole;
+
+      this.logger.warn(
+        `User ${userId} (${role}) denied media permissions: camera=${camera}, microphone=${microphone}`,
+      );
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .except(client.id) // exclude sender if you want
+        .emit('media_permission_denied_notification', {
+          userId,
+          role,
+          camera,
+          microphone,
+          timestamp: new Date().toISOString(),
+          message: `User ${userId} has denied permission for ${
+            camera === 'denied' || camera === 'blocked' ? 'camera ' : ''
+          }${
+            microphone === 'denied' || microphone === 'blocked'
+              ? 'microphone'
+              : ''
+          }.`,
+        });
+    } catch (error) {
+      this.logger.error(
+        'Error handling media_permission_denied event',
+        error.stack,
+      );
+      client.emit('error', {
+        message: 'Failed to process media permission denial',
+      });
+    }
+  }
+
+  @SubscribeMessage('client_error')
+  async handleClientError(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { consultationId: number; userId: number; errorMessage: string },
+  ) {
+    const { consultationId, userId, errorMessage } = data;
+    this.logger.warn(
+      `Client error reported by user ${userId} in consultation ${consultationId}: ${errorMessage}`,
+    );
+    this.server
+      .to(`consultation:${consultationId}`)
+      .emit('client_error_notification', {
+        userId,
+        message: errorMessage,
+        timestamp: new Date().toISOString(),
+      });
+  }
+
+  @SubscribeMessage('client_reconnect')
+  async handleClientReconnect(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; userId: number },
+  ) {
+    try {
+      const { consultationId, userId } = data;
+      await this.databaseService.participant.updateMany({
+        where: { consultationId, userId },
+        data: { isActive: true, lastActiveAt: new Date() },
+      });
+      this.logger.log(
+        `Client successful reconnect: user ${userId} consultation ${consultationId}`,
+      );
+
+      this.server.to(`consultation:${consultationId}`).emit('system_message', {
+        type: 'user_reconnected',
+        userId,
+        timestamp: new Date().toISOString(),
+        message: `User ${userId} reconnected to consultation.`,
+      });
+    } catch (error) {
+      this.logger.error('Handling client_reconnect failed', error.stack);
+      client.emit('error', {
+        message: 'Failed to process client reconnect',
         details: error.message,
       });
     }
