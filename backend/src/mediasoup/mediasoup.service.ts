@@ -65,21 +65,23 @@ export class MediasoupServerService {
       sortOrder = 'desc',
     } = query;
 
-    const skip = (page - 1) * limit;
-    const where: Prisma.MediasoupServerWhereInput = {};
+    const pageNumber = Math.max(1, Number(page));
+    const limitNumber = Math.max(1, Number(limit));
+    const skip = (pageNumber - 1) * limitNumber;
 
-    if (search) {
-      where.OR = [
-        { url: { contains: search, mode: 'insensitive' } },
-        { username: { contains: search, mode: 'insensitive' } },
-      ];
-    }
-    if (active !== undefined) {
-      where.active = active;
-    }
+    const where: Prisma.MediasoupServerWhereInput = {
+      ...(search && {
+        OR: [
+          { url: { contains: search, mode: 'insensitive' } },
+          { username: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
+      ...(active !== undefined && { active }),
+    };
 
-    const orderBy: Prisma.MediasoupServerOrderByWithRelationInput = {};
-    orderBy[sortBy] = sortOrder;
+    const orderBy: Prisma.MediasoupServerOrderByWithRelationInput = {
+      [sortBy]: sortOrder,
+    };
 
     const [servers, total] = await Promise.all([
       this.databaseService.mediasoupServer.findMany({
@@ -91,14 +93,14 @@ export class MediasoupServerService {
       this.databaseService.mediasoupServer.count({ where }),
     ]);
 
-    const transformedServers = servers.map((server) =>
+    const items = servers.map((server) =>
       plainToInstance(MediasoupServerResponseDto, server, {
         excludeExtraneousValues: true,
       }),
     );
 
     return {
-      items: transformedServers,
+      items,
       total,
       page,
       limit,

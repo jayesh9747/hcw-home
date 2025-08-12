@@ -47,6 +47,8 @@ model User {
   ConsultationRating ConsultationRating[]
 
   @@map("users")
+  MessageReadReceipt MessageReadReceipt[]
+  MediaPermissionStatus MediaPermissionStatus[]
 }
 
 enum UserRole {
@@ -235,6 +237,7 @@ model Consultation {
   @@index([status])
   @@index([ownerId])
   @@map("consultation")
+  MediaPermissionStatus MediaPermissionStatus[]
 }
 
 model MediasoupServer {
@@ -304,40 +307,64 @@ model MediasoupConsumer {
 }
 
 model Participant {
-  id             Int       @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   consultationId Int
-  userId         Int
-  isActive       Boolean   @default(false)
-  isBeneficiary  Boolean   @default(false)
-  token          String?   @db.VarChar(255)
-  joinedAt       DateTime?
-  language       String?   @db.VarChar(50)
-  lastActiveAt   DateTime?
-  inWaitingRoom  Boolean   @default(true)
-  role           UserRole
+  userId       Int
+  isActive     Boolean   @default(false)
+  isBeneficiary Boolean  @default(false)
+  token        String?   @db.VarChar(255)
+  joinedAt     DateTime?
+  lastSeenAt   DateTime? 
+  language     String?   @db.VarChar(50)
+  lastActiveAt DateTime?
+  inWaitingRoom Boolean  @default(true)
+  role         UserRole
 
-  // Relations
-  consultation Consultation @relation(fields: [consultationId], references: [id])
+ consultation Consultation @relation(fields: [consultationId], references: [id])
   user         User         @relation(fields: [userId], references: [id])
 
   @@unique([consultationId, userId])
+  @@index([consultationId, isActive]) 
   @@map("participant")
 }
 
 model Message {
-  id      Int    @id @default(autoincrement())
-  userId  Int
-  content String @db.Text
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  content       String    @db.Text
   createdAt     DateTime  @default(now())
-  isSystem Boolean @default(false)
-  senderRole UserRole?
-  // Relations
-  user           User          @relation(fields: [userId], references: [id])
-  consultation   Consultation? @relation(fields: [consultationId], references: [id])
-  consultationId Int?
+  editedAt      DateTime? 
+  isSystem      Boolean   @default(false)
+  senderRole    UserRole?
+  consultationId Int
+  clientUuid     String 
+  mediaUrl      String?   @db.VarChar(2048) 
+  mediaType     String?
 
+  readReceipts  MessageReadReceipt[]
+  user          User      @relation(fields: [userId], references: [id])
+  consultation  Consultation? @relation(fields: [consultationId], references: [id])
+
+  @@index([consultationId])
+  @@unique([clientUuid, consultationId, userId])  
   @@map("message")
 }
+
+model MessageReadReceipt {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  readAt    DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("message_read_receipt")
+}
+
 
 model WhatsappTemplate {
   id              String @id
@@ -436,6 +463,21 @@ model TimeSlot {
   @@index([practitionerId, date])
   @@map("time_slots")
 }
+
+model MediaPermissionStatus {
+  id             Int       @id @default(autoincrement())
+  consultationId Int
+  userId         Int
+  cameraStatus   String    // e.g., "enabled", "disabled", "blocked"
+  microphoneStatus String  // e.g., "enabled", "disabled", "blocked"
+  updatedAt      DateTime  @updatedAt
+
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([consultationId, userId])
+}
+
 
 enum TimeSlotStatus {
   AVAILABLE

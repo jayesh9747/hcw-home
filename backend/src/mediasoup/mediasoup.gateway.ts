@@ -9,6 +9,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Logger, UseGuards, Inject, forwardRef } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import { Server, Socket } from 'socket.io';
@@ -27,6 +28,7 @@ export class MediasoupGateway
   private clientTransports: Map<string, Set<string>> = new Map();
   private clientProducers: Map<string, Set<string>> = new Map();
   private clientConsumers: Map<string, Set<string>> = new Map();
+  private connectionStats: Map<string, any> = new Map();
 
   constructor(
     private readonly mediasoupService: MediasoupSessionService,
@@ -35,7 +37,7 @@ export class MediasoupGateway
     private readonly databaseService: DatabaseService,
   ) {}
 
-  afterInit() {
+  afterInit(): void {
     this.logger.log('Mediasoup WebSocket Gateway initialized');
   }
 
@@ -140,8 +142,9 @@ export class MediasoupGateway
     }
   }
 
-  @UseGuards(WsAuthGuard)
+  @UseGuards(WsAuthGuard, ThrottlerGuard)
   @SubscribeMessage('createTransport')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async handleCreateTransport(
     @ConnectedSocket() client: Socket & { data: any },
     @MessageBody()
@@ -222,8 +225,9 @@ export class MediasoupGateway
     }
   }
 
-  @UseGuards(WsAuthGuard)
+  @UseGuards(WsAuthGuard, ThrottlerGuard)
   @SubscribeMessage('produce')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async handleProduce(
     @ConnectedSocket() client: Socket & { data: any },
     @MessageBody()
@@ -286,8 +290,9 @@ export class MediasoupGateway
     }
   }
 
-  @UseGuards(WsAuthGuard)
+  @UseGuards(WsAuthGuard, ThrottlerGuard)
   @SubscribeMessage('consume')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async handleConsume(
     @ConnectedSocket() client: Socket & { data: any },
     @MessageBody()
@@ -362,6 +367,237 @@ export class MediasoupGateway
         error.stack,
       );
       client.emit('error', { event: 'closeTransport', message: error.message });
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('media_permission_status')
+  async handleMediaPermissionStatus(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      camera: 'enabled' | 'disabled' | 'blocked';
+      microphone: 'enabled' | 'disabled' | 'blocked';
+    },
+  ) {
+    try {
+      const { consultationId, userId, camera, microphone } = data;
+
+      const isParticipant = await this.isUserParticipant(
+        consultationId,
+        userId,
+      );
+      if (!isParticipant) {
+        throw new WsException('User not a participant of this consultation');
+      }
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('media_permission_status_update', {
+          userId,
+          camera,
+          microphone,
+          timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+      this.logger.error(
+        `Error handling media_permission_status for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', {
+        event: 'media_permission_status',
+        message: error.message,
+      });
+      throw new WsException(error.message);
+    }
+  }
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('collect_stats')
+  async handleCollectStats(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: {
+      consultationId: number;
+      stats: {
+        type: 'producer' | 'consumer' | 'transport';
+        id: string;
+        stats: any; // RTC stats JSON blob sent
+      };
+    },
+  ) {
+    try {
+      const { consultationId } = data;
+      const { type, id, stats: statPayload } = data.stats;
+
+      const authorized = await this.isUserParticipant(
+        consultationId,
+        client.data.user.id,
+      );
+      if (!authorized) {
+        throw new WsException('Not authorized for this consultation');
+      }
+
+      const key = `${consultationId}-${type}-${id}`;
+      this.connectionStats.set(key, {
+        ...statPayload,
+        lastUpdated: Date.now(),
+      });
+
+      // Immediately emit received raw stats to all participants in consultation room
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('connection_quality_update', {
+          type,
+          id,
+          stats: statPayload,
+          userId: client.data.user.id,
+          timestamp: new Date().toISOString(),
+        });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Collect stats error: ${error.message}`, error.stack);
+      client.emit('error', { event: 'collect_stats', message: error.message });
+      throw new WsException(error.message);
+    }
+  }
+
+  @SubscribeMessage('media_permission_denied')
+  async handleMediaPermissionDenied(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      camera: 'denied' | 'blocked';
+      microphone: 'denied' | 'blocked';
+    },
+  ) {
+    try {
+      const { consultationId, userId, camera, microphone } = data;
+
+      const isParticipant = await this.isUserParticipant(
+        consultationId,
+        userId,
+      );
+      if (!isParticipant) {
+        throw new WsException('User not a participant of this consultation');
+      }
+
+      this.logger.warn(
+        `User ${userId} denied media permissions: camera=${camera}, microphone=${microphone}`,
+      );
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('media_permission_denied_notification', {
+          userId,
+          camera,
+          microphone,
+          timestamp: new Date().toISOString(),
+          message: `User ${userId} denied permission for ${
+            camera === 'denied' || camera === 'blocked' ? 'camera ' : ''
+          }${
+            microphone === 'denied' || microphone === 'blocked'
+              ? 'microphone'
+              : ''
+          }.`,
+        });
+    } catch (error) {
+      this.logger.error(
+        `Error handling media_permission_denied for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', {
+        event: 'media_permission_denied',
+        message: error.message,
+      });
+      throw new WsException(error.message);
+    }
+  }
+
+  @SubscribeMessage('client_error')
+  async handleClientError(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: { consultationId: number; userId: number; errorMessage: string },
+  ) {
+    try {
+      const { consultationId, userId, errorMessage } = data;
+      const isParticipant = await this.isUserParticipant(
+        consultationId,
+        userId,
+      );
+      if (!isParticipant) {
+        throw new WsException('User not a participant of this consultation');
+      }
+
+      this.logger.warn(
+        `Client error reported by user ${userId} in consultation ${consultationId}: ${errorMessage}`,
+      );
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('client_error_notification', {
+          userId,
+          message: errorMessage,
+          timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+      this.logger.error(
+        `Error handling client_error for client ${client.id}: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', {
+        event: 'client_error',
+        message: error.message,
+      });
+      throw new WsException(error.message);
+    }
+  }
+
+  @SubscribeMessage('client_reconnect')
+  async handleClientReconnect(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody() data: { consultationId: number; userId: number },
+  ) {
+    try {
+      const { consultationId, userId } = data;
+      const isParticipant = await this.isUserParticipant(
+        consultationId,
+        userId,
+      );
+      if (!isParticipant) {
+        throw new WsException('User not a participant of this consultation');
+      }
+
+      this.logger.log(
+        `Client reconnecting: user ${userId}, consultation ${consultationId}`,
+      );
+
+      // Optionally refresh mediasoup transport/producer/consumer states if your service supports it
+      // e.g. await this.mediasoupService.refreshSessionForUser(consultationId, userId);
+
+      this.server.to(`consultation:${consultationId}`).emit('system_message', {
+        type: 'user_reconnected',
+        userId,
+        timestamp: new Date().toISOString(),
+        message: `User ${userId} reconnected to media session.`,
+      });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(
+        `Handling client_reconnect failed: ${error.message}`,
+        error.stack,
+      );
+      client.emit('error', {
+        event: 'client_reconnect',
+        message: error.message,
+      });
       throw new WsException(error.message);
     }
   }
