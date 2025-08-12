@@ -13,7 +13,8 @@ import {
   Next,
   Param,
   HttpException,
-  ValidationPipe
+  ValidationPipe,
+  Patch
 } from '@nestjs/common';
 import passport from 'passport';
 import { AuthService } from './auth.service';
@@ -28,7 +29,7 @@ import { Role } from './enums/role.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
-import { ApiResponse, ApiOperation,ApiQuery } from '@nestjs/swagger';
+import { ApiResponse, ApiOperation,ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RefreshTokenDto, TokenDto } from './dto/token.dto';
 import { registerUserSchema } from './validation/auth.validation';
@@ -36,7 +37,12 @@ import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
 import { Request, Response } from 'express';
 import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
+import { TokenType } from '@prisma/client';
+import { MagicLinkGuard } from './guards/magic-link.guard';
 import { log } from 'console';
+import { updateUserSchema } from 'src/user/validation/user.validation';
+import { UpdateUserDto } from 'src/user/dto/update-user.dto';
+
 
 @Controller('auth')
 export class AuthController {
@@ -62,11 +68,67 @@ export class AuthController {
     @Req() req: ExtendedRequest,
   ): Promise<ApiResponseDto<TokenDto>> {
     const user = req.user as any;
-    console.log(user);
     this.logger.log(`user attached to the request: ${user}`)    
-    const result = await this.authService.loginUser(user);
+    const result = await this.authService.loginUser(user.id);
     return ApiResponseDto.success(result, 'User logged-in successfully', 200);
   }
+
+  @UseGuards(MagicLinkGuard)
+  @Post('magic-login')
+  async loginWithMagic(@Req() req: ExtendedRequest): Promise<ApiResponseDto<TokenDto>> {
+    this.logger.log('Magic login request received');
+    this.logger.debug(`Request body: ${JSON.stringify(req.body)}`);
+  
+    const user = req.user as any;
+  
+    // Better logging
+    this.logger.debug(`req.user raw: ${JSON.stringify(user)}`);
+  
+    if (!user) {
+      this.logger.warn('No user attached to request (req.user is falsy)');
+      throw HttpExceptionHelper.unauthorized('Authentication failed: no user');
+    }
+    if (typeof user.id === 'undefined' || user.id === null) {
+      this.logger.error('req.user.id is missing or undefined', JSON.stringify(user));
+      throw HttpExceptionHelper.unauthorized('Authentication failed: user id missing');
+    }
+  
+    try {
+      this.logger.log(`Logging in user id=${user.id}`);
+      const result = await this.authService.loginUser(user.id);
+      this.logger.debug(`loginUser result: ${JSON.stringify(result)}`);
+      return ApiResponseDto.success(result, 'User logged-in successfully', 200);
+    } catch (err) {
+      this.logger.error('Error in loginWithMagic', err?.message ?? err, { user });
+      throw err;
+    }
+  }
+
+    @UseGuards(AuthGuard)
+    @Post('update')
+    @ApiOperation({ summary: 'Update user by ID' })
+    @ApiParam({ name: 'id', description: 'User ID', type: 'number' })
+    @ApiResponse({
+      status: 200,
+      description: 'User updated successfully',
+    })
+    @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+    @ApiResponse({ status: 404, description: 'User not found' })
+    @ApiResponse({ status: 409, description: 'Conflict - email already exists' })
+    async update(
+      @Body(new ZodValidationPipe(updateUserSchema)) updateUserDto: UpdateUserDto,
+      @Req() req: ExtendedRequest,
+    ) {
+      const userId = req.user?.id;
+      if (!userId) {
+        this.logger.error('User ID not found in request');
+        throw HttpExceptionHelper.unauthorized('User ID not found');
+      }
+
+      const user = await this.authService.update(userId, updateUserDto);
+      return ApiResponseDto.success(user, 'User updated successfully', 200);
+    }
+  
 
   @Get('session')
   @UseGuards(AuthenticatedGuard) 
@@ -251,6 +313,36 @@ export class AuthController {
     return ApiResponseDto.success({}, 'Password updated successfully', 200);
 
   }
+  @Post('request-magic-link')
+  async requestMagicLink(
+    @Body('contact') contact: string,
+    @Body('type') type: TokenType = 'login', // default to 'login'
+  ) {
+    const { token, user } = await this.authService.generateMagicToken(contact, type);
+    const pateintUrl = process.env.PATIENT_URL
+
+
+    const magicLink = `${pateintUrl}/login?token=${token}`;
+
+    // await this.messageService.send({
+    //   to: contact,
+    //   payload: {
+    //     link: magicLink,
+    //     userId: user.id,
+    //   },
+    // });
+
+    this.logger.log(`magic link created and sent`,{magicLink})
+
+    return {
+      message: `Magic link sent to ${contact}`,
+      contact,
+    };
+  }
+
+
+
+
 
 
 

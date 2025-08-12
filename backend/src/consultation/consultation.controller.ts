@@ -364,14 +364,12 @@ export class ConsultationController {
   ): Promise<any> {
     const consultations =
       await this.consultationService.getPatientConsultationHistory(patientId);
-    return {
-      ...ApiResponseDto.success(
+
+    return ApiResponseDto.success(
         consultations,
         'Patient consultation history fetched successfully',
         HttpStatus.OK,
-      ),
-      timestamp: new Date().toISOString(),
-    };
+      )
   }
 
   @Post('/patient/rate')

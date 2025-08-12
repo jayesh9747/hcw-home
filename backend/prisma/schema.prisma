@@ -32,7 +32,7 @@ model User {
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
   acceptedAt         DateTime?
-  termId             Int?                      
+  termId             Int?
   termVersion        Float                      @default(0.00)
   term               Terms?                     @relation(fields: [termId], references: [id])
   Participant        Participant[]
@@ -161,7 +161,7 @@ model Speciality {
   id   Int    @id @default(autoincrement())
   name String @unique
 
-  users UserSpeciality[]
+  users        UserSpeciality[]
   Consultation Consultation[]
 
   @@map("speciality")
@@ -204,35 +204,35 @@ enum MessageService {
 }
 
 model Consultation {
-  id                  Int                @id @default(autoincrement())
-  scheduledDate       DateTime?
-  createdAt           DateTime?
-  startedAt           DateTime?
-  closedAt            DateTime?
-  createdBy           Int?
-  groupId             Int?
-  ownerId             Int?
-  specialityId        Int?            
-  symptoms            String? 
-  messageService      MessageService?
-  waitingParticipants Int @default(0)
-  practitionerAdmitted Boolean @default(false)
-  whatsappTemplateId  Int?
-  status              ConsultationStatus @default(DRAFT)
-  deletionScheduledAt DateTime?
-  version             Int                @default(1)
-  isDeleted           Boolean            @default(false)
+  id                   Int                @id @default(autoincrement())
+  scheduledDate        DateTime?
+  createdAt            DateTime?
+  startedAt            DateTime?
+  closedAt             DateTime?
+  createdBy            Int?
+  groupId              Int?
+  ownerId              Int?
+  specialityId         Int?
+  symptoms             String?
+  messageService       MessageService?
+  waitingParticipants  Int                @default(0)
+  practitionerAdmitted Boolean            @default(false)
+  whatsappTemplateId   Int?
+  status               ConsultationStatus @default(DRAFT)
+  deletionScheduledAt  DateTime?
+  version              Int                @default(1)
+  isDeleted            Boolean            @default(false)
 
   participants           Participant[]
   group                  Group?                   @relation(fields: [groupId], references: [id])
   messages               Message[]
   owner                  User?                    @relation(fields: [ownerId], references: [id])
-  speciality             Speciality?               @relation(fields: [specialityId], references: [id])
+  speciality             Speciality?              @relation(fields: [specialityId], references: [id])
   MediasoupRouter        MediasoupRouter[]
   timeSlot               TimeSlot?
   DeletedConsultationLog DeletedConsultationLog[]
   rating                 ConsultationRating?
-  MediasoupTransport MediasoupTransport[]
+  MediasoupTransport     MediasoupTransport[]
 
   @@index([status])
   @@index([ownerId])
@@ -255,8 +255,8 @@ model MediasoupServer {
 }
 
 model MediasoupRouter {
-  id             String @id @default(cuid())
-  consultationId Int    @unique
+  id             String   @id @default(cuid())
+  consultationId Int      @unique
   routerId       String
   serverId       String
   createdAt      DateTime @default(now())
@@ -271,26 +271,25 @@ model MediasoupRouter {
 }
 
 model MediasoupTransport {
-  id             String    @id
+  id             String   @id
   consultationId Int
-  type           String    
+  type           String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
 
   @@index([consultationId])
   @@map("mediasoup_transports")
 }
 
-
 model MediasoupProducer {
-  id             String    @id
+  id             String   @id
   transportId    String
-  consultationId Int?      
+  consultationId Int?
   kind           String
-  createdAt      DateTime  @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([consultationId])
   @@map("mediasoup_producers")
@@ -349,6 +348,7 @@ model Message {
   @@unique([clientUuid, consultationId, userId])  
   @@map("message")
 }
+
 
 model MessageReadReceipt {
   id        Int      @id @default(autoincrement())
@@ -484,3 +484,12 @@ enum TimeSlotStatus {
   BOOKED
   BLOCKED
 }
+
+// tokens 
+enum TokenType {
+  invite
+  login
+  password_reset
+}
+
+

@@ -15,11 +15,12 @@
               <ion-input
                 type="email"
                 formControlName="email"
-                [disabled]="phoneNumber?.value?.length > 0"
                 placeholder="Enter your email address">
               </ion-input>
             </ion-item>
-            <div class="error-message" *ngIf="email?.invalid && email?.touched && phoneNumber?.value?.length === 0">
+
+            <!-- Email validation message -->
+            <div class="error-message" *ngIf="email?.invalid && email?.touched && !(phoneNumber?.value)">
               <ion-text color="danger">
                 <small *ngIf="email?.errors?.['email']">Invalid email format</small>
               </ion-text>
@@ -28,9 +29,7 @@
 
           <!-- OR Separator -->
           <ion-col size="12" class="or-separator">
-            <div class="or-line">
-              <span>OR</span>
-            </div>
+            <div class="or-line"><span>OR</span></div>
           </ion-col>
 
           <!-- Phone Number Field -->
@@ -42,15 +41,29 @@
                 formControlName="phoneNumber"
                 maxlength="10"
                 minlength="10"
-                [disabled]="email?.value?.length > 0"
                 placeholder="Enter your 10-digit phone number">
               </ion-input>
             </ion-item>
-            <div class="error-message" *ngIf="phoneNumber?.invalid && phoneNumber?.touched && email?.value?.length === 0">
+
+            <!-- Phone validation message -->
+            <div class="error-message" *ngIf="phoneNumber?.invalid && phoneNumber?.touched && !(email?.value)">
               <ion-text color="danger">
                 <small *ngIf="phoneNumber?.errors?.['pattern']">Enter a valid 10-digit phone number</small>
               </ion-text>
             </div>
+          </ion-col>
+        </ion-row>
+
+        <!-- success / error messages -->
+        <ion-row *ngIf="successMessage">
+          <ion-col size="12">
+            <ion-text color="success"><small>{{ successMessage }}</small></ion-text>
+          </ion-col>
+        </ion-row>
+
+        <ion-row *ngIf="errorMessage">
+          <ion-col size="12">
+            <ion-text color="danger"><small>{{ errorMessage }}</small></ion-text>
           </ion-col>
         </ion-row>
 
@@ -62,7 +75,7 @@
               type="submit"
               class="submit-button"
               color="success"
-              [disabled]="isLoading || (!email?.value && !phoneNumber?.value) || (email?.invalid && !phoneNumber?.value) || (phoneNumber?.invalid && !email?.value)">
+              [disabled]="isLoading || loginForm.invalid">
               <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
               <ion-icon *ngIf="!isLoading" name="log-in-outline" slot="start"></ion-icon>
               {{ isLoading ? 'Signing in...' : 'Continue' }}
