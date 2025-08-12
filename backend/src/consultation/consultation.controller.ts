@@ -8,13 +8,14 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  Query,
   Res,
   UsePipes,
   ValidationPipe,
-  ForbiddenException,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
   JoinConsultationDto,
   JoinConsultationResponseDto,
@@ -62,6 +63,7 @@ import { ResponseStatus } from 'src/common/helpers/response/response-status.enum
 
 @ApiTags('consultation')
 @Controller('consultation')
+@UseGuards(ThrottlerGuard)
 export class ConsultationController {
   constructor(private readonly consultationService: ConsultationService) {}
 
@@ -127,6 +129,7 @@ export class ConsultationController {
   }
 
   @Post(':id/join/patient')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Patient joins a consultation' })
   @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
   @ApiBody({ type: JoinConsultationDto })
@@ -136,7 +139,7 @@ export class ConsultationController {
   })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async joinPatient(
-    @Param('id', ConsultationIdParamPipe) id: number,
+    @Param('id') id: number,
     @Body() body: JoinConsultationDto,
   ): Promise<any> {
     const result = await this.consultationService.joinAsPatient(
@@ -150,6 +153,7 @@ export class ConsultationController {
   }
 
   @Post(':id/join/practitioner')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Practitioner joins a consultation' })
   @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
   @ApiBody({ type: JoinConsultationDto })
@@ -173,6 +177,7 @@ export class ConsultationController {
   }
 
   @Post('/admit')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Admit a patient to a consultation (practitioner or admin only)',
   })
@@ -223,18 +228,44 @@ export class ConsultationController {
 
   @Get('/waiting-room')
   @ApiOperation({
-    summary: 'Get waiting room consultations for a practitioner',
+    summary:
+      'Get waiting room consultations for a practitioner with pagination',
   })
   @ApiQuery({ name: 'userId', type: Number, description: 'Practitioner ID' })
+  @ApiQuery({
+    name: 'page',
+    type: Number,
+    required: false,
+    description: 'Page number (default 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    type: Number,
+    required: false,
+    description: 'Items per page (default 10)',
+  })
+  @ApiQuery({
+    name: 'sortOrder',
+    enum: ['asc', 'desc'],
+    required: false,
+    description: 'Sort order by scheduledDate',
+  })
   @ApiOkResponse({
     description: 'Waiting room consultations',
     type: ApiResponseDto<WaitingRoomPreviewResponseDto>,
   })
   async getWaitingRoom(
     @Query('userId', UserIdParamPipe) userId: number,
+    @Query('page') page = 1,
+    @Query('limit') limit = 10,
+    @Query('sortOrder') sortOrder: 'asc' | 'desc' = 'asc',
   ): Promise<any> {
-    const result =
-      await this.consultationService.getWaitingRoomConsultations(userId);
+    const result = await this.consultationService.getWaitingRoomConsultations(
+      userId,
+      page,
+      limit,
+      sortOrder,
+    );
     return {
       ...result,
       timestamp: new Date().toISOString(),
@@ -333,14 +364,12 @@ export class ConsultationController {
   ): Promise<any> {
     const consultations =
       await this.consultationService.getPatientConsultationHistory(patientId);
-    return {
-      ...ApiResponseDto.success(
+
+    return ApiResponseDto.success(
         consultations,
         'Patient consultation history fetched successfully',
         HttpStatus.OK,
-      ),
-      timestamp: new Date().toISOString(),
-    };
+      )
   }
 
   @Post('/patient/rate')
@@ -507,7 +536,7 @@ export class ConsultationController {
       await this.consultationService.assignPractitionerToConsultation(
         consultationId,
         body.practitionerId,
-        userId, 
+        userId,
       );
 
     return {

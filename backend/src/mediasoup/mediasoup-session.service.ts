@@ -1,16 +1,23 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import { DatabaseService } from 'src/database/database.service';
 import { createClient, RedisClientType } from 'redis';
 import { ConfigService } from 'src/config/config.service';
+import { v4 as uuidv4 } from 'uuid';
 
 type RouterEntry = {
   router: mediasoup.types.Router;
   workerPid: number;
+  correlationId: string;
 };
 
 @Injectable()
-export class MediasoupSessionService implements OnModuleDestroy {
+export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   private readonly logger = new Logger(MediasoupSessionService.name);
 
   private workers: mediasoup.types.Worker[] = [];
@@ -19,6 +26,7 @@ export class MediasoupSessionService implements OnModuleDestroy {
   private producers: Map<string, mediasoup.types.Producer> = new Map();
   private consumers: Map<string, mediasoup.types.Consumer> = new Map();
   private workerRouterCount: Map<number, number> = new Map();
+  private connectionStats: Map<string, any> = new Map();
 
   private redisPublisher: RedisClientType;
   private redisSubscriber: RedisClientType;
@@ -26,13 +34,24 @@ export class MediasoupSessionService implements OnModuleDestroy {
   private readonly serverId: string;
   private readonly serverLoad: Map<string, number> = new Map();
 
+  private readonly sessionTimeoutMs = 5 * 60 * 1000;
+  scalingThresholdLow: number;
+  scalingThresholdHigh: number;
+
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService,
   ) {
     this.serverId = this.configService.serverId;
-    this.initializeWorkers();
-    this.initRedis();
+  }
+
+  async onModuleInit(): Promise<void> {
+    await this.initializeWorkers();
+    await this.initRedis();
+
+    setInterval(() => this.cleanupInactiveSessions(), 60 * 1000);
+
+    setInterval(() => this.monitorAndScaleWorkers(), 30 * 1000);
   }
 
   private logStructured(
@@ -40,7 +59,6 @@ export class MediasoupSessionService implements OnModuleDestroy {
     message: string,
     meta: Record<string, any> = {},
   ) {
-
     if (level === 'verbose' && process.env.NODE_ENV !== 'production') return;
     const logEntry = {
       timestamp: new Date().toISOString(),
@@ -151,7 +169,13 @@ export class MediasoupSessionService implements OnModuleDestroy {
           pid: worker.pid,
         });
         this.removeWorker(worker.pid);
-        this.addWorker();
+        this.addWorker().catch((e) => {
+          this.logStructured(
+            'error',
+            `Failed to restart worker: ${e.message}`,
+            {},
+          );
+        });
       });
 
       this.workers.push(worker);
@@ -249,6 +273,12 @@ export class MediasoupSessionService implements OnModuleDestroy {
   }
 
   async createRouterForConsultation(consultationId: number) {
+    const correlationId = uuidv4();
+    this.logStructured('log', 'Creating router', {
+      consultationId,
+      correlationId,
+    });
+
     const worker = this.getLeastLoadedWorker();
     if (!worker) throw new Error('No available mediasoup worker found');
 
@@ -278,6 +308,13 @@ export class MediasoupSessionService implements OnModuleDestroy {
       ],
     });
 
+    router.observer.on('close', () => {
+      this.logStructured('log', 'Router closed', {
+        consultationId,
+        correlationId,
+      });
+    });
+
     await this.databaseService.mediasoupRouter.create({
       data: {
         consultationId,
@@ -286,7 +323,11 @@ export class MediasoupSessionService implements OnModuleDestroy {
       },
     });
 
-    this.routers.set(consultationId, { router, workerPid: worker.pid });
+    this.routers.set(consultationId, {
+      router,
+      workerPid: worker.pid,
+      correlationId,
+    });
     this.workerRouterCount.set(
       worker.pid,
       (this.workerRouterCount.get(worker.pid) ?? 0) + 1,
@@ -295,6 +336,7 @@ export class MediasoupSessionService implements OnModuleDestroy {
       consultationId,
       workerPid: worker.pid,
       routerId: router.id,
+      correlationId,
     });
 
     return router;
@@ -313,7 +355,7 @@ export class MediasoupSessionService implements OnModuleDestroy {
       return;
     }
 
-    const { router, workerPid } = entry;
+    const { router, workerPid, correlationId } = entry;
 
     try {
       await router.close();
@@ -340,14 +382,76 @@ export class MediasoupSessionService implements OnModuleDestroy {
     return this.routers.get(consultationId)?.router;
   }
 
+  private pollTransportStats(
+    consultationId: number,
+    transport: mediasoup.types.Transport,
+  ) {
+    const pollInterval = this.configService.transportStatsPollInterval || 5000;
+
+    const interval = setInterval(async () => {
+      try {
+        const stats = await transport.getStats();
+        const key = `${consultationId}-transport-${transport.id}`;
+        this.connectionStats.set(key, { stats, lastUpdated: Date.now() });
+        this.logger.verbose(`Collected transport stats for ${key}`);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to collect stats for transport ${transport.id}: ${error.message}`,
+        );
+      }
+    }, pollInterval);
+
+    (transport as any)._statsInterval = interval;
+
+    transport.on('@close', () => {
+      clearInterval(interval);
+      this.connectionStats.delete(
+        `${consultationId}-transport-${transport.id}`,
+      );
+      this.logger.verbose(
+        `Transport ${transport.id} closed, stopped stats polling`,
+      );
+    });
+  }
+
+  private pollProducerStats(
+    consultationId: number,
+    producer: mediasoup.types.Producer,
+  ) {
+    const pollInterval = this.configService.producerStatsPollInterval || 5000;
+
+    const interval = setInterval(async () => {
+      try {
+        const stats = await producer.getStats();
+        const key = `${consultationId}-producer-${producer.id}`;
+        this.connectionStats.set(key, { stats, lastUpdated: Date.now() });
+        this.logger.verbose(`Collected producer stats for ${key}`);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to collect stats for producer ${producer.id}: ${error.message}`,
+        );
+      }
+    }, pollInterval);
+
+    (producer as any)._statsInterval = interval;
+
+    producer.on('@close', () => {
+      clearInterval(interval);
+      this.connectionStats.delete(`${consultationId}-producer-${producer.id}`);
+      this.logger.verbose(
+        `Producer ${producer.id} closed, stopped stats polling`,
+      );
+    });
+  }
+
   async createTransport(
     consultationId: number,
     type: 'producer' | 'consumer',
   ): Promise<any> {
-    const router = this.getRouter(consultationId);
-    if (!router) throw new Error('Router not found');
+    const routerEntry = this.routers.get(consultationId);
+    if (!routerEntry) throw new Error('Router not found for consultation');
 
-    // 3. Use the mediasoupAnnouncedIp getter from ConfigService
+    const { router, correlationId } = routerEntry;
     const announcedIp = this.configService.mediasoupAnnouncedIp;
 
     const transport = await router.createWebRtcTransport({
@@ -358,6 +462,7 @@ export class MediasoupSessionService implements OnModuleDestroy {
     });
 
     this.transports.set(transport.id, transport);
+    this.pollTransportStats(consultationId, transport);
 
     try {
       await this.databaseService.mediasoupTransport.create({
@@ -372,18 +477,23 @@ export class MediasoupSessionService implements OnModuleDestroy {
       this.logStructured('warn', 'Failed to persist transport', {
         transportId: transport.id,
         error: error.message,
+        consultationId,
+        correlationId,
       });
     }
 
     transport.on('@close', () =>
       this.logStructured('log', 'Transport closed by mediasoup', {
         transportId: transport.id,
+        consultationId,
+        correlationId,
       }),
     );
 
     this.logStructured('log', 'Transport created', {
       transportId: transport.id,
       consultationId,
+      correlationId,
     });
 
     return {
@@ -416,6 +526,7 @@ export class MediasoupSessionService implements OnModuleDestroy {
 
     const producer = await transport.produce({ kind, rtpParameters, appData });
     this.producers.set(producer.id, producer);
+    this.pollProducerStats(appData?.consultationId, producer);
 
     try {
       await this.databaseService.mediasoupProducer.create({
@@ -486,6 +597,8 @@ export class MediasoupSessionService implements OnModuleDestroy {
   async closeTransport(transportId: string) {
     const transport = this.transports.get(transportId);
     if (transport) {
+      clearInterval((transport as any)._statsInterval);
+      this.connectionStats.delete(`transport-${transportId}`);
       await transport.close();
       this.transports.delete(transportId);
       this.logStructured('log', 'Transport closed', { transportId });
@@ -506,6 +619,8 @@ export class MediasoupSessionService implements OnModuleDestroy {
   async closeProducer(producerId: string) {
     const producer = this.producers.get(producerId);
     if (producer) {
+      clearInterval((producer as any)._statsInterval);
+      this.connectionStats.delete(`producer-${producerId}`);
       await producer.close();
       this.producers.delete(producerId);
       this.logStructured('log', 'Producer closed', { producerId });
@@ -529,6 +644,80 @@ export class MediasoupSessionService implements OnModuleDestroy {
       await consumer.close();
       this.consumers.delete(consumerId);
       this.logStructured('log', 'Consumer closed', { consumerId });
+    }
+  }
+
+  async cleanupInactiveSessions() {
+    const now = Date.now();
+
+    for (const [consultationId] of this.routers.entries()) {
+      const participants = await this.databaseService.participant.findMany({
+        where: { consultationId, isActive: true },
+        select: { lastActiveAt: true },
+      });
+
+      if (participants.length === 0) {
+        this.logStructured(
+          'log',
+          'Cleaning up session with no active participants',
+          { consultationId },
+        );
+        await this.cleanupRouterForConsultation(consultationId);
+        await this.databaseService.consultation.update({
+          where: { id: consultationId },
+          data: { status: 'TERMINATED_OPEN' },
+        });
+        continue;
+      }
+
+      const allInactive = participants.every(
+        (p) =>
+          p.lastActiveAt &&
+          now - new Date(p.lastActiveAt).getTime() > this.sessionTimeoutMs,
+      );
+
+      if (allInactive) {
+        this.logStructured(
+          'log',
+          'Cleaning up inactive session due to timeout',
+          { consultationId },
+        );
+        await this.cleanupRouterForConsultation(consultationId);
+        await this.databaseService.consultation.update({
+          where: { id: consultationId },
+          data: { status: 'TERMINATED_OPEN' },
+        });
+      }
+    }
+  }
+
+  async monitorAndScaleWorkers() {
+    if (this.workers.length === 0) {
+      this.logStructured(
+        'warn',
+        'No mediasoup workers available during scaling check',
+      );
+      return;
+    }
+
+    const totalRouters = Array.from(this.workerRouterCount.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    const avgLoad = totalRouters / this.workers.length;
+
+    if (avgLoad > this.scalingThresholdHigh) {
+      this.logStructured('log', 'Scaling workers up due to high load', {
+        avgLoad,
+        currentWorkers: this.workers.length,
+      });
+      await this.scaleWorkers(this.workers.length + 1);
+    } else if (avgLoad < this.scalingThresholdLow && this.workers.length > 1) {
+      this.logStructured('log', 'Scaling workers down due to low load', {
+        avgLoad,
+        currentWorkers: this.workers.length,
+      });
+      await this.removeIdleWorkers();
     }
   }
 
@@ -618,15 +807,55 @@ export class MediasoupSessionService implements OnModuleDestroy {
     this.workers = [];
     this.workerRouterCount.clear();
 
-     try {
-       await this.redisPublisher?.quit();
-       await this.redisSubscriber?.quit();
-       this.logStructured('log', 'Redis clients closed successfully.');
-     } catch (err) {
-       this.logger.error(
-         'Error closing Redis clients during module destroy', 
-         err,
-       );
-     }
+    try {
+      await this.redisPublisher?.quit();
+      await this.redisSubscriber?.quit();
+      this.logStructured('log', 'Redis clients closed successfully.');
+    } catch (err) {
+      this.logger.error(
+        'Error closing Redis clients during module destroy',
+        err,
+      );
+    }
+  }
+
+  async getHealthMetrics() {
+    return {
+      workerCount: this.workers.length,
+      activeRouters: this.routers.size,
+      activeTransports: this.transports.size,
+      activeProducers: this.producers.size,
+      activeConsumers: this.consumers.size,
+      serverLoad: Array.from(this.workerRouterCount.entries()).map(
+        ([pid, count]) => ({
+          pid,
+          routerCount: count,
+        }),
+      ),
+    };
+  }
+
+  async acquireRouterAssignmentLock(consultationId: number): Promise<boolean> {
+    const lockKey = `mediasoup:router_lock:${consultationId}`;
+    const lockAcquired = await this.redisPublisher.set(lockKey, this.serverId, {
+      NX: true,
+      PX: 30000,
+    });
+    return lockAcquired === 'OK';
+  }
+
+  async releaseRouterAssignmentLock(consultationId: number): Promise<void> {
+    const lockKey = `mediasoup:router_lock:${consultationId}`;
+    await this.redisPublisher.del(lockKey);
+  }
+
+  getConnectionStats(consultationId: number) {
+    const result: Record<string, any> = {};
+    for (const [key, value] of this.connectionStats.entries()) {
+      if (key.startsWith(`${consultationId}-`)) {
+        result[key] = value;
+      }
+    }
+    return result;
   }
 }

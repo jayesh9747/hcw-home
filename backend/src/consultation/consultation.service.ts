@@ -148,7 +148,7 @@ export class ConsultationService {
           userId: createDto.patientId,
           isActive: false,
           isBeneficiary: true,
-          role: UserRole.PATIENT
+          role: UserRole.PATIENT,
         },
       },
       ...(typeof createDto.groupId === 'number' && {
@@ -285,9 +285,9 @@ export class ConsultationService {
     }
 
     let routerCreated = false;
-    let mediasoupRouter;
     try {
-      mediasoupRouter = this.mediasoupSessionService.getRouter(consultationId);
+      let mediasoupRouter =
+        this.mediasoupSessionService.getRouter(consultationId);
       if (!mediasoupRouter) {
         mediasoupRouter =
           await this.mediasoupSessionService.createRouterForConsultation(
@@ -344,6 +344,8 @@ export class ConsultationService {
         id: m.id,
         userId: m.userId,
         content: m.content,
+        mediaUrl: m.mediaUrl ?? null,
+        mediaType: m.mediaType ?? null,
         createdAt: m.createdAt,
       })),
     };
@@ -397,7 +399,7 @@ export class ConsultationService {
         userId: practitionerId,
         isActive: true,
         joinedAt: new Date(),
-        role: UserRole.PRACTITIONER, 
+        role: UserRole.PRACTITIONER,
       };
 
       await this.db.participant.upsert({
@@ -475,6 +477,8 @@ export class ConsultationService {
           id: m.id,
           userId: m.userId,
           content: m.content,
+          mediaUrl: m.mediaUrl ?? null,
+          mediaType: m.mediaType ?? null,
           createdAt: m.createdAt,
         })),
       };
@@ -605,59 +609,89 @@ export class ConsultationService {
     }
   }
 
+  private estimateWaitTime(queuePosition: number): string {
+    const averageConsultationMinutes = 10;
+    const waitMinutes = queuePosition * averageConsultationMinutes;
+    if (waitMinutes < 60)
+      return `${waitMinutes} min${waitMinutes > 1 ? 's' : ''}`;
+    const hours = Math.floor(waitMinutes / 60);
+    const minutes = waitMinutes % 60;
+    return minutes === 0
+      ? `${hours} hour${hours > 1 ? 's' : ''}`
+      : `${hours}h ${minutes}m`;
+  }
+
   async getWaitingRoomConsultations(
     practitionerId: number,
+    page = 1,
+    limit = 10,
+    sortOrder: 'asc' | 'desc' = 'asc',
   ): Promise<ApiResponseDto<WaitingRoomPreviewResponseDto>> {
     const practitioner = await this.db.user.findUnique({
       where: { id: practitionerId },
       select: { id: true },
     });
-    if (!practitioner) {
-      throw HttpExceptionHelper.notFound('User not found');
-    }
+    if (!practitioner) throw HttpExceptionHelper.notFound('User not found');
+
+    const skip = (page - 1) * limit;
+    const waitingTimeoutMs = 30 * 60000;
+
+    const now = new Date();
+    await this.db.consultation.updateMany({
+      where: {
+        status: ConsultationStatus.WAITING,
+        ownerId: practitionerId,
+        scheduledDate: { lt: new Date(now.getTime() - waitingTimeoutMs) },
+      },
+      data: { status: ConsultationStatus.TERMINATED_OPEN },
+    });
 
     const consultations = await this.db.consultation.findMany({
       where: {
         status: ConsultationStatus.WAITING,
         ownerId: practitionerId,
         participants: {
-          some: {
-            isActive: true,
-            user: { role: UserRole.PATIENT },
-          },
+          some: { isActive: true, user: { role: UserRole.PATIENT } },
         },
         NOT: {
           participants: {
-            some: {
-              isActive: true,
-              user: { role: UserRole.PRACTITIONER },
-            },
+            some: { isActive: true, user: { role: UserRole.PRACTITIONER } },
           },
         },
       },
-      select: {
-        id: true,
+      orderBy: { scheduledDate: sortOrder },
+      skip,
+      take: limit,
+      include: {
         participants: {
-          where: {
-            isActive: true,
-            user: { role: UserRole.PATIENT },
-          },
+          where: { isActive: true, user: { role: UserRole.PATIENT } },
           select: {
             joinedAt: true,
             user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                country: true,
-              },
+              select: { firstName: true, lastName: true, country: true },
             },
+          },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+
+    const totalCount = await this.db.consultation.count({
+      where: {
+        status: ConsultationStatus.WAITING,
+        ownerId: practitionerId,
+        participants: {
+          some: { isActive: true, user: { role: UserRole.PATIENT } },
+        },
+        NOT: {
+          participants: {
+            some: { isActive: true, user: { role: UserRole.PRACTITIONER } },
           },
         },
       },
-      orderBy: { scheduledDate: 'asc' },
     });
 
-    const waitingRooms = consultations.map((c) => {
+    const waitingRooms = consultations.map((c, index) => {
       const patient = c.participants[0]?.user;
       return {
         id: c.id,
@@ -666,6 +700,8 @@ export class ConsultationService {
           : '',
         joinTime: c.participants[0]?.joinedAt ?? null,
         language: patient?.country ?? null,
+        queuePosition: index + 1 + skip,
+        estimatedWaitTime: this.estimateWaitTime(index + 1 + skip),
       };
     });
 
@@ -674,13 +710,15 @@ export class ConsultationService {
       statusCode: 200,
       message: 'Waiting room consultations fetched.',
       waitingRooms,
-      totalCount: waitingRooms.length,
+      totalCount,
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
     });
 
     return ApiResponseDto.success(
       responsePayload,
       responsePayload.message,
-      responsePayload.statusCode,
+      200,
     );
   }
 
@@ -1035,7 +1073,10 @@ export class ConsultationService {
         id: m.id,
         userId: m.userId,
         content: m.content,
+        mediaUrl: m.mediaUrl ?? null,
+        mediaType: m.mediaType ?? null,
         consultationId: m.consultationId,
+        createdAt: m.createdAt,
       })),
     };
   }
@@ -1521,5 +1562,119 @@ export class ConsultationService {
     });
 
     return updatedConsultation;
+  }
+
+  async getMessages(consultationId: number, beforeId?: number, limit = 30) {
+    return await this.db.message.findMany({
+      where: {
+        consultationId,
+        ...(beforeId && { id: { lt: beforeId } }),
+      },
+      orderBy: { id: 'desc' },
+      take: limit,
+      include: { user: true },
+    });
+  }
+
+  async saveMessageDedup(msg: {
+    consultationId: number;
+    userId: number;
+    content: string;
+    clientUuid: string;
+    mediaUrl?: string | null;
+    mediaType?: string | null;
+  }) {
+    return this.db.message.upsert({
+      where: {
+        clientUuid_consultationId_userId: {
+          clientUuid: msg.clientUuid,
+          consultationId: msg.consultationId,
+          userId: msg.userId,
+        },
+      },
+      create: {
+        consultationId: msg.consultationId,
+        userId: msg.userId,
+        content: msg.content,
+        clientUuid: msg.clientUuid,
+        mediaUrl: msg.mediaUrl ?? null,
+        mediaType: msg.mediaType ?? null,
+      },
+      update: {}, // ignore duplicates
+    });
+  }
+
+  async upsertReadReceipts(userId: number, readMessageIds: number[]) {
+    for (const messageId of readMessageIds) {
+      await this.db.messageReadReceipt.upsert({
+        where: { messageId_userId: { messageId, userId } },
+        update: { readAt: new Date() },
+        create: { messageId, userId, readAt: new Date() },
+      });
+    }
+  }
+
+  async saveSystemMessage(
+    consultationId: number,
+    content: string,
+    role: UserRole,
+  ): Promise<void> {
+    try {
+      await this.db.message.create({
+        data: {
+          consultationId,
+          content,
+          userId: 0, // no individual user for system messages
+          isSystem: true,
+          mediaType: null,
+          mediaUrl: null,
+          createdAt: new Date(),
+          clientUuid: `system-${Date.now()}-${Math.random()}`,
+        },
+      });
+      this.logger.log(
+        `Saved system message for consultation ${consultationId}: ${content}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to save system message for consultation ${consultationId}: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  async saveMediaPermissionStatus(
+    consultationId: number,
+    userId: number,
+    status: { camera: string; microphone: string },
+  ): Promise<void> {
+    try {
+      await this.db.mediaPermissionStatus.upsert({
+        where: {
+          consultationId_userId: { consultationId, userId },
+        },
+        create: {
+          consultationId,
+          userId,
+          cameraStatus: status.camera,
+          microphoneStatus: status.microphone,
+          updatedAt: new Date(),
+        },
+        update: {
+          cameraStatus: status.camera,
+          microphoneStatus: status.microphone,
+          updatedAt: new Date(),
+        },
+      });
+
+      this.logger.log(
+        `Persisted media permission for consultation ${consultationId}, user ${userId}: cam=${status.camera}, mic=${status.microphone}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist media permission status for consultation ${consultationId}, user ${userId}`,
+        error.stack,
+      );
+    }
   }
 }

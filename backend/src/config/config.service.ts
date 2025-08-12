@@ -10,6 +10,14 @@ export class ConfigService {
     return this.configService.get<number>('PORT', 3000);
   }
 
+  get producerStatsPollInterval(): number {
+    return this.getNumber('PRODUCER_STATS_POLL_INTERVAL', 5000);
+  }
+
+  get transportStatsPollInterval(): number {
+    return this.getNumber('TRANSPORT_STATS_POLL_INTERVAL', 5000);
+  }
+
   get environment(): Environment {
     return this.configService.get<Environment>(
       'NODE_ENV',
@@ -158,7 +166,7 @@ export class ConfigService {
   }
 
   getAdminOidcConfig() {
-    const oidc = this.configService.get('oidc')
+    const oidc = this.configService.get('oidc');
     const callbackURL = `${oidc.callbackBaseURL}/openidconnect_admin?role=admin`;
     return {
       issuer: oidc.issuer,
@@ -172,9 +180,9 @@ export class ConfigService {
     };
   }
   getPractitionerOidcConfig() {
-    const oidc = this.configService.get('oidc')
+    const oidc = this.configService.get('oidc');
     const callbackURL = `${oidc.callbackBaseURL}/openidconnect_practitioner?role=practitioner`;
-  
+
     return {
       issuer: oidc.issuer,
       authorizationURL: oidc.authorizationURL,
@@ -186,5 +194,4 @@ export class ConfigService {
       scope: oidc.scope,
     };
   }
-  
 }
