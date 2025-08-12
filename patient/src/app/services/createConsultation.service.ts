@@ -13,7 +13,7 @@ export interface CreateConsultationDto {
 }
 
 @Injectable({ providedIn: 'root' })
-export class ConsultationRequest {
+export class createConsultationService {
   constructor(private http: HttpClient) {}
 
   createConsultation(dto: CreateConsultationDto, userId: number) {

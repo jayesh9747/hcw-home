@@ -1,5 +1,4 @@
 import { forwardRef, Module } from '@nestjs/common';
-import { ConfigModule } from 'src/config/config.module'; 
 import { MediasoupServerService } from './mediasoup.service';
 import { MediasoupSessionService } from './mediasoup-session.service';
 import { ConfigModule } from 'src/config/config.module';
