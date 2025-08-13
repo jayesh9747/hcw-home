@@ -23,7 +23,7 @@ import {
 } from 'ionicons/icons';
 
 import { 
-  ConsultationRequest, 
+  createConsultationService, 
   CreateConsultationDto 
 } from 'src/app/services/createConsultation.service';
 import { Speciality, SpecialityService } from 'src/app/services/getSpeciality.service';
@@ -63,7 +63,7 @@ export class ConsultationRequestPage implements OnInit {
   constructor(
     private router: Router, 
     private toastController: ToastController,
-    private consultationRequestService: ConsultationRequest,
+    private consultationRequestService: createConsultationService,
     private specialityService: SpecialityService
   ) {
     addIcons({
