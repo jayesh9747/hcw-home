@@ -18,7 +18,7 @@ import { ReminderService } from 'src/reminder/reminder.service';
     ConfigModule,
     AvailabilityModule,
     forwardRef(() => MediasoupModule),
-    forwardRef(() => ReminderModule),
+    ReminderModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -35,10 +35,6 @@ import { ReminderService } from 'src/reminder/reminder.service';
     {
       provide: 'CONSULTATION_GATEWAY',
       useExisting: ConsultationGateway,
-    },
-    {
-      provide: 'ReminderService',
-      useExisting: ReminderService,
     },
     {
       provide: APP_GUARD,

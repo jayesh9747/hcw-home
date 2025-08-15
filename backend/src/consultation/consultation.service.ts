@@ -40,6 +40,7 @@ import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConfigService } from 'src/config/config.service';
 import { AvailabilityService } from 'src/availability/availability.service';
 import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import { ReminderService } from 'src/reminder/reminder.service';
 import {
   CloseConsultationResponseDto,
   OpenConsultationItemDto,
@@ -64,8 +65,7 @@ export class ConsultationService {
     private readonly mediasoupSessionService: MediasoupSessionService,
     @Inject(forwardRef(() => ConsultationGateway))
     private readonly consultationGateway: ConsultationGateway,
-    @Inject(forwardRef(() => 'ReminderService'))
-    private readonly reminderService: any,
+    private readonly reminderService: ReminderService,
   ) {}
 
   async createConsultation(
