@@ -10,12 +10,15 @@ import { ConfigModule } from 'src/config/config.module';
 import { ConsultationCleanupService } from './consultation-cleanup.service';
 import { AvailabilityModule } from 'src/availability/availability.module';
 import { MediasoupModule } from 'src/mediasoup/mediasoup.module';
+import { ReminderModule } from 'src/reminder/reminder.module';
+import { ReminderService } from 'src/reminder/reminder.service';
 
 @Module({
   imports: [
     ConfigModule,
     AvailabilityModule,
     forwardRef(() => MediasoupModule),
+    forwardRef(() => ReminderModule),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -32,6 +35,10 @@ import { MediasoupModule } from 'src/mediasoup/mediasoup.module';
     {
       provide: 'CONSULTATION_GATEWAY',
       useExisting: ConsultationGateway,
+    },
+    {
+      provide: 'ReminderService',
+      useExisting: ReminderService,
     },
     {
       provide: APP_GUARD,
