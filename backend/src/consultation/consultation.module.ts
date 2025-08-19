@@ -5,11 +5,11 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ConsultationService } from './consultation.service';
 import { ConsultationController } from './consultation.controller';
 import { ConsultationGateway } from './consultation.gateway';
-import { DatabaseService } from 'src/database/database.service';
-import { ConfigModule } from 'src/config/config.module';
+import { DatabaseService } from '../database/database.service';
+import { ConfigModule } from '../config/config.module';
 import { ConsultationCleanupService } from './consultation-cleanup.service';
-import { AvailabilityModule } from 'src/availability/availability.module';
-import { MediasoupModule } from 'src/mediasoup/mediasoup.module';
+import { AvailabilityModule } from '../availability/availability.module';
+import { MediasoupModule } from '../mediasoup/mediasoup.module';
 
 @Module({
   imports: [

@@ -1,5 +1,5 @@
 import { Injectable, Inject, forwardRef, Logger } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
+import { DatabaseService } from '../database/database.service';
 import {
   ConsultationStatus,
   UserRole,
@@ -12,8 +12,8 @@ import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
 import concat from 'concat-stream';
 import { ConsultationGateway } from './consultation.gateway';
-import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
-import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
+import { HttpExceptionHelper } from '../common/helpers/execption/http-exception.helper';
+import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
 import { JoinConsultationResponseDto } from './dto/join-consultation.dto';
 import { WaitingRoomPreviewResponseDto } from './dto/waiting-room-preview.dto';
 import {
@@ -37,15 +37,18 @@ import {
   ConsultationPatientHistoryItemDto,
 } from './dto/consultation-patient-history.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
-import { ConfigService } from 'src/config/config.service';
-import { AvailabilityService } from 'src/availability/availability.service';
-import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import { ConfigService } from '../config/config.service';
+import { AvailabilityService } from '../availability/availability.service';
+import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
 import {
   CloseConsultationResponseDto,
   OpenConsultationItemDto,
   OpenConsultationPatientDto,
   OpenConsultationResponseDto,
 } from './dto/open-consultation.dto';
+import { EmailService } from '../common/email/email.service';
+import * as crypto from 'crypto';
+import { AddParticipantDto } from './dto/add-participant.dto';
 
 type ConsultationWithParticipants = Consultation & {
   participants: (Participant & { user: User })[];
@@ -60,11 +63,115 @@ export class ConsultationService {
     private readonly db: DatabaseService,
     private readonly configService: ConfigService,
     private readonly availabilityService: AvailabilityService,
+    private readonly emailService: EmailService,
     @Inject(forwardRef(() => MediasoupSessionService))
     private readonly mediasoupSessionService: MediasoupSessionService,
     @Inject(forwardRef(() => ConsultationGateway))
     private readonly consultationGateway: ConsultationGateway,
   ) {}
+
+  async addParticipantToConsultation(
+    addParticipantDto: AddParticipantDto,
+    userId: number,
+  ): Promise<ApiResponseDto<any>> {
+    const { consultationId, email, role, name, notes } = addParticipantDto;
+
+    const consultation = await this.db.consultation.findUnique({
+      where: { id: consultationId },
+      include: { owner: true },
+    });
+
+    if (!consultation) {
+      throw HttpExceptionHelper.notFound('Consultation not found');
+    }
+
+    const requester = await this.db.user.findUnique({ where: { id: userId } });
+    if (!requester) {
+      throw HttpExceptionHelper.notFound('Requesting user not found');
+    }
+
+    if (consultation.ownerId !== userId && requester.role !== UserRole.ADMIN) {
+      throw HttpExceptionHelper.forbidden(
+        'Only the consultation owner or an admin can add participants',
+      );
+    }
+
+    let participantUser = await this.db.user.findUnique({
+      where: { email },
+    });
+
+    if (!participantUser) {
+      participantUser = await this.db.user.create({
+        data: {
+          email,
+          firstName: name,
+          lastName: '',
+          role,
+          temporaryAccount: true,
+          password: crypto.randomBytes(16).toString('hex'),
+        },
+      });
+    }
+
+    const participant = await this.db.participant.create({
+      data: {
+        consultationId,
+        userId: participantUser.id,
+        role,
+      },
+    });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    await this.db.consultationInvitation.create({
+      data: {
+        consultationId,
+        invitedUserId: participantUser.id,
+        inviteEmail: email,
+        name,
+        notes,
+        role,
+        token,
+        expiresAt,
+        createdById: userId,
+      },
+    });
+
+    const magicLinkUrl = `${this.configService.get<string>(
+      'FRONTEND_URL',
+    )}/join-consultation?token=${token}`;
+
+    await this.emailService.sendConsultationInvitationEmail(
+      email,
+      `${requester.firstName} ${requester.lastName}`,
+      consultationId,
+      magicLinkUrl,
+      role,
+      name,
+      notes,
+    );
+
+    this.consultationGateway.server
+      .to(`consultation:${consultationId}`)
+      .emit('participant_added', {
+        consultationId,
+        participant: {
+          id: participantUser.id,
+          firstName: participantUser.firstName,
+          lastName: participantUser.lastName,
+          role: participantUser.role,
+          isActive: false,
+        },
+      });
+
+    return ApiResponseDto.success(
+      { success: true },
+      'Participant added successfully',
+      200,
+    );
+  }
 
   async createConsultation(
     createDto: CreateConsultationDto,
@@ -165,6 +272,73 @@ export class ConsultationService {
       include: { participants: true },
     });
 
+    if (createDto.participants && createDto.participants.length > 0) {
+      for (const participantDto of createDto.participants) {
+        if (!participantDto.email) {
+          throw HttpExceptionHelper.badRequest(
+            'Participant must have an email.',
+          );
+        }
+
+        let participantUser = await this.db.user.findUnique({
+          where: { email: participantDto.email },
+        });
+
+        if (!participantUser) {
+          participantUser = await this.db.user.create({
+            data: {
+              email: participantDto.email,
+              firstName: participantDto.name,
+              lastName: '',
+              role: participantDto.role,
+              temporaryAccount: true,
+              password: crypto.randomBytes(16).toString('hex'),
+            },
+          });
+        }
+
+        await this.db.participant.create({
+          data: {
+            consultationId: consultation.id,
+            userId: participantUser.id,
+            role: participantDto.role,
+          },
+        });
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
+
+        await this.db.consultationInvitation.create({
+          data: {
+            consultationId: consultation.id,
+            invitedUserId: participantUser.id,
+            inviteEmail: participantDto.email,
+            name: participantDto.name,
+            notes: participantDto.notes,
+            role: participantDto.role,
+            token,
+            expiresAt,
+            createdById: userId,
+          },
+        });
+
+        const magicLinkUrl = `${this.configService.get<string>(
+          'FRONTEND_URL',
+        )}/join-consultation?token=${token}`;
+
+        await this.emailService.sendConsultationInvitationEmail(
+          participantDto.email,
+          `${creator.firstName} ${creator.lastName}`,
+          consultation.id,
+          magicLinkUrl,
+          participantDto.role,
+          participantDto.name,
+          participantDto.notes,
+        );
+      }
+    }
+
     return ApiResponseDto.success(
       plainToInstance(ConsultationResponseDto, consultation),
       'Consultation created',
@@ -222,9 +396,6 @@ export class ConsultationService {
     const consultation = await this.db.consultation.findUnique({
       where: { id: consultationId },
       include: {
-        id: true,
-        status: true,
-        ownerId: true,
         participants: { include: { user: true } },
         messages: { orderBy: { createdAt: 'asc' } },
       } as any,
@@ -305,7 +476,9 @@ export class ConsultationService {
       );
       throw HttpExceptionHelper.internalServerError(
         'Failed to setup media session for consultation',
-        mediaErr,
+        undefined, // requestId
+        undefined, // path
+        mediaErr, // error
       );
     }
 
@@ -314,7 +487,7 @@ export class ConsultationService {
         .to(`practitioner:${consultation.ownerId}`)
         .emit('patient_waiting', {
           consultationId,
-          patientInitials: `${patient.firstName?.[0] ?? ''}${patient.lastName?.[0] ?? ''}`,
+          patientFirstName: patient.firstName ?? 'Patient',
           joinTime: new Date(),
           language: patient.country ?? null,
         });
@@ -438,7 +611,9 @@ export class ConsultationService {
         );
         throw HttpExceptionHelper.internalServerError(
           'Failed to setup media session for consultation',
-          mediaErr,
+          undefined, // requestId
+          undefined, // path
+          mediaErr, // error
         );
       }
 
@@ -560,7 +735,9 @@ export class ConsultationService {
         );
         throw HttpExceptionHelper.internalServerError(
           'Failed to setup media session for consultation',
-          mediaErr,
+          undefined, // requestId
+          undefined, // path
+          mediaErr, // error
         );
       }
 
@@ -974,12 +1151,9 @@ export class ConsultationService {
           error,
         );
       }
-      this.logger.error(
-        `Failed to end consultation ${endDto.consultationId}`,
-        error,
-      );
+      console.error('Admission failed:', error);
       throw HttpExceptionHelper.internalServerError(
-        'Failed to end consultation',
+        'Failed to admit patient',
         error,
       );
     }
@@ -1094,9 +1268,7 @@ export class ConsultationService {
             firstName: true,
             lastName: true,
             specialities: {
-              select: {
-                speciality: { select: { name: true } },
-              },
+              select: { speciality: { select: { name: true } } },
             },
           },
         },
@@ -1183,7 +1355,7 @@ export class ConsultationService {
       doc.text(
         `Created At: ${consultation.createdAt?.toLocaleString() || '-'}`,
       );
-      doc.text(`Closed At: ${consultation.closedAt?.toLocaleString() || '-'}`);
+      doc.text(`Closed At: ${consultation.closedAt?.toLocaleString() || '-'} `);
       doc.moveDown();
 
       if (consultation.ownerId) {
@@ -1314,7 +1486,7 @@ export class ConsultationService {
     const duration = mins ? `${mins}m ${secs}s` : `${secs}s`;
 
     const patientPart = c.participants.find(
-      (p: any) => p.user.role === 'PATIENT',
+      (p: any) => p.user.role === UserRole.PATIENT,
     );
     if (!patientPart) {
       throw HttpExceptionHelper.internalServerError(
@@ -1562,119 +1734,5 @@ export class ConsultationService {
     });
 
     return updatedConsultation;
-  }
-
-  async getMessages(consultationId: number, beforeId?: number, limit = 30) {
-    return await this.db.message.findMany({
-      where: {
-        consultationId,
-        ...(beforeId && { id: { lt: beforeId } }),
-      },
-      orderBy: { id: 'desc' },
-      take: limit,
-      include: { user: true },
-    });
-  }
-
-  async saveMessageDedup(msg: {
-    consultationId: number;
-    userId: number;
-    content: string;
-    clientUuid: string;
-    mediaUrl?: string | null;
-    mediaType?: string | null;
-  }) {
-    return this.db.message.upsert({
-      where: {
-        clientUuid_consultationId_userId: {
-          clientUuid: msg.clientUuid,
-          consultationId: msg.consultationId,
-          userId: msg.userId,
-        },
-      },
-      create: {
-        consultationId: msg.consultationId,
-        userId: msg.userId,
-        content: msg.content,
-        clientUuid: msg.clientUuid,
-        mediaUrl: msg.mediaUrl ?? null,
-        mediaType: msg.mediaType ?? null,
-      },
-      update: {}, // ignore duplicates
-    });
-  }
-
-  async upsertReadReceipts(userId: number, readMessageIds: number[]) {
-    for (const messageId of readMessageIds) {
-      await this.db.messageReadReceipt.upsert({
-        where: { messageId_userId: { messageId, userId } },
-        update: { readAt: new Date() },
-        create: { messageId, userId, readAt: new Date() },
-      });
-    }
-  }
-
-  async saveSystemMessage(
-    consultationId: number,
-    content: string,
-    role: UserRole,
-  ): Promise<void> {
-    try {
-      await this.db.message.create({
-        data: {
-          consultationId,
-          content,
-          userId: 0, // no individual user for system messages
-          isSystem: true,
-          mediaType: null,
-          mediaUrl: null,
-          createdAt: new Date(),
-          clientUuid: `system-${Date.now()}-${Math.random()}`,
-        },
-      });
-      this.logger.log(
-        `Saved system message for consultation ${consultationId}: ${content}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to save system message for consultation ${consultationId}: ${error.message}`,
-        error.stack,
-      );
-    }
-  }
-
-  async saveMediaPermissionStatus(
-    consultationId: number,
-    userId: number,
-    status: { camera: string; microphone: string },
-  ): Promise<void> {
-    try {
-      await this.db.mediaPermissionStatus.upsert({
-        where: {
-          consultationId_userId: { consultationId, userId },
-        },
-        create: {
-          consultationId,
-          userId,
-          cameraStatus: status.camera,
-          microphoneStatus: status.microphone,
-          updatedAt: new Date(),
-        },
-        update: {
-          cameraStatus: status.camera,
-          microphoneStatus: status.microphone,
-          updatedAt: new Date(),
-        },
-      });
-
-      this.logger.log(
-        `Persisted media permission for consultation ${consultationId}, user ${userId}: cam=${status.camera}, mic=${status.microphone}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to persist media permission status for consultation ${consultationId}, user ${userId}`,
-        error.stack,
-      );
-    }
   }
 }
