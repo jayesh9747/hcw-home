@@ -14,6 +14,18 @@ export class ConfigService {
     return this.getNumber('PRODUCER_STATS_POLL_INTERVAL', 5000);
   }
 
+  get emailSendgridApiKey(): string {
+    return this.configService.get<string>('EMAIL_SENDGRID_API_KEY')!;
+  }
+
+  get emailSenderAddress(): string {
+    return this.configService.get<string>('EMAIL_SENDER_ADDRESS')!;
+  }
+
+  get emailReminderLeadMinutes(): number {
+    return Number(this.configService.get('EMAIL_REMINDER_LEAD_MINUTES')) || 60;
+  }
+
   get transportStatsPollInterval(): number {
     return this.getNumber('TRANSPORT_STATS_POLL_INTERVAL', 5000);
   }
