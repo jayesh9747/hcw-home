@@ -18,6 +18,9 @@ type RouterEntry = {
 
 @Injectable()
 export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
+  ensureRouterForConsultation(consultationId: any) {
+    throw new Error('Method not implemented.');
+  }
   private readonly logger = new Logger(MediasoupSessionService.name);
 
   private workers: mediasoup.types.Worker[] = [];
