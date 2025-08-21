@@ -17,11 +17,18 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { SmsProviderModule } from './sms_provider/sms_provider.module';
 import { WhatsappTemplateModule } from './whatsapp-template/whatsapp-template.module';
-
+import { LanguageModule } from './language/language.module';
+import { SpecialityModule } from './speciality/speciality.module';
+import { ExportModule } from './export/export.module';
+import { TermModule } from './term/term.module';
+import { LoggerModule } from './logger/logger.module';
+import { AvailabilityModule } from './availability/availability.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
     ConfigModule,
+    LoggerModule,
     DatabaseModule,
     HealthModule,
     AuthModule,
@@ -31,7 +38,13 @@ import { WhatsappTemplateModule } from './whatsapp-template/whatsapp-template.mo
     GroupModule,
     MediasoupModule,
     SmsProviderModule,
-    WhatsappTemplateModule
+    WhatsappTemplateModule,
+    LanguageModule,
+    SpecialityModule,
+    ExportModule,
+    TermModule,
+    AvailabilityModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [

@@ -5,4 +5,9 @@ export enum RoutePaths {
   ClosedConsultations = 'closed-consultations',
   Invitations = 'invites',
   Test = 'test',
+  Profile = 'profile',
+  Availability = 'availability',
+  Login='login',
+  AcceptTerm='accept-term',
+  FogetPassword='forgot-password'
 }

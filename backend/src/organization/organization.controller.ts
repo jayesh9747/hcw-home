@@ -9,6 +9,10 @@ import {
   Query,
   ParseIntPipe,
   Req,
+  HttpStatus,
+  UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -40,11 +44,25 @@ import { QueryMembersDto } from './dto/query-members.dto';
 import { OrganizationMemberResponseDto } from './dto/organization-member-response.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/auth/enums/role.enum';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+
+
+
+
 
 @ApiTags('organizations')
 @Controller('organization')
+@UseGuards(AuthGuard,RolesGuard)
 export class OrganizationController {
-  constructor(private readonly organizationService: OrganizationService) {}
+  constructor(
+    private readonly organizationService: OrganizationService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new organization' })
@@ -402,5 +420,21 @@ export class OrganizationController {
       requestId: req['id'],
       path: req.path,
     });
+  }
+  @Post('upload-logo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/logos',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async uploadLogo(@UploadedFile() file: Express.Multer.File) {
+    const fileUrl = `http://localhost:3000/uploads/logos/${file.filename}`;
+    return { url: fileUrl };
   }
 }

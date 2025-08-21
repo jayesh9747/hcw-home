@@ -1,0 +1,113 @@
+<div class="terms-container">
+  <h2 class="terms-header">
+    Terms
+    <button mat-raised-button color="primary" (click)="addNewTerm()">Add New Term</button>
+  </h2>
+
+  @if (loading) {
+  <div class="spinner-center">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+  }
+
+  @if (!loading) {
+  <div class="filter-container">
+    <mat-form-field appearance="outline">
+      <mat-label>Country</mat-label>
+      <mat-select [(value)]="filterCountry" (selectionChange)="onFilterChange()">
+        <mat-option value="">All</mat-option>
+        <mat-option *ngFor="let c of countryOptions" [value]="c">{{ c }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Language</mat-label>
+      <mat-select [(value)]="filterLanguage" (selectionChange)="onFilterChange()">
+        <mat-option value="">All</mat-option>
+        <mat-option *ngFor="let l of languageOptions" [value]="l">{{ l }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>organization</mat-label>
+      <mat-select [(value)]="filterOrganization" (selectionChange)="onFilterChange()">
+        <mat-option value="">All</mat-option>
+        @for (org of organizations; track org.id) {
+        <mat-option [value]="org.id">{{ org.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Sort By -->
+    <mat-form-field appearance="outline">
+      <mat-label>Sort By</mat-label>
+      <mat-select [(ngModel)]="sortBy" name="sortBy" (selectionChange)="onFilterChange()">
+        <mat-option value="version">Version</mat-option>
+        <mat-option value="id">Term ID</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Order -->
+    <mat-form-field appearance="outline">
+      <mat-label>Order</mat-label>
+      <mat-select [(ngModel)]="order" name="order" (selectionChange)="onFilterChange()">
+        <mat-option value="desc">High to Low</mat-option>
+        <mat-option value="asc">Low to High</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="mat-elevation-z8">
+    <table mat-table [dataSource]="terms" class="full-width-table">
+
+      <ng-container matColumnDef="organizationName">
+        <th mat-header-cell *matHeaderCellDef>Organization</th>
+        <td mat-cell *matCellDef="let term">{{ term.organizationName }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="country">
+        <th mat-header-cell *matHeaderCellDef>Country</th>
+        <td mat-cell *matCellDef="let term">{{ term.country }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="language">
+        <th mat-header-cell *matHeaderCellDef>Language</th>
+        <td mat-cell *matCellDef="let term">{{ term.language }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="version">
+        <th mat-header-cell *matHeaderCellDef>Version</th>
+        <td mat-cell *matCellDef="let term">{{ term.version }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="termId">
+        <th mat-header-cell *matHeaderCellDef>Term Id</th>
+        <td mat-cell *matCellDef="let term">{{ term.id }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let term">
+          <button mat-icon-button color="accent" (click)="editTerm(term.id)" matTooltip="Edit">
+            <svg-icon src="assets/svg/edit.svg" [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
+          </button>
+
+          <button mat-icon-button color="warn" (click)="deleteTerm(term)" matTooltip="Delete">
+            <svg-icon src="assets/svg/delete.svg" [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
+          </button>
+        </td>
+      </ng-container>
+
+
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+
+    </table>
+
+    <mat-paginator [length]="totalTerms" [pageSize]="pageSize" [pageIndex]="currentPage - 1"
+      [pageSizeOptions]="[5, 10, 20]" (page)="pageChange($event)">
+    </mat-paginator>
+  </div>
+  }
+</div>

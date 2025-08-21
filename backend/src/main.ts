@@ -1,33 +1,81 @@
-// main.ts
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
+import { CustomLoggerService } from './logger/logger.service';
 import { Environment } from './config/environment.enum';
+import passport from 'passport';
+import session from 'express-session';
+import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 class ApplicationBootstrap {
-  private readonly logger = new Logger('Bootstrap');
+  private logger: CustomLoggerService;
 
   async bootstrap(): Promise<void> {
     try {
       // Validate environment before creating app
       this.validateEnvironment();
 
-      const app = await NestFactory.create(AppModule);
+      const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-      // Get ConfigService after app is fully initialized
+      // Get services after app is fully initialized
       const configService = app.get(ConfigService);
+      this.logger = new CustomLoggerService(configService, 'Bootstrap');
+
+      // Use custom logger for the application
+      app.useLogger(this.logger);
+
+      // Configure global validation pipe
+      app.useGlobalPipes(
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+        }),
+      );
+
+      this.logger.logServerAction('Application initialization started', {
+        environment: configService.environment,
+        logFormat: configService.logFormat,
+      });
 
       // Configure application
       this.configureCors(app, configService);
       this.configureSwagger(app, configService);
       this.configureGlobalPrefix(app);
+      app.use(
+        session({
+          secret: 'your-secret',
+          resave: false,
+          saveUninitialized: true,
+          cookie: {
+            maxAge:6000000,
+          },
+        }),
+      );
+      app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+        prefix: '/uploads/',
+      });
+      this.logger.log('Static files served from /uploads');
+      // initialize passpport
+      app.use(passport.initialize());
+      app.use(passport.session()); 
 
       // Start application
       await this.startApplication(app, configService);
     } catch (error) {
-      this.logger.error('Failed to start application:', error.message);
+      // Use console.error as fallback if logger not initialized
+      if (this.logger) {
+        this.logger.errorServerAction(
+          'Failed to start application',
+          error.stack,
+          { error: error.message },
+        );
+      } else {
+        console.error('Failed to start application:', error.message);
+      }
       process.exit(1);
     }
   }
@@ -52,12 +100,21 @@ class ApplicationBootstrap {
         origin: configService.corsOrigin,
         credentials: true,
       });
-      this.logger.log(`CORS enabled for origin: ${configService.corsOrigin}`);
+
+      this.logger.logServerAction('CORS configuration enabled', {
+        origin: configService.corsOrigin,
+        credentials: true,
+      });
+    } else {
+      this.logger.logServerAction('CORS configuration disabled for production');
     }
   }
 
   private configureSwagger(app: any, configService: ConfigService): void {
     if (!configService.shouldEnableSwagger) {
+      this.logger.logServerAction('Swagger documentation disabled', {
+        environment: configService.environment,
+      });
       return;
     }
 
@@ -101,11 +158,21 @@ class ApplicationBootstrap {
       `,
     });
 
-    this.logger.log('Swagger documentation configured');
+    this.logger.logServerAction(
+      'Swagger documentation configured successfully',
+      {
+        title: swaggerConfig.title,
+        version: swaggerConfig.version,
+        endpoint: '/api/docs',
+      },
+    );
   }
 
   private configureGlobalPrefix(app: any): void {
     app.setGlobalPrefix('api/v1');
+    this.logger.logServerAction('Global API prefix configured', {
+      prefix: 'api/v1',
+    });
   }
 
   private async startApplication(
@@ -113,25 +180,51 @@ class ApplicationBootstrap {
     configService: ConfigService,
   ): Promise<void> {
     const port = configService.port;
+
+    this.logger.logServerAction('Starting HTTP server', {
+      port,
+      environment: configService.environment,
+    });
+
     await app.listen(port);
 
     this.logApplicationInfo(port, configService);
   }
 
   private logApplicationInfo(port: number, configService: ConfigService): void {
-    this.logger.log(
-      `Application is running on: http://localhost:${port}/api/v1`,
-    );
-    this.logger.log(`Environment: ${configService.environment}`);
+    this.logger.logServerAction(`Application started successfully on http://localhost:${port}/api/v1`, {
+      url: `http://localhost:${port}/api/v1`,
+      port,
+      environment: configService.environment,
+      timestamp: new Date().toISOString(),
+    });
 
     if (configService.shouldEnableSwagger) {
-      this.logger.log(`Swagger Docs: http://localhost:${port}/api/docs`);
+      this.logger.logServerAction('Swagger documentation available', {
+        url: `http://localhost:${port}/api/docs`,
+      });
     }
 
     // Log additional info in development
     if (configService.isDevelopment) {
-      this.logger.log(`Development mode features enabled`);
-      this.logger.log(`CORS Origin: ${configService.corsOrigin}`);
+      this.logger.logServerAction('Development mode features enabled', {
+        cors: configService.shouldEnableCors,
+        corsOrigin: configService.corsOrigin,
+        swagger: configService.shouldEnableSwagger,
+        logFormat: configService.logFormat,
+      });
+    }
+
+    // Log production warnings
+    if (configService.isProduction) {
+      this.logger.logServerAction(
+        'Production mode active - security features enabled',
+        {
+          corsDisabled: !configService.shouldEnableCors,
+          swaggerDisabled: !configService.shouldEnableSwagger,
+          errorMessagesDisabled: configService.shouldDisableErrorMessages,
+        },
+      );
     }
   }
 }

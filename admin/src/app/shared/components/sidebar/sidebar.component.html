@@ -1,0 +1,57 @@
+<mat-drawer-container class="container">
+  <mat-drawer
+    #sidenav
+    class="sidenav"
+    [mode]="isMobile ? 'over' : 'side'"
+    [opened]="isMobile ? isSidebarOpen : isSidebarVisible"
+    [disableClose]="!isMobile"
+    (closedStart)="isSidebarOpen = false"
+  >
+    <div class="sidebar">
+      <div class="sidebar-item home">
+        <a routerLink="/" (click)="closeSidebarOnMobile()"></a>
+      </div>
+
+      @for (item of sidebarItems; track item){
+        <a
+          class="sidebar-item"
+          routerLinkActive="active"
+          [routerLink]="item.route"
+          #rla="routerLinkActive"
+          [ngClass]="{ active: rla.isActive }"
+          (click)="closeSidebarOnMobile()"
+        >
+        <div class="icon">
+            <svg-icon [src]="'assets/svg/' + item.icon" [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
+        </div>
+          <div class="label">{{ item.label }}</div>
+        </a>
+      }
+    </div>
+  </mat-drawer>
+
+  <mat-drawer-content>
+    <div class="toolbar">
+      <button mat-icon-button class="hamburger" (click)="toggleSidebar()" aria-label="Toggle sidebar">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+
+      <div class="admin-logo-wrapper" *ngIf="isLoggedIn"[matMenuTriggerFor]="menu">
+        <svg-icon src="assets/svg/icon-admin.svg" [svgStyle]="{ width: '24px', height: '24px' }"></svg-icon>
+        <div class="admin-name">Hi,<span> {{ currentUser?.firstName || 'Admin' }}</span></div>
+      </div>
+      
+    </div>
+    <mat-menu #menu="matMenu">
+      <button mat-menu-item >Profile</button>
+
+      <button mat-menu-item class="logout" (click)="logout()">Logout</button>
+    </mat-menu>
+
+    <div class="content">
+      <ng-content></ng-content>
+    </div>
+  </mat-drawer-content>
+</mat-drawer-container>

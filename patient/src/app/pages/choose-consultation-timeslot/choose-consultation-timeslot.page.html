@@ -1,0 +1,134 @@
+<app-header [title]="'Book Appointment'"></app-header>
+<ion-content [fullscreen]="true" class="ion-padding white-bg">
+  <div class="page-container">
+    <!-- Assigned Practitioner Card -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="person-outline" slot="start"></ion-icon>
+          Assigned Practitioner
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-item *ngIf="selectedPractitioner" lines="none" class="practitioner-info">
+          <ion-avatar slot="start">
+            <ion-icon name="person-circle-outline" size="large"></ion-icon>
+          </ion-avatar>
+          <ion-label class="text-clr">
+            <h2>{{ selectedPractitioner.firstName }} {{ selectedPractitioner.lastName }}</h2>
+            <p *ngIf="selectedPractitioner.specialization">{{ selectedPractitioner.specialization }}</p>
+            <p *ngIf="getSlotDuration() > 0">Consultation Duration: {{ getSlotDuration() }} minutes</p>
+            <p *ngIf="getSlotDuration() === 0">Consultation Duration: 30 minutes</p>
+          </ion-label>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Select Date -->
+    <ion-card *ngIf="selectedPractitioner">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="calendar-outline" slot="start"></ion-icon>
+          Select Date
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content class="date-center">
+        <ion-datetime
+          presentation="date"
+          [min]="getMinDate()"
+          [max]="getMaxDate()"
+          [(ngModel)]="selectedDate"
+          (ionChange)="onDateChange()"
+          class="custom-datetime"
+        ></ion-datetime>
+
+        <ion-item *ngIf="selectedDate" lines="none" class="selected-date">
+          <ion-icon name="checkmark-circle" slot="start" color="success"></ion-icon>
+          <ion-label class="text-clr">
+            <h3>Selected Date</h3>
+            <p>{{ formatDate(selectedDate) }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Available Time Slots -->
+    <ion-card *ngIf="selectedPractitioner && selectedDate">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="time-outline" slot="start"></ion-icon>
+          Available Time Slots
+        </ion-card-title>
+        <ion-card-subtitle *ngIf="availableSlots.length > 0">
+          {{ availableSlots.length }} slots available
+        </ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <div *ngIf="availableSlots.length === 0 && !loading" class="no-slots">
+          <ion-icon name="calendar-clear-outline" size="large"></ion-icon>
+          <p>No available slots for this date</p>
+          <ion-button fill="outline" (click)="loadAvailableSlots()">
+            <ion-icon name="refresh-outline" slot="start"></ion-icon>
+            Refresh
+          </ion-button>
+        </div>
+
+        <div class="slots-grid" *ngIf="availableSlots.length > 0">
+          <ion-chip
+            *ngFor="let slot of availableSlots"
+            [class.selected]="selectedSlot?.id === slot.id"
+            [color]="selectedSlot?.id === slot.id ? 'primary' : 'medium'"
+            (click)="selectSlot(slot)"
+            class="slot-chip"
+          >
+            <ion-icon name="time-outline" *ngIf="selectedSlot?.id !== slot.id"></ion-icon>
+            <ion-icon name="checkmark-circle" *ngIf="selectedSlot?.id === slot.id"></ion-icon>
+            <ion-label>
+              {{ formatTime(slot.startTime) }} - {{ formatTime(slot.endTime) }}
+            </ion-label>
+          </ion-chip>
+        </div>
+
+        <ion-item *ngIf="selectedSlot" lines="none" class="selected-slot">
+          <ion-icon name="checkmark-circle" slot="start" color="success"></ion-icon>
+          <ion-label class="text-clr">
+            <h3>Selected Time</h3>
+            <p>{{ formatTime(selectedSlot.startTime) }} - {{ formatTime(selectedSlot.endTime) }}</p>
+          </ion-label>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Payment and Booking Actions -->
+    <ion-card *ngIf="selectedSlot">
+      <ion-card-content>
+        <!-- Proceed for Payment Button -->
+        <ion-button
+          expand="block"
+          (click)="proceedToPayment()"
+          class="payment-button"
+          size="large"
+          [disabled]="paymentCompleted"
+        >
+          <ion-icon
+            [name]="paymentCompleted ? 'checkmark-circle-outline' : 'card-outline'"
+            slot="start"
+          ></ion-icon>
+          {{ paymentCompleted ? 'Payment Completed' : 'Proceed for Payment' }}
+        </ion-button>
+
+        <!-- Book Appointment Button -->
+        <ion-button
+          expand="block"
+          (click)="bookAppointment()"
+          class="book-button"
+          size="large"
+          *ngIf="paymentCompleted"
+        >
+          <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+          Book Appointment
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

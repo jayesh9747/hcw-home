@@ -5,6 +5,8 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { ToastController } from '@ionic/angular';
 import { HeaderComponent } from 'src/app/components/header/header.component';
+import { star, starOutline } from 'ionicons/icons';
+import { addIcons } from 'ionicons';
 @Component({
   standalone: true,
   selector: 'app-post-feedback',
@@ -16,32 +18,35 @@ import { HeaderComponent } from 'src/app/components/header/header.component';
 
 export class PostConsultationFeedbackPage implements OnInit {
   feedbackForm!: FormGroup;
-  // feedbackForm: FormGroup;
-  mood: 'happy' | 'neutral' | 'sad' | '' = '';
+  rating: number = 0;
+  stars = Array(5).fill(0);
 
   constructor(
     private fb: FormBuilder,
     private router: Router,
     private toastCtrl: ToastController
-  ) {}
+  ) {
+    addIcons({
+    star,
+    starOutline
+  });
+  }
 
   ngOnInit() {
     this.feedbackForm = this.fb.group({
       comment: [''],
-      type: ['']
+      rating: [0, Validators.required]
     });
   }
 
-  selectMood(value: 'happy' | 'neutral' | 'sad') {
-    this.mood = value;
+  selectRating(value: number) {
+    this.rating = value;
+    this.feedbackForm.patchValue({ rating: value });
   }
 
   async submit() {
-    const feedback = {
-      mood: this.mood,
-      ...this.feedbackForm.value
-    };
-
+    const feedback = this.feedbackForm.value;
+    // console.log('Feedback submitted:', feedback);
     const toast = await this.toastCtrl.create({
       message: 'Thanks for your feedback!',
       duration: 2000,
@@ -52,10 +57,7 @@ export class PostConsultationFeedbackPage implements OnInit {
     this.router.navigate(['/patient-dashboard']);
   }
 
-  close() {
-    this.router.navigate(['/patient-dashboard']);
-  }
-    skipFeedback() {
+  skipFeedback() {
     this.router.navigate(['/patient-dashboard']);
   }
 }
