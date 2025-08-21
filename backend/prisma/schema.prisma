@@ -17,6 +17,14 @@ enum ConsultationStatus {
   TERMINATED_OPEN
 }
 
+enum InvitationStatus {
+  PENDING
+  USED
+  EXPIRED
+  REVOKED
+}
+
+
 model User {
   id                 Int                        @id @default(autoincrement())
   role               UserRole
@@ -49,12 +57,18 @@ model User {
   @@map("users")
   MessageReadReceipt MessageReadReceipt[]
   MediaPermissionStatus MediaPermissionStatus[]
+  ConsultationInvitesCreated ConsultationInvitation[] @relation("InvitesCreatedBy")
+  ConsultationInvitesReceived ConsultationInvitation[] @relation("InvitedUser")
+  MediaEvent         MediaEvent[]
+  messagesRead       Message[]  @relation("MessageReadBy")
 }
 
 enum UserRole {
   PATIENT
   PRACTITIONER
   ADMIN
+  EXPERT
+  GUEST
 }
 
 enum UserSex {
@@ -238,6 +252,36 @@ model Consultation {
   @@index([ownerId])
   @@map("consultation")
   MediaPermissionStatus MediaPermissionStatus[]
+  ConsultationInvitation ConsultationInvitation[]
+  MediaEvent             MediaEvent[]
+}
+
+model ConsultationInvitation {
+  id             String           @id @default(cuid())
+  consultationId Int
+  consultation   Consultation     @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  invitedUserId  Int?
+  invitedUser    User?            @relation("InvitedUser", fields: [invitedUserId], references: [id])
+
+  inviteEmail    String           @db.VarChar(255)  
+  name           String?          @db.VarChar(100)  
+  notes          String?          
+  role           UserRole
+  token          String           @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  status         InvitationStatus @default(PENDING)
+
+  createdById    Int
+  createdBy      User             @relation("InvitesCreatedBy", fields: [createdById], references: [id])
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("consultation_invitations")
+  @@index([consultationId])
+  @@index([inviteEmail])
 }
 
 model MediasoupServer {
@@ -347,6 +391,7 @@ model Message {
   @@index([consultationId])
   @@unique([clientUuid, consultationId, userId])  
   @@map("message")
+  User User[] @relation("MessageReadBy")
 }
 
 
@@ -485,7 +530,30 @@ enum TimeSlotStatus {
   BLOCKED
 }
 
-// tokens 
+model MediaEvent {
+  id             Int          @id @default(autoincrement())
+  consultationId Int
+  userId         Int
+  type           MediaEventType
+  createdAt      DateTime     @default(now())
+
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId])
+  @@index([userId])
+}
+
+enum MediaEventType {
+  USER_JOINED
+  USER_LEFT
+  CAM_ON
+  CAM_OFF
+  MIC_ON
+  MIC_OFF
+}
+
+// tokens
 enum TokenType {
   invite
   login

@@ -22,7 +22,7 @@ import {
 } from './dto/join-consultation.dto';
 import { UserIdParamPipe } from './validation/user-id-param.pipe';
 import { ConsultationIdParamPipe } from './validation/consultation-id-param.pipe';
-import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
+import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
 import { WaitingRoomPreviewResponseDto } from './dto/waiting-room-preview.dto';
 import {
   AdmitPatientDto,
@@ -59,13 +59,36 @@ import {
   OpenConsultationResponseDto,
   OpenConsultationQueryDto,
 } from './dto/open-consultation.dto';
-import { ResponseStatus } from 'src/common/helpers/response/response-status.enum';
+import { ResponseStatus } from '../common/helpers/response/response-status.enum';
+import { AddParticipantDto } from './dto/add-participant.dto';
 
 @ApiTags('consultation')
 @Controller('consultation')
 @UseGuards(ThrottlerGuard)
 export class ConsultationController {
   constructor(private readonly consultationService: ConsultationService) {}
+
+  @Post('/add-participant')
+  @ApiOperation({ summary: 'Add a participant to a consultation in real-time' })
+  @ApiBody({ type: AddParticipantDto })
+  @ApiOkResponse({
+    description: 'Participant added successfully',
+    type: ApiResponseDto,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async addParticipant(
+    @Body() addParticipantDto: AddParticipantDto,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<any> {
+    const result = await this.consultationService.addParticipantToConsultation(
+      addParticipantDto,
+      userId,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   @Post()
   @ApiOperation({
@@ -364,12 +387,11 @@ export class ConsultationController {
   ): Promise<any> {
     const consultations =
       await this.consultationService.getPatientConsultationHistory(patientId);
-
     return ApiResponseDto.success(
-        consultations,
-        'Patient consultation history fetched successfully',
-        HttpStatus.OK,
-      )
+      consultations,
+      'Patient consultation history fetched successfully',
+      HttpStatus.OK,
+    );
   }
 
   @Post('/patient/rate')
@@ -493,7 +515,6 @@ export class ConsultationController {
     @Param('id', ConsultationIdParamPipe) id: number,
     @Query('practitionerId', UserIdParamPipe) practitionerId: number,
   ): Promise<ApiResponseDto<ConsultationDetailDto>> {
-    // Use the service method to verify access and get details
     const data = await this.consultationService.getOpenConsultationDetails(
       id,
       practitionerId,

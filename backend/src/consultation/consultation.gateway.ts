@@ -6,15 +6,30 @@ import {
   SubscribeMessage,
   MessageBody,
   ConnectedSocket,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { forwardRef, Inject, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Logger, UseGuards } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
-import { DatabaseService } from 'src/database/database.service';
-import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import { DatabaseService } from '../database/database.service';
+import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { EndConsultationDto } from './dto/end-consultation.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
+import { ConsultationInvitationService } from './consultation-invitation.service';
+
+function sanitizePayload<T extends object, K extends keyof T>(
+  payload: T,
+  allowedFields: K[],
+): Pick<T, K> {
+  const sanitized = {} as Pick<T, K>;
+  for (const key of allowedFields) {
+    if (key in payload) {
+      sanitized[key] = payload[key];
+    }
+  }
+  return sanitized;
+}
 
 @WebSocketGateway({ namespace: '/consultation', cors: true })
 export class ConsultationGateway
@@ -37,6 +52,8 @@ export class ConsultationGateway
     private readonly consultationService: ConsultationService,
     @Inject(forwardRef(() => MediasoupSessionService))
     private readonly mediasoupSessionService: MediasoupSessionService,
+    @Inject(forwardRef(() => ConsultationInvitationService))
+    private readonly invitationService: ConsultationInvitationService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -46,30 +63,35 @@ export class ConsultationGateway
       const userId = Number(q.userId);
       const role = q.role as UserRole;
 
-      const allowedRoles = [UserRole.PATIENT, UserRole.PRACTITIONER] as const;
+      const allowedRoles = [
+        UserRole.PATIENT,
+        UserRole.PRACTITIONER,
+        UserRole.EXPERT,
+        UserRole.GUEST,
+      ] as const;
       if (!consultationId || !userId || !allowedRoles.includes(role as any)) {
         client.emit('error', { message: 'Invalid connection parameters.' });
         client.disconnect(true);
         return;
       }
 
-      // Check if the same role already connected (except patient can have multiple)
-      if (role === UserRole.PRACTITIONER) {
-        const connectedPractitioners =
+      if (
+        ([UserRole.PRACTITIONER, UserRole.EXPERT] as UserRole[]).includes(role)
+      ) {
+        const connectedSameRole =
           await this.databaseService.participant.findMany({
             where: {
               consultationId,
               isActive: true,
-              role: UserRole.PRACTITIONER,
+              role,
             },
           });
         if (
-          connectedPractitioners.length > 0 &&
-          !connectedPractitioners.some((p) => p.userId === userId)
+          connectedSameRole.length > 0 &&
+          !connectedSameRole.some((p) => p.userId === userId)
         ) {
           client.emit('error', {
-            message:
-              'Another practitioner is already connected to this consultation.',
+            message: `Another ${role.toLowerCase()} is already connected to this consultation.`,
           });
           client.disconnect(true);
           return;
@@ -77,8 +99,9 @@ export class ConsultationGateway
       }
 
       await client.join(`consultation:${consultationId}`);
-      if (role === UserRole.PRACTITIONER) {
-        await client.join(`practitioner:${userId}`);
+
+      if (role === UserRole.PRACTITIONER || role === UserRole.EXPERT) {
+        await client.join(`${role.toLowerCase()}:${userId}`);
       }
 
       client.data = { consultationId, userId, role };
@@ -109,18 +132,21 @@ export class ConsultationGateway
       );
 
       const nowISO = new Date().toISOString();
+
+      const roleLabels = {
+        [UserRole.PATIENT]: 'Patient',
+        [UserRole.PRACTITIONER]: 'Practitioner',
+        [UserRole.EXPERT]: 'Expert',
+        [UserRole.GUEST]: 'Guest',
+      };
       this.server.to(`consultation:${consultationId}`).emit('system_message', {
         type: 'user_joined',
         userId,
         role,
         timestamp: nowISO,
-        message:
-          role === UserRole.PATIENT
-            ? `Patient joined the consultation`
-            : `Practitioner joined the consultation`,
+        message: `${roleLabels[role]} joined the consultation`,
       });
 
-      // If patient joins and consultation is waiting, emit "waiting for participant" system message
       if (role === UserRole.PATIENT) {
         const consultation = await this.databaseService.consultation.findUnique(
           {
@@ -141,8 +167,7 @@ export class ConsultationGateway
         }
       }
 
-      // Notify patients when practitioner joins
-      if (role === UserRole.PRACTITIONER) {
+      if (role === UserRole.PRACTITIONER || role === UserRole.EXPERT) {
         const patientParticipants =
           await this.databaseService.participant.findMany({
             where: { consultationId, role: UserRole.PATIENT, isActive: true },
@@ -154,12 +179,11 @@ export class ConsultationGateway
             .emit('doctor_joined', {
               consultationId,
               practitionerId: userId,
-              message: 'Doctor has joined. You may now join the consultation.',
+              message: `${roleLabels[role]} has joined. You may now join the consultation.`,
             });
         }
       }
 
-      // Patient connection logic
       if (role === UserRole.PATIENT) {
         const consultation = await this.databaseService.consultation.findUnique(
           {
@@ -181,7 +205,7 @@ export class ConsultationGateway
             const now = Date.now();
             const lastNotified =
               this.joinNotificationDebounce.get(debounceKey) ?? 0;
-            const debounceDurationMs = 60 * 1000; // 1 minute debounce
+            const debounceDurationMs = 60 * 1000;
 
             if (now - lastNotified > debounceDurationMs) {
               this.server
@@ -266,20 +290,23 @@ export class ConsultationGateway
       });
       if (!consultation) return;
 
+      const roleLabels = {
+        [UserRole.PATIENT]: 'Patient',
+        [UserRole.PRACTITIONER]: 'Practitioner',
+        [UserRole.EXPERT]: 'Expert',
+        [UserRole.GUEST]: 'Guest',
+      };
+
       const nowISO = new Date().toISOString();
       this.server.to(`consultation:${consultationId}`).emit('system_message', {
         type: 'user_left',
         userId,
         role,
         timestamp: nowISO,
-        message:
-          role === UserRole.PATIENT
-            ? `Patient left the consultation`
-            : `Practitioner left the consultation`,
+        message: `${roleLabels[role]} left the consultation`,
       });
 
-      // Practitioner leaves => terminate session and cleanup
-      if (role === UserRole.PRACTITIONER) {
+      if (role === UserRole.PRACTITIONER || role === UserRole.EXPERT) {
         await this.databaseService.consultation.update({
           where: { id: consultationId },
           data: { status: ConsultationStatus.TERMINATED_OPEN },
@@ -305,11 +332,10 @@ export class ConsultationGateway
           .to(`consultation:${consultationId}`)
           .emit('consultation_terminated', {
             consultationId,
-            reason: 'Practitioner disconnected',
+            reason: `${roleLabels[role]} disconnected`,
           });
       }
 
-      // When all patients leave and status is waiting, revert status to scheduled
       if (role === UserRole.PATIENT) {
         const activePatients = await this.databaseService.participant.findMany({
           where: { consultationId, role: UserRole.PATIENT, isActive: true },
@@ -356,7 +382,6 @@ export class ConsultationGateway
       );
 
       if (admissionResult.success) {
-        // Ensure mediasoup router is ready for the consultation
         let mediasoupRouter =
           this.mediasoupSessionService.getRouter(consultationId);
         if (!mediasoupRouter) {
@@ -369,7 +394,6 @@ export class ConsultationGateway
           );
         }
 
-        // Notify all participants of status change and mediasoup session
         this.server
           .to(`consultation:${consultationId}`)
           .emit('consultation_status', {
@@ -389,6 +413,203 @@ export class ConsultationGateway
         message: 'Failed to admit patient',
         details: error.message,
       });
+    }
+  }
+
+  @UseGuards()
+  @SubscribeMessage('invite_participant')
+  async handleInviteParticipant(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: {
+      consultationId: number;
+      inviteEmail: string;
+      role: UserRole;
+      name?: string;
+      notes?: string;
+    },
+  ) {
+    try {
+      const { consultationId, inviteEmail, role, name, notes } =
+        sanitizePayload(data, [
+          'consultationId',
+          'inviteEmail',
+          'role',
+          'name',
+          'notes',
+        ]);
+
+      if (!consultationId || !inviteEmail || !role) {
+        throw new WsException(
+          'consultationId, inviteEmail, and role are required',
+        );
+      }
+
+      const normalisedEmail = inviteEmail.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalisedEmail)) {
+        throw new WsException('Invalid email address format');
+      }
+
+      const allowedRoles: UserRole[] = [
+        UserRole.PATIENT,
+        UserRole.EXPERT,
+        UserRole.GUEST,
+      ];
+      if (!allowedRoles.includes(role)) {
+        throw new WsException(`Invalid invitation role: ${role}`);
+      }
+
+      const userRole = client.data.role;
+      const userId = client.data.user.id;
+      if (userRole !== UserRole.PRACTITIONER && userRole !== UserRole.ADMIN) {
+        throw new WsException('Not authorized to invite participants');
+      }
+      if (userRole === UserRole.PRACTITIONER) {
+        const consultation = await this.databaseService.consultation.findUnique(
+          {
+            where: { id: consultationId },
+            select: { ownerId: true },
+          },
+        );
+        if (!consultation || consultation.ownerId !== userId) {
+          throw new WsException('You are not the owner of this consultation');
+        }
+      }
+
+      const invitation = await this.invitationService.createInvitationEmail(
+        consultationId,
+        userId,
+        normalisedEmail,
+        role,
+        name,
+        notes,
+      );
+
+      client.emit('participant_invited', {
+        consultationId,
+        inviteEmail: normalisedEmail,
+        role,
+        name,
+        notes,
+        token: invitation.token,
+        expiresAt: invitation.expiresAt,
+      });
+
+      this.logger.log(
+        `Participant invited: email=${normalisedEmail} role=${role} consultation=${consultationId} by user=${userId}`,
+      );
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('participant_invitation_sent', {
+          consultationId,
+          inviteEmail: normalisedEmail,
+          role,
+          name,
+          notes,
+        });
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('participant_added', {
+          consultationId,
+          participant: invitation,
+        });
+    } catch (error) {
+      this.logger.error('invite_participant failed:', error);
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards()
+  @SubscribeMessage('join_via_invite')
+  async handleJoinViaInvite(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody() data: { token: string; userId: number },
+  ) {
+    try {
+      const { token, userId } = data;
+      if (!token) {
+        throw new WsException('Invitation token is required');
+      }
+      if (typeof userId !== 'number') {
+        throw new WsException('userId is required to join as a participant');
+      }
+
+      const invitation = await this.invitationService.validateToken(token);
+      const consultationId = invitation.consultationId;
+
+      await this.invitationService.markUsed(token, userId);
+
+      const now = new Date();
+      let participant = await this.databaseService.participant.findUnique({
+        where: {
+          consultationId_userId: { consultationId, userId },
+        },
+      });
+
+      if (!participant) {
+        participant = await this.databaseService.participant.create({
+          data: {
+            consultationId,
+            userId,
+            role: invitation.role,
+            isActive: true,
+            joinedAt: now,
+            inWaitingRoom: false,
+            lastActiveAt: now,
+          },
+        });
+      } else {
+        await this.databaseService.participant.update({
+          where: {
+            consultationId_userId: { consultationId, userId },
+          },
+          data: {
+            isActive: true,
+            joinedAt: now,
+            inWaitingRoom: false,
+            lastActiveAt: now,
+          },
+        });
+      }
+
+      await this.mediasoupSessionService.ensureRouterForConsultation(
+        consultationId,
+      );
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('participant_invite_joined', {
+          userId,
+          consultationId,
+          role: invitation.role,
+          joinedAt: participant.joinedAt,
+        });
+
+      if (invitation.role === UserRole.PATIENT) {
+        const consultation = await this.databaseService.consultation.findUnique(
+          {
+            where: { id: consultationId },
+            select: { ownerId: true },
+          },
+        );
+        if (consultation?.ownerId) {
+          this.server
+            .to(`practitioner:${consultation.ownerId}`)
+            .emit('patient_waiting', {
+              consultationId,
+              patientId: userId,
+              message: 'Patient joined via invitation and is waiting.',
+              joinTime: now,
+            });
+        }
+      }
+
+      return { success: true, consultationId, role: invitation.role };
+    } catch (error) {
+      this.logger.error('join_via_invite error:', error);
+      throw new WsException(error.message);
     }
   }
 
@@ -453,171 +674,6 @@ export class ConsultationGateway
         details: error.message,
       });
     }
-  }
-
-  @SubscribeMessage('fetch_messages')
-  async handleFetchMessages(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: { consultationId: number; beforeId?: number; limit?: number },
-  ) {
-    try {
-      const messages = await this.consultationService.getMessages(
-        data.consultationId,
-        data.beforeId,
-        data.limit ?? 30,
-      );
-      client.emit('messages_page', { messages: messages.reverse() });
-    } catch (err) {
-      this.logger.error('Fetch messages error', err.stack);
-      client.emit('error', {
-        message: 'Failed to fetch messages',
-        details: err.message,
-      });
-    }
-  }
-
-  @SubscribeMessage('sync_read_receipts')
-  async handleSyncReadReceipts(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { consultationId: number; readMessageIds: number[] },
-  ) {
-    try {
-      const { userId } = client.data;
-      const { consultationId, readMessageIds } = data;
-      for (const messageId of readMessageIds) {
-        await this.databaseService.messageReadReceipt.upsert({
-          where: { messageId_userId: { messageId, userId } },
-          update: { readAt: new Date() },
-          create: { messageId, userId, readAt: new Date() },
-        });
-        this.server.to(`consultation:${consultationId}`).emit('message_read', {
-          messageId,
-          userId,
-          readAt: new Date(),
-        });
-      }
-    } catch (err) {
-      this.logger.error('Sync read receipts error', err.stack);
-      client.emit('error', {
-        message: 'Failed to synchronize read receipts',
-        details: err.message,
-      });
-    }
-  }
-
-  @SubscribeMessage('send_message')
-  async handleSendMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
-      consultationId: number;
-      userId: number;
-      content: string;
-      clientUuid: string;
-      mediaUrl?: string;
-      mediaType?: string;
-    },
-  ) {
-    try {
-      if (
-        !data.content ||
-        typeof data.content !== 'string' ||
-        data.content.trim().length === 0 ||
-        data.content.length > 2000
-      ) {
-        return;
-      }
-
-      const message = await this.databaseService.message.create({
-        data: {
-          consultationId: data.consultationId,
-          userId: data.userId,
-          content: data.content,
-          clientUuid: data.clientUuid,
-          mediaUrl: data.mediaUrl ?? null,
-          mediaType: data.mediaType ?? null,
-        },
-      });
-
-      this.server
-        .to(`consultation:${data.consultationId}`)
-        .emit('new_message', {
-          id: message.id,
-          userId: data.userId,
-          content: data.content,
-          clientUuid: data.clientUuid,
-          mediaUrl: data.mediaUrl ?? null,
-          mediaType: data.mediaType ?? null,
-          timestamp: message.createdAt,
-          role: client.data.role,
-        });
-    } catch (error) {
-      this.logger.error('Send message error', error.stack);
-      client.emit('error', {
-        message: 'Failed to send message',
-        details: error.message,
-      });
-    }
-  }
-
-  @SubscribeMessage('message_read')
-  async handleMessageRead(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { messageId: number; userId: number },
-  ) {
-    try {
-      await this.databaseService.messageReadReceipt.upsert({
-        where: {
-          messageId_userId: { messageId: data.messageId, userId: data.userId },
-        },
-        update: { readAt: new Date() },
-        create: {
-          messageId: data.messageId,
-          userId: data.userId,
-          readAt: new Date(),
-        },
-      });
-
-      const message = await this.databaseService.message.findUnique({
-        where: { id: data.messageId },
-      });
-      if (message?.consultationId) {
-        this.server
-          .to(`consultation:${message.consultationId}`)
-          .emit('message_read', {
-            messageId: data.messageId,
-            userId: data.userId,
-            readAt: new Date(),
-          });
-      }
-    } catch (error) {
-      this.logger.error('Message read update failed', error.stack);
-      client.emit('error', {
-        message: 'Failed to update read receipt',
-        details: error.message,
-      });
-    }
-  }
-
-  @SubscribeMessage('typing')
-  async handleTyping(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { consultationId: number; userId: number },
-  ) {
-    this.server
-      .to(`consultation:${data.consultationId}`)
-      .emit('typing', { userId: data.userId });
-  }
-
-  @SubscribeMessage('stop_typing')
-  async handleStopTyping(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: { consultationId: number; userId: number },
-  ) {
-    this.server
-      .to(`consultation:${data.consultationId}`)
-      .emit('stop_typing', { userId: data.userId });
   }
 
   @SubscribeMessage('rate_consultation')
@@ -766,12 +822,6 @@ export class ConsultationGateway
           microphone,
           timestamp: new Date().toISOString(),
         });
-
-      await this.consultationService.saveMediaPermissionStatus(
-        consultationId,
-        userId,
-        { camera, microphone },
-      );
     } catch (error) {
       this.logger.error(
         'Error handling media_permission_status event',

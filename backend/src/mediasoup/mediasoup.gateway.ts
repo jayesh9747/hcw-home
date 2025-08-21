@@ -14,10 +14,16 @@ import { Logger, UseGuards, Inject, forwardRef } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import { Server, Socket } from 'socket.io';
 import { MediasoupSessionService } from './mediasoup-session.service';
-import { WsAuthGuard } from 'src/auth/guards/ws-auth.guard';
-import { sanitizePayload } from 'src/common/helpers/sanitize.helper';
-import { DatabaseService } from 'src/database/database.service';
-import { ConsultationService } from 'src/consultation/consultation.service';
+import { WsAuthGuard } from '../auth/guards/ws-auth.guard';
+import { sanitizePayload } from '../common/helpers/sanitize.helper';
+import { DatabaseService } from '../database/database.service';
+import { ConsultationService } from '../consultation/consultation.service';
+import { ConsultationInvitationService } from '../consultation/consultation-invitation.service';
+import { UserRole } from '@prisma/client';
+
+import { MediaEventService } from './media-event.service';
+import { ChatService } from '../chat/chat.service';
+import { MediaEventType } from '@prisma/client';
 
 @WebSocketGateway({ namespace: '/mediasoup', cors: true })
 export class MediasoupGateway
@@ -34,7 +40,11 @@ export class MediasoupGateway
     private readonly mediasoupService: MediasoupSessionService,
     @Inject(forwardRef(() => ConsultationService))
     private readonly consultationService: ConsultationService,
+    @Inject(forwardRef(() => ConsultationInvitationService))
+    private readonly invitationService: ConsultationInvitationService,
     private readonly databaseService: DatabaseService,
+    private readonly mediaEventService: MediaEventService,
+    private readonly chatService: ChatService,
   ) {}
 
   afterInit(): void {
@@ -51,19 +61,49 @@ export class MediasoupGateway
     return !!participant;
   }
 
-  async handleConnection(client: Socket) {
+  @UseGuards(WsAuthGuard)
+  async handleConnection(client: Socket & { data: any }) {
     this.logger.log(
       `Client connected: ${client.id} [${client.handshake.address}]`,
     );
     this.clientTransports.set(client.id, new Set());
     this.clientProducers.set(client.id, new Set());
     this.clientConsumers.set(client.id, new Set());
+
+    const { consultationId, userId } = client.handshake.query;
+    if (consultationId && userId) {
+      client.data = { consultationId: +consultationId, userId: +userId };
+      await this.mediaEventService.createMediaEvent(
+        +consultationId,
+        +userId,
+        MediaEventType.USER_JOINED,
+      );
+      await this.chatService.createSystemMessage(
+        +consultationId,
+        `User ${userId} joined the consultation.`,
+      );
+    }
   }
 
-  async handleDisconnect(client: Socket) {
+  @UseGuards(WsAuthGuard)
+  async handleDisconnect(client: Socket & { data: any }) {
     this.logger.log(
       `Client disconnected: ${client.id} [${client.handshake.address}]`,
     );
+
+    const { consultationId, userId } = client.data;
+    if (consultationId && userId) {
+      await this.mediaEventService.createMediaEvent(
+        consultationId,
+        userId,
+        MediaEventType.USER_LEFT,
+      );
+      await this.chatService.createSystemMessage(
+        consultationId,
+        `User ${userId} left the consultation.`,
+      );
+    }
+
     const transports = this.clientTransports.get(client.id) || [];
     for (const transportId of transports) {
       try {
@@ -97,6 +137,40 @@ export class MediasoupGateway
     this.clientTransports.delete(client.id);
     this.clientProducers.delete(client.id);
     this.clientConsumers.delete(client.id);
+  }
+
+  @SubscribeMessage('mediaAction')
+  async handleMediaAction(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      type: MediaEventType;
+    },
+  ) {
+    const { consultationId, userId, type } = data;
+    await this.mediaEventService.createMediaEvent(consultationId, userId, type);
+
+    let message = '';
+    switch (type) {
+      case MediaEventType.CAM_ON:
+        message = `User ${userId} turned on their camera.`;
+        break;
+      case MediaEventType.CAM_OFF:
+        message = `User ${userId} turned off their camera.`;
+        break;
+      case MediaEventType.MIC_ON:
+        message = `User ${userId} turned on their microphone.`;
+        break;
+      case MediaEventType.MIC_OFF:
+        message = `User ${userId} turned off their microphone.`;
+        break;
+    }
+
+    if (message) {
+      await this.chatService.createSystemMessage(consultationId, message);
+    }
   }
 
   @UseGuards(WsAuthGuard)
@@ -598,6 +672,119 @@ export class MediasoupGateway
         event: 'client_reconnect',
         message: error.message,
       });
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('invite_participant_email')
+  async handleInviteParticipantEmail(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody()
+    data: { consultationId: number; inviteEmail: string; role: UserRole },
+  ) {
+    try {
+      const { consultationId, inviteEmail, role } = sanitizePayload(data, [
+        'consultationId',
+        'inviteEmail',
+        'role',
+      ]);
+      if (!consultationId || !inviteEmail || !role) {
+        throw new WsException(
+          'consultationId, inviteEmail and role are required',
+        );
+      }
+
+      // Verify user permission - practitioner/admin of consultation
+      const userRole = client.data.role;
+      const userId = client.data.user.id;
+      if (userRole !== UserRole.PRACTITIONER && userRole !== UserRole.ADMIN) {
+        throw new WsException('Not authorized to invite participants');
+      }
+
+      // Create invitation record and send email
+      const invitation = await this.invitationService.createInvitationEmail(
+        consultationId,
+        userId,
+        inviteEmail,
+        role,
+      );
+
+      // Emit back the invite explicitly to inviter client
+      client.emit('participant_invited', {
+        consultationId,
+        inviteEmail,
+        role,
+        token: invitation.token,
+        expiresAt: invitation.expiresAt,
+      });
+
+      this.logger.log(
+        `Participant invited: email=${inviteEmail} role=${role} consultation=${consultationId} by user=${userId}`,
+      );
+    } catch (error) {
+      this.logger.error('invite_participant_email failed:', error);
+      throw new WsException(error.message);
+    }
+  }
+
+  @UseGuards(WsAuthGuard)
+  @SubscribeMessage('join_via_invite')
+  async handleJoinViaInvite(
+    @ConnectedSocket() client: Socket & { data: any },
+    @MessageBody() data: { token: string; userId?: number },
+  ) {
+    try {
+      const { token, userId } = data;
+      if (!token) {
+        throw new WsException('Invitation token is required');
+      }
+
+      const invitation = await this.invitationService.validateToken(token);
+      const consultationId = invitation.consultationId;
+
+      if (userId) {
+        await this.invitationService.markUsed(token, userId);
+      }
+
+      if (typeof userId !== 'number') {
+        throw new WsException('userId is required to join as a participant');
+      }
+      let participant = await this.databaseService.participant.findUnique({
+        where: {
+          consultationId_userId: { consultationId, userId },
+        },
+      });
+
+      if (!participant) {
+        if (typeof userId !== 'number') {
+          throw new WsException('userId is required to join as a participant');
+        }
+        participant = await this.databaseService.participant.create({
+          data: {
+            consultationId,
+            userId,
+            role: invitation.role,
+            isActive: false,
+            joinedAt: null,
+          },
+        });
+      }
+
+      await this.mediasoupService.ensureRouterForConsultation(consultationId);
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('participant_invite_joined', {
+          userId,
+          consultationId,
+          role: invitation.role,
+          joinedAt: participant.joinedAt,
+        });
+
+      return { success: true, consultationId, role: invitation.role };
+    } catch (error) {
+      this.logger.error('join_via_invite error:', error);
       throw new WsException(error.message);
     }
   }
