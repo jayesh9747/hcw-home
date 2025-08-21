@@ -24,6 +24,7 @@ import { LoggerModule } from './logger/logger.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { ReminderModule } from './reminder/reminder.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AvailabilityModule,
     ScheduleModule.forRoot(),
     ReminderModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [
