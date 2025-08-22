@@ -13,6 +13,7 @@ import PDFDocument from 'pdfkit';
 import { PassThrough } from 'stream';
 import concat from 'concat-stream';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { ConsultationGateway } from './consultation.gateway';
 import { HttpExceptionHelper } from '../common/helpers/execption/http-exception.helper';
 import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
@@ -48,6 +49,9 @@ import {
   OpenConsultationPatientDto,
   OpenConsultationResponseDto,
 } from './dto/open-consultation.dto';
+import { EmailService } from 'src/common/email/email.service';
+import { AddParticipantDto } from './dto/add-participant.dto';
+import { CreatePatientConsultationDto, CreatePatientConsultationResponseDto } from './dto/invite-form.dto';
 
 type ConsultationWithParticipants = Consultation & {
   participants: (Participant & { user: User })[];
