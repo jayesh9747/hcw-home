@@ -4,6 +4,9 @@ import { Environment } from './environment.enum';
 
 @Injectable()
 export class ConfigService {
+  get<T>(arg0: string) {
+    throw new Error('Method not implemented.');
+  }
   constructor(private readonly configService: NestConfigService) {}
 
   get port(): number {
