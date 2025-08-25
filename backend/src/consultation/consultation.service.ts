@@ -37,9 +37,11 @@ import {
   ConsultationPatientHistoryItemDto,
 } from './dto/consultation-patient-history.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
-import { ConfigService } from '../config/config.service';
-import { AvailabilityService } from '../availability/availability.service';
-import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
+import { RateConsultationDto } from './dto/rate-consultation.dto';
+import { ConfigService } from 'src/config/config.service';
+import { AvailabilityService } from 'src/availability/availability.service';
+import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import { ReminderService } from 'src/reminder/reminder.service';
 import {
   CloseConsultationResponseDto,
   OpenConsultationItemDto,
@@ -68,6 +70,7 @@ export class ConsultationService {
     private readonly mediasoupSessionService: MediasoupSessionService,
     @Inject(forwardRef(() => ConsultationGateway))
     private readonly consultationGateway: ConsultationGateway,
+    private readonly reminderService: ReminderService,
   ) {}
 
   async addParticipantToConsultation(
@@ -267,11 +270,26 @@ export class ConsultationService {
       createData.owner = ownerConnect;
     }
 
+    // Set reminderEnabled based on the DTO if provided
+    if (createDto.reminderConfig?.enabled !== undefined) {
+      createData.reminderEnabled = createDto.reminderConfig.enabled;
+    }
+
     const consultation = await this.db.consultation.create({
       data: createData,
       include: { participants: true },
     });
-
+    // Schedule reminders if consultation has a scheduled date and reminders are enabled
+    if (consultation.scheduledDate && consultation.reminderEnabled && consultation.status === ConsultationStatus.SCHEDULED) {
+      try {
+        await this.reminderService.scheduleReminders(
+          consultation.id,
+          consultation.scheduledDate,
+          createDto.reminderConfig?.types
+        );
+      } catch (error) {
+        this.logger.error(`Failed to schedule reminders for consultation ${consultation.id}:`, error);
+        // Continue despite reminder scheduling failure
     if (createDto.participants && createDto.participants.length > 0) {
       for (const participantDto of createDto.participants) {
         if (!participantDto.email) {
@@ -1128,6 +1146,14 @@ export class ConsultationService {
       this.logger.log(
         `Consultation ${endDto.consultationId} ended by user ${userId} in ${durationMs}ms`,
       );
+
+      // Cancel any pending reminders
+      try {
+        await this.reminderService.cancelReminders(endDto.consultationId);
+      } catch (error) {
+        this.logger.error(`Failed to cancel reminders for consultation ${endDto.consultationId}:`, error);
+        // Continue despite reminder cancellation failure
+      }
 
       const responsePayload: EndConsultationResponseDto = {
         success: true,
