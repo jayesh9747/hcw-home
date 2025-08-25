@@ -23,6 +23,8 @@ import { ExportModule } from './export/export.module';
 import { TermModule } from './term/term.module';
 import { LoggerModule } from './logger/logger.module';
 import { AvailabilityModule } from './availability/availability.module';
+import { ReminderModule } from './reminder/reminder.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationModule } from './notification/notification.module';
 
 @Module({
@@ -44,6 +46,8 @@ import { NotificationModule } from './notification/notification.module';
     ExportModule,
     TermModule,
     AvailabilityModule,
+    ScheduleModule.forRoot(),
+    ReminderModule,
     NotificationModule,
   ],
   controllers: [AppController],
