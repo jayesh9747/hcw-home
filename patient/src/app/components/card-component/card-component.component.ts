@@ -12,6 +12,7 @@ import {
   calendarOutline, checkmarkCircle 
 } from 'ionicons/icons';
 
+import { AuthService } from 'src/app/services/auth.service';
 import { Router } from '@angular/router';
 import { Consultation } from 'src/app/services/consultation.service';
 import { JoinConsultationService } from 'src/app/services/joinConsultation.service';
@@ -41,7 +42,8 @@ export class CardComponentComponent {
   constructor(
     private router: Router,
     private toastController: ToastController,
-    private joinConsultationService: JoinConsultationService
+    private joinConsultationService: JoinConsultationService,
+    private authService: AuthService
   ){
     addIcons({
       videocamOutline, 
@@ -56,7 +58,15 @@ export class CardComponentComponent {
 
 
     async joinConsultation(consultationId: number) {
-      const userId = 123; // fetch
+      
+      const user = this.authService.getCurrentUser();
+      const userId = user?.id; 
+      
+      if (!userId) {
+        this.presentToast('Please log in to join consultation.');
+        return;
+      }
+
       this.joinConsultationService.joinConsultation(consultationId, userId)
       .subscribe({
         next: (response: any) => {
