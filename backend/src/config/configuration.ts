@@ -45,10 +45,23 @@ export default () => ({
     issuer: process.env.OPENID_ISSUER_URL,
     authorizationURL: process.env.OPENID_AUTHORIZATION_URL,
     tokenURL: process.env.OPENID_TOKEN_URL,
-    userInfoURL:process.env.OPENID_USERINFO_URL,
+    userInfoURL: process.env.OPENID_USERINFO_URL,
     clientID: process.env.OPENID_CLIENT_ID,
     clientSecret: process.env.OPENID_CLIENT_SECRET,
     callbackBaseURL: process.env.OPENID_CALLBACK_BASE_URL,
     scope: (process.env.OPENID_SCOPE || 'openid,profile,email').split(','),
-  },  
+  },
+  cloudinary: {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  },
+  whatsapp: {
+    templatesPath:
+      process.env.WHATSAPP_TEMPLATES_PATH || 'src/json/whatsapp-templates.json',
+  },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+  },
 });

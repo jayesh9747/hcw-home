@@ -40,6 +40,13 @@ enum RefundStatus {
   FAILED
   CANCELLED
 }
+enum InvitationStatus {
+  PENDING
+  USED
+  EXPIRED
+  REVOKED
+}
+
 
 model User {
   id                 Int                        @id @default(autoincrement())
@@ -70,17 +77,36 @@ model User {
   timeSlots          TimeSlot[]                 @relation("PractitionerTimeSlots")
   Consultation       Consultation[]
   ConsultationRating ConsultationRating[]
+  UserNotificationSetting UserNotificationSetting?
 
   @@map("users")
   MessageReadReceipt MessageReadReceipt[]
   MediaPermissionStatus MediaPermissionStatus[]
   payments           Payment[]           
+  ConsultationInvitesCreated ConsultationInvitation[] @relation("InvitesCreatedBy")
+  ConsultationInvitesReceived ConsultationInvitation[] @relation("InvitedUser")
+  MediaEvent         MediaEvent[]
+  messagesRead       Message[]  @relation("MessageReadBy")
 }
+model UserNotificationSetting {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id])
+  enabled     Boolean  @default(true)   // toggle all notifications
+  phone       String?  @db.VarChar(20)  // preferred phone for notifications
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_notification_settings")
+}
+
 
 enum UserRole {
   PATIENT
   PRACTITIONER
   ADMIN
+  EXPERT
+  GUEST
 }
 
 enum UserSex {
@@ -250,6 +276,8 @@ model Consultation {
   version              Int                @default(1)
   isDeleted            Boolean            @default(false)
   requiresPayment      Boolean            @default(true)  // New field
+  reminderEnabled      Boolean            @default(true)
+  remindersSent        Json?              @default("{}")
 
   participants           Participant[]
   group                  Group?                   @relation(fields: [groupId], references: [id])
@@ -262,11 +290,42 @@ model Consultation {
   rating                 ConsultationRating?
   MediasoupTransport     MediasoupTransport[]
   payment                Payment?       
+  reminders              ConsultationReminder[]
 
   @@index([status])
   @@index([ownerId])
   @@map("consultation")
   MediaPermissionStatus MediaPermissionStatus[]
+  ConsultationInvitation ConsultationInvitation[]
+  MediaEvent             MediaEvent[]
+}
+
+model ConsultationInvitation {
+  id             String           @id @default(cuid())
+  consultationId Int
+  consultation   Consultation     @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  invitedUserId  Int?
+  invitedUser    User?            @relation("InvitedUser", fields: [invitedUserId], references: [id])
+
+  inviteEmail    String           @db.VarChar(255)  
+  name           String?          @db.VarChar(100)  
+  notes          String?          
+  role           UserRole
+  token          String           @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  status         InvitationStatus @default(PENDING)
+
+  createdById    Int
+  createdBy      User             @relation("InvitesCreatedBy", fields: [createdById], references: [id])
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("consultation_invitations")
+  @@index([consultationId])
+  @@index([inviteEmail])
 }
 
 model PaymentConfig {
@@ -440,8 +499,42 @@ model Message {
   @@index([consultationId])
   @@unique([clientUuid, consultationId, userId])  
   @@map("message")
+  User User[] @relation("MessageReadBy")
 }
 
+enum Category {
+  UTILITY
+  MARKETING
+  AUTHENTICATION
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DRAFT
+  UNKNOWN
+  RECEIVED
+}
+
+model Whatsapp_Template {
+id             Int      @id @default(autoincrement())
+  sid            String?
+  friendlyName   String
+  language       String
+  key            String?
+  category       Category?
+  contentType    String?
+  variables      Json?    @default("{}")
+  types          Json?
+  url            String?
+  actions        Json?
+  approvalStatus ApprovalStatus @default(DRAFT)
+  rejectionReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("whatsapp_templates")
 
 model MessageReadReceipt {
   id        Int      @id @default(autoincrement())
@@ -578,11 +671,57 @@ enum TimeSlotStatus {
   BLOCKED
 }
 
-// tokens 
+model MediaEvent {
+  id             Int          @id @default(autoincrement())
+  consultationId Int
+  userId         Int
+  type           MediaEventType
+  createdAt      DateTime     @default(now())
+
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId])
+  @@index([userId])
+}
+
+enum MediaEventType {
+  USER_JOINED
+  USER_LEFT
+  CAM_ON
+  CAM_OFF
+  MIC_ON
+  MIC_OFF
+}
+
+// tokens
 enum TokenType {
   invite
   login
   password_reset
 }
 
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
 
+model ConsultationReminder {
+  id             Int            @id @default(autoincrement())
+  consultationId Int
+  type           String
+  scheduledFor   DateTime
+  status         ReminderStatus @default(PENDING)
+  sentAt         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@map("consultation_reminder")
+}

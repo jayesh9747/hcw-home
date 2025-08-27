@@ -1,13 +1,43 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsDate,
+  IsEmail,
+  IsEnum,
   IsNumber,
   IsOptional,
-  IsDate,
   IsString,
   IsEnum,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ConsultationStatus, UserRole } from '@prisma/client'; 
+import { ReminderConfigDto } from 'src/reminder/dto/reminder-config.dto';
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { ConsultationStatus, UserRole } from '@prisma/client';
+
+export class CreateParticipantDto {
+  @ApiProperty({ description: "Participant's email" })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({
+    enum: [UserRole.EXPERT, UserRole.GUEST],
+    description: "Participant's role",
+  })
+  @IsEnum([UserRole.EXPERT, UserRole.GUEST])
+  role: UserRole;
+
+  @ApiProperty({ description: "Participant's name" })
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Optional notes for the participant' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
 
 export class CreateConsultationDto {
   @ApiProperty({ description: 'Patient ID' })
@@ -43,6 +73,21 @@ export class CreateConsultationDto {
   @ApiPropertyOptional({ description: 'Create as draft (default false)' })
   @IsOptional()
   draft?: boolean;
+
+  @ApiPropertyOptional({ description: 'Reminder configuration' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ReminderConfigDto)
+  reminderConfig?: ReminderConfigDto;
+
+  @ApiPropertyOptional({
+    type: [CreateParticipantDto],
+    description: 'Additional participants',
+  })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateParticipantDto)
+  participants?: CreateParticipantDto[];
 }
 
 export class CreateConsultationWithTimeSlotDto extends CreateConsultationDto {
@@ -68,7 +113,7 @@ export class ParticipantDto {
   consultationId: number;
 
   @ApiProperty({ description: 'Participant role (e.g. PATIENT, DOCTOR)' })
-  @IsEnum(UserRole) 
+  @IsEnum(UserRole)
   role: UserRole;
 
   @ApiPropertyOptional({
