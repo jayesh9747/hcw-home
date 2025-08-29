@@ -5,6 +5,7 @@ import { DatabaseModule } from 'src/database/database.module';
 import { ConfigModule } from 'src/config/config.module';
 import { SmsProviderModule } from 'src/sms_provider/sms_provider.module';
 import { UserModule } from 'src/user/user.module';
+import { WhatsappTemplateModule } from 'src/whatsapp-template/whatsapp-template.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { UserModule } from 'src/user/user.module';
     ConfigModule,
     SmsProviderModule,
     UserModule,
+    WhatsappTemplateModule,
   ],
   providers: [
     ReminderService,

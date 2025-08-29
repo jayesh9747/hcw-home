@@ -441,8 +441,11 @@ id             Int      @id @default(autoincrement())
   rejectionReason String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  version        Int      @default(1)
 
   @@map("whatsapp_templates")
+
+}
 
 model MessageReadReceipt {
   id        Int      @id @default(autoincrement())
@@ -457,28 +460,6 @@ model MessageReadReceipt {
   @@index([messageId])
   @@index([userId])
   @@map("message_read_receipt")
-}
-
-
-model WhatsappTemplate {
-  id              String @id
-  key             String
-  friendlyName    String
-  body            String
-  language        String
-  category        String
-  contentType     String
-  variables       Json
-  actions         Json
-  approvalStatus  String
-  createdAt       BigInt
-  updatedAt       BigInt
-  sid             String
-  types           Json
-  url             String
-  rejectionReason String
-
-  @@map("whatsapp_template")
 }
 
 model SmsProvider {
@@ -623,6 +604,9 @@ model ConsultationReminder {
   scheduledFor   DateTime
   status         ReminderStatus @default(PENDING)
   sentAt         DateTime?
+  templateKey    String?        @db.VarChar(255) // WhatsApp template key used
+  templateSid    String?        @db.VarChar(255) // WhatsApp template SID used
+  sendStatus     String?        @db.VarChar(100) // Message send status/result
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

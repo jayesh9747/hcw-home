@@ -196,7 +196,6 @@ export class WhatsappTemplateService {
     const existingTemplate =
       await this.databaseService.whatsapp_Template.findUnique({
         where: { id },
-        select: { id: true, key: true },
       });
 
     if (!existingTemplate) {
@@ -221,6 +220,14 @@ export class WhatsappTemplateService {
       }
     }
 
+    // Save current version to history table
+    await this.databaseService.$executeRawUnsafe(
+      `INSERT INTO "Whatsapp_Template_History" ("templateId", "version", "data") VALUES ($1, $2, $3)`,
+      id,
+      existingTemplate.version || 1,
+      JSON.stringify(existingTemplate)
+    );
+
     // Prepare update data
     const updateData = {
       ...updateWhatsappTemplateDto,
@@ -244,6 +251,7 @@ export class WhatsappTemplateService {
         updateWhatsappTemplateDto.rejectionReason === ''
           ? null
           : updateWhatsappTemplateDto.rejectionReason,
+      version: (existingTemplate.version || 1) + 1,
     };
 
     const template = await this.databaseService.whatsapp_Template.update({
@@ -318,7 +326,7 @@ export class WhatsappTemplateService {
         const twilioResponse = await this.twilioWhatsappService.createTemplate({
           friendlyName: template.key,
           language: template.language || 'en',
-          body: template.body || '',
+          body: template.friendlyName || '',
           category: template.category,
           contentType: template.contentType || 'twilio/text',
           variables: template.variables,
@@ -412,7 +420,7 @@ export class WhatsappTemplateService {
             await this.twilioWhatsappService.createTemplate({
               friendlyName: template.key,
               language: template.language || 'en',
-              body: template.body || '',
+              body: template.friendlyName || '',
               category: template.category,
               contentType: template.contentType || 'twilio/text',
               variables: template.variables,

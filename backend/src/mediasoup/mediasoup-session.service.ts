@@ -5,9 +5,9 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
-import { DatabaseService } from 'src/database/database.service';
+import { DatabaseService } from '../database/database.service';
 import { createClient, RedisClientType } from 'redis';
-import { ConfigService } from 'src/config/config.service';
+import { ConfigService } from '../config/config.service';
 import { v4 as uuidv4 } from 'uuid';
 
 type RouterEntry = {
