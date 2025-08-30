@@ -54,6 +54,20 @@ export class JoinConsultationMessageDto {
   createdAt: Date;
 }
 
+export class WaitingRoomInfoDto {
+  @ApiProperty({ example: 123, description: 'ID of the practitioner' })
+  practitionerId: number;
+
+  @ApiProperty({
+    example: 'Dr. Smith',
+    description: 'Name of the practitioner',
+  })
+  practitionerName: string;
+
+  @ApiProperty({ example: '5-10 minutes', description: 'Estimated wait time' })
+  estimatedWaitTime: string;
+}
+
 /**
  * Standardized response DTO for joining a consultation.
  */
@@ -86,6 +100,27 @@ export class JoinConsultationResponseDto {
     type: String,
   })
   sessionUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Where to redirect user after joining',
+    example: 'waiting-room',
+    enum: ['waiting-room', 'consultation-room'],
+  })
+  redirectTo?: 'waiting-room' | 'consultation-room';
+
+  @ApiPropertyOptional({
+    description: 'Role of the user who joined',
+    example: 'PATIENT',
+    enum: UserRole,
+  })
+  userRole?: UserRole;
+
+  @ApiPropertyOptional({
+    description:
+      'Waiting room information if user is redirected to waiting room',
+    type: WaitingRoomInfoDto,
+  })
+  waitingRoom?: WaitingRoomInfoDto;
 
   @ApiPropertyOptional({
     type: [JoinConsultationParticipantDto],

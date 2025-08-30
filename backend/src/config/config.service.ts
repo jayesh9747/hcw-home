@@ -91,6 +91,18 @@ export class ConfigService {
     ].filter(Boolean) as string[];
   }
 
+  get patientUrl(): string {
+    return this.configService.get<string>('PATIENT_URL', '');
+  }
+
+  get practitionerUrl(): string {
+    return this.configService.get<string>('PRACTITIONER_URL', '');
+  }
+
+  get adminUrl(): string {
+    return this.configService.get<string>('ADMIN_URL', '');
+  }
+
   get mediasoupAnnouncedIp(): string {
     return this.getRequired<string>(
       'MEDIASOUP_ANNOUNCED_IP',
@@ -147,7 +159,10 @@ export class ConfigService {
   }
 
   get twilioAccountSid(): string {
-    return this.configService.get<string>('twilio.accountSid', 'twilio-account-sid');
+    return this.configService.get<string>(
+      'twilio.accountSid',
+      'twilio-account-sid',
+    );
   }
 
   // Alternative method to get the raw WHATSAPP_TEMPLATES_PATH env variable

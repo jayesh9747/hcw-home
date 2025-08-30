@@ -5,13 +5,14 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ConsultationService } from './consultation.service';
 import { ConsultationController } from './consultation.controller';
 import { ConsultationGateway } from './consultation.gateway';
-import { DatabaseService } from '../database/database.service';
-import { ConfigModule } from '../config/config.module';
+import { ConsultationInvitationService } from './consultation-invitation.service';
+import { DatabaseService } from 'src/database/database.service';
+import { ConfigModule } from 'src/config/config.module';
 import { ConsultationCleanupService } from './consultation-cleanup.service';
+import { EmailService } from '../common/email/email.service';
 import { AvailabilityModule } from 'src/availability/availability.module';
 import { MediasoupModule } from 'src/mediasoup/mediasoup.module';
 import { ReminderModule } from 'src/reminder/reminder.module';
-import { UserService } from '../user/user.service';
 
 @Module({
   imports: [
@@ -30,9 +31,10 @@ import { UserService } from '../user/user.service';
   providers: [
     ConsultationService,
     ConsultationGateway,
+    ConsultationInvitationService,
     ConsultationCleanupService,
     DatabaseService,
-    UserService,
+    EmailService,
     {
       provide: 'CONSULTATION_GATEWAY',
       useExisting: ConsultationGateway,
@@ -42,6 +44,6 @@ import { UserService } from '../user/user.service';
       useClass: ThrottlerGuard,
     },
   ],
-  exports: [ConsultationService],
+  exports: [ConsultationService, ConsultationInvitationService],
 })
 export class ConsultationModule {}

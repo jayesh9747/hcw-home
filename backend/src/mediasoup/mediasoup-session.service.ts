@@ -5,9 +5,9 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from 'src/database/database.service';
 import { createClient, RedisClientType } from 'redis';
-import { ConfigService } from '../config/config.service';
+import { ConfigService } from 'src/config/config.service';
 import { v4 as uuidv4 } from 'uuid';
 
 type RouterEntry = {
@@ -18,9 +18,6 @@ type RouterEntry = {
 
 @Injectable()
 export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
-  ensureRouterForConsultation(consultationId: any) {
-    throw new Error('Method not implemented.');
-  }
   private readonly logger = new Logger(MediasoupSessionService.name);
 
   private workers: mediasoup.types.Worker[] = [];
@@ -383,6 +380,271 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
 
   getRouter(consultationId: number): mediasoup.types.Router | undefined {
     return this.routers.get(consultationId)?.router;
+  }
+
+  /**
+   * Ensures a router exists for the consultation, creating one if it doesn't exist
+   * Enhanced with recovery logic for robust operation
+   */
+  async ensureRouterForConsultation(
+    consultationId: number,
+  ): Promise<mediasoup.types.Router> {
+    try {
+      // Check if router already exists in memory
+      let existingRouter = this.getRouter(consultationId);
+      if (existingRouter && !existingRouter.closed) {
+        this.logStructured(
+          'verbose',
+          'Router already exists and is active for consultation',
+          {
+            consultationId,
+            routerId: existingRouter.id,
+          },
+        );
+        return existingRouter;
+      }
+
+      // If router exists but is closed, clean it up
+      if (existingRouter && existingRouter.closed) {
+        this.logStructured(
+          'warn',
+          'Found closed router, cleaning up before recreating',
+          {
+            consultationId,
+          },
+        );
+        await this.cleanupRouterForConsultation(consultationId);
+      }
+
+      // Check if router exists in database but not in memory (e.g., after server restart)
+      const dbRouter = await this.databaseService.mediasoupRouter.findUnique({
+        where: { consultationId },
+        include: { server: true },
+      });
+
+      if (dbRouter?.server?.active) {
+        // Router exists in DB but not in memory, need to recreate it
+        this.logStructured(
+          'log',
+          'Router found in DB but not in memory, recreating',
+          {
+            consultationId,
+            routerId: dbRouter.routerId,
+            serverId: dbRouter.serverId,
+          },
+        );
+
+        // Clean up the stale DB entry first
+        try {
+          await this.databaseService.mediasoupRouter.delete({
+            where: { consultationId },
+          });
+        } catch (dbError) {
+          this.logStructured('warn', 'Failed to delete stale router DB entry', {
+            consultationId,
+            error: dbError.message,
+          });
+        }
+      }
+
+      // Create new router with retry logic
+      let router: mediasoup.types.Router | null = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          router = await this.createRouterForConsultation(consultationId);
+          break;
+        } catch (createError) {
+          retryCount++;
+          this.logStructured('warn', 'Failed to create router, retrying', {
+            consultationId,
+            attempt: retryCount,
+            maxRetries,
+            error: createError.message,
+          });
+
+          if (retryCount >= maxRetries) {
+            throw createError;
+          }
+
+          // Wait before retry (exponential backoff)
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, retryCount) * 1000),
+          );
+        }
+      }
+
+      // Ensure router was created successfully
+      if (!router) {
+        throw new Error('Failed to create router after maximum retries');
+      }
+
+      this.logStructured('log', 'Router ensured for consultation', {
+        consultationId,
+        routerId: router!.id,
+        retriesNeeded: retryCount,
+      });
+
+      return router!;
+    } catch (error) {
+      this.logStructured('error', 'Failed to ensure router for consultation', {
+        consultationId,
+        error: error.message,
+        stack: error.stack,
+      });
+      throw new Error(
+        `Failed to ensure router for consultation ${consultationId}: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Handles consultation state changes and ensures proper media session coordination
+   */
+  async handleConsultationStateChange(
+    consultationId: number,
+    newStatus: string,
+    participantCount: number = 0,
+  ): Promise<void> {
+    try {
+      const router = this.getRouter(consultationId);
+
+      switch (newStatus) {
+        case 'SCHEDULED':
+        case 'WAITING':
+          // Ensure router is ready when consultation becomes active
+          if (!router && participantCount > 0) {
+            await this.ensureRouterForConsultation(consultationId);
+            this.logStructured(
+              'log',
+              'Router created for active consultation',
+              {
+                consultationId,
+                status: newStatus,
+                participantCount,
+              },
+            );
+          }
+          break;
+
+        case 'ACTIVE':
+          // Ensure router exists for active consultations
+          await this.ensureRouterForConsultation(consultationId);
+          this.logStructured('log', 'Router ensured for active consultation', {
+            consultationId,
+            status: newStatus,
+          });
+          break;
+
+        case 'COMPLETED':
+        case 'TERMINATED_OPEN':
+        case 'CANCELLED':
+          // Clean up media resources when consultation ends
+          if (router) {
+            // Give a small delay to allow for final media cleanup
+            setTimeout(async () => {
+              try {
+                await this.cleanupRouterForConsultation(consultationId);
+                this.logStructured(
+                  'log',
+                  'Router cleaned up after consultation ended',
+                  {
+                    consultationId,
+                    status: newStatus,
+                  },
+                );
+              } catch (cleanupError) {
+                this.logStructured(
+                  'error',
+                  'Failed to cleanup router after consultation ended',
+                  {
+                    consultationId,
+                    status: newStatus,
+                    error: cleanupError.message,
+                  },
+                );
+              }
+            }, 5000);
+          }
+          break;
+
+        default:
+          this.logStructured(
+            'verbose',
+            'No media action needed for consultation status',
+            {
+              consultationId,
+              status: newStatus,
+            },
+          );
+      }
+    } catch (error) {
+      this.logStructured(
+        'error',
+        'Failed to handle consultation state change',
+        {
+          consultationId,
+          newStatus,
+          error: error.message,
+        },
+      );
+    }
+  }
+
+  /**
+   * Health check for consultation's media session
+   */
+  async checkConsultationMediaHealth(consultationId: number): Promise<{
+    hasRouter: boolean;
+    routerActive: boolean;
+    transportCount: number;
+    producerCount: number;
+    consumerCount: number;
+  }> {
+    const router = this.getRouter(consultationId);
+
+    if (!router) {
+      return {
+        hasRouter: false,
+        routerActive: false,
+        transportCount: 0,
+        producerCount: 0,
+        consumerCount: 0,
+      };
+    }
+
+    // Count related resources
+    let transportCount = 0;
+    let producerCount = 0;
+    let consumerCount = 0;
+
+    for (const [transportId, transport] of this.transports) {
+      if (transport.appData?.consultationId === consultationId) {
+        transportCount++;
+      }
+    }
+
+    for (const [producerId, producer] of this.producers) {
+      if (producer.appData?.consultationId === consultationId) {
+        producerCount++;
+      }
+    }
+
+    for (const [consumerId, consumer] of this.consumers) {
+      if (consumer.appData?.consultationId === consultationId) {
+        consumerCount++;
+      }
+    }
+
+    return {
+      hasRouter: true,
+      routerActive: !router.closed,
+      transportCount,
+      producerCount,
+      consumerCount,
+    };
   }
 
   private pollTransportStats(

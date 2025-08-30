@@ -11,8 +11,8 @@ import {
 import { Server, Socket } from 'socket.io';
 import { forwardRef, Inject, Logger, UseGuards } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
-import { DatabaseService } from '../database/database.service';
-import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
+import { DatabaseService } from 'src/database/database.service';
+import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { EndConsultationDto } from './dto/end-consultation.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';

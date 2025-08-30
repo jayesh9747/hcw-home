@@ -1,10 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
-import { ConsultationStatus, UserRole } from '@prisma/client';
+import { DatabaseService } from 'src/database/database.service';
+import { ConsultationStatus } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { ConfigService } from '../config/config.service';
-import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
-import { UserService } from '../user/user.service';
+import { ConfigService } from 'src/config/config.service';
+import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
 
 @Injectable()
 export class ConsultationCleanupService {
@@ -14,7 +13,6 @@ export class ConsultationCleanupService {
     private readonly db: DatabaseService,
     private readonly configService: ConfigService,
     private readonly mediasoupSessionService: MediasoupSessionService,
-    private readonly userService: UserService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -26,7 +24,6 @@ export class ConsultationCleanupService {
     cutoffDate.setHours(cutoffDate.getHours() - (retentionHours + bufferHours));
 
     try {
-      // Find expired, not-yet-deleted consultations
       const consultationsToDelete = await this.db.consultation.findMany({
         where: {
           status: {
@@ -62,24 +59,6 @@ export class ConsultationCleanupService {
           this.logger.error(
             `Failed Mediasoup router cleanup for consultation ${consultId}: ${err?.message || err}`,
           );
-        }
-      }
-
-      // --- Anonymize patient data before deletion ---
-      for (const consultation of consultationsToDelete) {
-        // Anonymize owner if present
-        if (consultation.ownerId) {
-          await this.userService.anonymizeUser(consultation.ownerId);
-        }
-        // Anonymize all participants with role PATIENT
-        const participants = await this.db.participant.findMany({
-          where: {
-            consultationId: consultation.id,
-            role: UserRole.PATIENT,
-          },
-        });
-        for (const participant of participants) {
-          await this.userService.anonymizeUser(participant.userId);
         }
       }
 
