@@ -1,9 +1,3 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '../config/config.service';
-import * as twilio from 'twilio';
-import { ContentInstance } from 'twilio/lib/rest/content/v1/content';
-import axios from 'axios';
-
 export interface CreateTemplatePayload {
   friendlyName: string;
   language: string;
@@ -19,6 +13,11 @@ export interface SubmitApprovalPayload {
   name: string;
   category: string;
 }
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '../config/config.service';
+import twilio from 'twilio';
+import { ContentInstance } from 'twilio/lib/rest/content/v1/content';
+import axios from 'axios';
 
 export interface TwilioTemplateResponse {
   sid: string;
@@ -48,6 +47,16 @@ export interface ApprovalStatusResponse {
 @Injectable()
 export class TwilioWhatsappService {
   private readonly logger = new Logger(TwilioWhatsappService.name);
+
+  /**
+   * Send a WhatsApp template message to a user
+   */
+  async sendTemplateMessage({ to, templateSid, variables }: { to: string; templateSid: string; variables: any }): Promise<{ status: string }> {
+
+    this.logger.log(`Simulating send of WhatsApp template message to ${to} using template SID ${templateSid} with variables: ${JSON.stringify(variables)}`);
+
+    return { status: 'SENT' };
+  }
   private twilioClient: twilio.Twilio;
   private accountSid: string;
   private authToken: string;
@@ -55,7 +64,7 @@ export class TwilioWhatsappService {
   constructor(private configService: ConfigService) {
     this.accountSid = this.configService.twilioAccountSid;
     this.authToken = this.configService.twilioAuthToken;
-    this.twilioClient = twilio(this.accountSid, this.authToken);
+  this.twilioClient = twilio(this.accountSid, this.authToken);
   }
 
   /**

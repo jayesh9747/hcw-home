@@ -1,3 +1,6 @@
+export class BulkSubmitDto {
+  templateIds: number[];
+}
 import {
   Controller,
   Get,
@@ -21,34 +24,28 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { Request } from 'express';
+import { Roles } from '../common/decorators/roles.decorator';
 import { WhatsappTemplateService } from './whatsapp-template.service';
 import { CreateWhatsappTemplateDto } from './dto/create-whatsapp-template.dto';
 import { UpdateWhatsappTemplateDto } from './dto/update-whatsapp-template.dto';
 import { QueryWhatsappTemplateDto } from './dto/query-whatsapp-template.dto';
 import { WhatsappTemplateResponseDto } from './dto/whatsapp-template-response.dto';
-import { ZodValidationPipe } from 'src/common/pipes/zod-validation.pipe';
-import {
-  ApiResponseDto,
-  PaginatedApiResponseDto,
-} from 'src/common/helpers/response/api-response.dto';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
+import { PaginatedApiResponseDto } from '../common/helpers/response/api-response.dto';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuthGuard } from '../auth/guards/auth.guard';
+import { Role } from '../auth/enums/role.enum';
 import {
   createWhatsappTemplateSchema,
   updateWhatsappTemplateSchema,
   queryWhatsappTemplateSchema,
 } from './validation/whatsapp-template.validation';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Role } from 'src/auth/enums/role.enum';
-import { Roles } from 'src/common/decorators/roles.decorator';
-
-class BulkSubmitDto {
-  templateIds: number[];
-}
 
 @ApiTags('whatsapp-templates')
 @Controller('whatsapp-template')
-// @UseGuards(AuthGuard, RolesGuard)
-// @Roles(Role.ADMIN)
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 export class WhatsappTemplateController {
   constructor(
     private readonly whatsappTemplateService: WhatsappTemplateService,
@@ -60,11 +57,6 @@ export class WhatsappTemplateController {
     status: 201,
     description: 'WhatsApp template created successfully',
     type: WhatsappTemplateResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
-  @ApiResponse({
-    status: 409,
-    description: 'Conflict - template key already exists',
   })
   async create(
     @Body(new ZodValidationPipe(createWhatsappTemplateSchema))
@@ -355,6 +347,7 @@ export class WhatsappTemplateController {
     },
   })
   @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
+
   async bulkSubmitForApproval(
     @Body() bulkSubmitDto: BulkSubmitDto,
     @Req() req: Request,

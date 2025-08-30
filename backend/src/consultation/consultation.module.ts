@@ -11,9 +11,7 @@ import { ConsultationCleanupService } from './consultation-cleanup.service';
 import { AvailabilityModule } from 'src/availability/availability.module';
 import { MediasoupModule } from 'src/mediasoup/mediasoup.module';
 import { ReminderModule } from 'src/reminder/reminder.module';
-import { ReminderService } from 'src/reminder/reminder.service';
-import { AvailabilityModule } from '../availability/availability.module';
-import { MediasoupModule } from '../mediasoup/mediasoup.module';
+import { UserService } from '../user/user.service';
 
 @Module({
   imports: [
@@ -34,6 +32,7 @@ import { MediasoupModule } from '../mediasoup/mediasoup.module';
     ConsultationGateway,
     ConsultationCleanupService,
     DatabaseService,
+    UserService,
     {
       provide: 'CONSULTATION_GATEWAY',
       useExisting: ConsultationGateway,

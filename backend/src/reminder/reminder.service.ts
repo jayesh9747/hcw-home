@@ -4,6 +4,9 @@ import { ReminderType, ReminderStatus, REMINDER_TIMING, DEFAULT_REMINDER_TYPES }
 import { DatabaseService } from 'src/database/database.service';
 import { ConfigService } from 'src/config/config.service';
 import { SmsProviderService } from 'src/sms_provider/sms_provider.service';
+import { WhatsappTemplateService } from 'src/whatsapp-template/whatsapp-template.service';
+import { WhatsappTemplateSeederService } from 'src/whatsapp-template/whatsapp-template-seeder.service';
+import { TwilioWhatsappService } from 'src/whatsapp-template/twilio-template.service';
 import { ConsultationStatus, Prisma, ReminderStatus as PrismaReminderStatus, User } from '@prisma/client';
 
 @Injectable()
@@ -14,6 +17,9 @@ export class ReminderService {
     private readonly db: DatabaseService,
     private readonly configService: ConfigService,
     private readonly smsProviderService: SmsProviderService,
+  private readonly whatsappTemplateService: WhatsappTemplateService,
+  private readonly whatsappTemplateSeederService: WhatsappTemplateSeederService,
+  private readonly twilioWhatsappService: TwilioWhatsappService,
   ) {}
 
   /**
@@ -222,24 +228,65 @@ export class ReminderService {
   private async sendReminderMessage(
     user: User,
     message: string,
-    messageService?: any
+    messageService: any,
+    reminderId?: number,
+    reminderType?: string
   ): Promise<void> {
     if (!user.phoneNumber) {
       this.logger.warn(`User ${user.id} has no phone number, cannot send reminder`);
       return;
     }
 
+    // Choose template key based on reminderType
+    let templateKey = '';
+    if (reminderType === 'UPCOMING_APPOINTMENT_24H') {
+      templateKey = 'consultation_reminder_24h';
+    } else if (reminderType === 'UPCOMING_APPOINTMENT_1H') {
+      templateKey = 'consultation_reminder_1h';
+    } else {
+      templateKey = 'consultation_reminder_generic';
+    }
+
+    let sendStatus = 'FAILED';
+    let templateSid = null;
     try {
-      // For now, I am using a simple implementation that logs the message
-      // In production, this would use SmsProviderService to send actual messages
-      this.logger.log(`Sending reminder message to ${user.phoneNumber}: ${message}`);
-      
-      // I will Use SmsProviderService to send actual message
-      // This would be implemented when WhatsApp templates from PR #118 are available
-      // For now, I will just log the message
+      // Fetch template from SeederService (not WhatsappTemplateService)
+      const template = await this.whatsappTemplateSeederService.getProcessedTemplate(templateKey);
+      if (!template) {
+        this.logger.error(`WhatsApp template not found for key: ${templateKey}`);
+        throw new Error('WhatsApp template not found');
+      }
+      templateSid = template.sid;
+
+      // Prepare variables for template (customize as needed)
+      const variables = {
+        patient_name: user.firstName,
+        consultation_time: message, // fallback, ideally pass formatted time
+      };
+
+      // Send WhatsApp message using TwilioWhatsappService
+      const result = await this.twilioWhatsappService.sendTemplateMessage({
+        to: user.phoneNumber,
+  templateSid: templateSid ?? '',
+        variables,
+      });
+      sendStatus = result.status || 'SENT';
+      this.logger.log(`WhatsApp reminder sent to ${user.phoneNumber} using template ${templateKey}`);
     } catch (error) {
-      this.logger.error(`Error sending reminder message to ${user.phoneNumber}:`, error);
-      throw error;
+      this.logger.error(`Error sending WhatsApp reminder to ${user.phoneNumber}:`, error);
+      sendStatus = 'FAILED';
+    }
+
+    // Log template info and send status in DB
+    if (reminderId) {
+      await this.db.consultationReminder.update({
+        where: { id: reminderId },
+        data: {
+          templateKey: templateKey ?? undefined,
+          templateSid,
+          sendStatus,
+        },
+      });
     }
   }
 

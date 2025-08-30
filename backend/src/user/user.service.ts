@@ -366,6 +366,28 @@ export class UserService {
     });
   }
 
+  /**
+   * Anonymize a user by removing PII fields. Keeps non-sensitive data for analytics.
+   */
+  async anonymizeUser(id: number): Promise<UserResponseDto> {
+    const anonymizedData = {
+      firstName: 'Anonymized',
+      lastName: 'User',
+      email: `anonymized_${id}@example.com`,
+      phoneNumber: null,
+      country: null,
+      sex: null,
+      updatedAt: new Date(),
+    };
+    const user = await this.databaseService.user.update({
+      where: { id },
+      data: anonymizedData,
+    });
+    return plainToInstance(UserResponseDto, user, {
+      excludeExtraneousValues: false,
+    });
+  }
+
   // Additional utility methods
   async exists(id: number): Promise<boolean> {
     const user = await this.databaseService.user.findUnique({
