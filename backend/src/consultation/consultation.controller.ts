@@ -16,6 +16,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
+import { ConsultationMediaSoupService } from './consultation-mediasoup.service';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
   JoinConsultationDto,
@@ -92,7 +93,10 @@ export class ConsultationController {
       timestamp: new Date().toISOString(),
     };
   }
-  constructor(private readonly consultationService: ConsultationService) {}
+  constructor(
+    private readonly consultationService: ConsultationService,
+    private readonly consultationMediaSoupService: ConsultationMediaSoupService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -655,5 +659,213 @@ export class ConsultationController {
       ),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // ===================================================================
+  // ENHANCED MEDIASOUP INTEGRATION ENDPOINTS
+  // ===================================================================
+
+  @Get(':id/participants/media-status')
+  @ApiOperation({
+    summary: 'Get participants with MediaSoup session status',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiOkResponse({
+    description: 'Participants with media status retrieved successfully',
+  })
+  async getParticipantsWithMediaStatus(
+    @Param('id', ParseIntPipe) consultationId: number,
+  ) {
+    const result =
+      await this.consultationMediaSoupService.getActiveParticipantsWithMediaStatus(
+        consultationId,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'Participants with media status retrieved successfully',
+    );
+  }
+
+  @Get(':id/health-check')
+  @ApiOperation({
+    summary: 'Get comprehensive health check including MediaSoup status',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiOkResponse({
+    description: 'Consultation health status retrieved successfully',
+  })
+  async getConsultationHealthCheck(
+    @Param('id', ParseIntPipe) consultationId: number,
+  ) {
+    const result =
+      await this.consultationMediaSoupService.getConsultationHealthStatus(
+        consultationId,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'Consultation health status retrieved successfully',
+    );
+  }
+
+  @Post(':id/participants/:userId/join-media')
+  @ApiOperation({
+    summary: 'Handle participant joining MediaSoup session',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiParam({ name: 'userId', type: Number, description: 'User ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userRole: {
+          type: 'string',
+          enum: ['PATIENT', 'PRACTITIONER', 'EXPERT', 'GUEST'],
+        },
+      },
+      required: ['userRole'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Participant media join handled successfully',
+  })
+  async handleParticipantJoinMedia(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() body: { userRole: string },
+  ) {
+    const result =
+      await this.consultationMediaSoupService.handleParticipantJoinMedia(
+        consultationId,
+        userId,
+        body.userRole as any,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'Participant media join handled successfully',
+    );
+  }
+
+  @Post(':id/participants/:userId/leave-media')
+  @ApiOperation({
+    summary: 'Handle participant leaving MediaSoup session',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiParam({ name: 'userId', type: Number, description: 'User ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userRole: {
+          type: 'string',
+          enum: ['PATIENT', 'PRACTITIONER', 'EXPERT', 'GUEST'],
+        },
+      },
+      required: ['userRole'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Participant media leave handled successfully',
+  })
+  async handleParticipantLeaveMedia(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() body: { userRole: string },
+  ) {
+    await this.consultationMediaSoupService.handleParticipantLeaveMedia(
+      consultationId,
+      userId,
+      body.userRole as any,
+    );
+
+    return ApiResponseDto.success(
+      { success: true },
+      'Participant media leave handled successfully',
+    );
+  }
+
+  @Patch(':id/transition-state')
+  @ApiOperation({
+    summary: 'Transition consultation state with MediaSoup coordination',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        newStatus: {
+          type: 'string',
+          enum: [
+            'DRAFT',
+            'SCHEDULED',
+            'WAITING',
+            'ACTIVE',
+            'COMPLETED',
+            'CANCELLED',
+            'TERMINATED_OPEN',
+          ],
+        },
+        initiatorUserId: { type: 'number' },
+      },
+      required: ['newStatus', 'initiatorUserId'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Consultation state transitioned successfully',
+  })
+  async transitionConsultationState(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Body() body: { newStatus: string; initiatorUserId: number },
+  ) {
+    await this.consultationMediaSoupService.transitionConsultationState(
+      consultationId,
+      body.newStatus as any,
+      body.initiatorUserId,
+    );
+
+    return ApiResponseDto.success(
+      { success: true },
+      'Consultation state transitioned successfully',
+    );
+  }
+
+  @Post(':id/initialize-media-session')
+  @ApiOperation({
+    summary: 'Initialize MediaSoup session for consultation',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        initiatorUserId: { type: 'number' },
+        initiatorRole: {
+          type: 'string',
+          enum: ['PATIENT', 'PRACTITIONER', 'EXPERT', 'GUEST'],
+        },
+      },
+      required: ['initiatorUserId', 'initiatorRole'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'MediaSoup session initialized successfully',
+  })
+  async initializeMediaSoupSession(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Body() body: { initiatorUserId: number; initiatorRole: string },
+  ) {
+    const result =
+      await this.consultationMediaSoupService.initializeMediaSoupSession(
+        consultationId,
+        body.initiatorUserId,
+        body.initiatorRole as any,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'MediaSoup session initialized successfully',
+    );
   }
 }

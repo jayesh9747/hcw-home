@@ -20,7 +20,7 @@ import { ChatModule } from '../chat/chat.module';
     UserModule,
     AuthModule,
     forwardRef(() => ConsultationModule),
-    ChatModule,
+    forwardRef(() => ChatModule),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,

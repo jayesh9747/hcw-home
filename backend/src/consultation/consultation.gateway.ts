@@ -11,6 +11,8 @@ import {
 import { Server, Socket } from 'socket.io';
 import { forwardRef, Inject, Logger, UseGuards } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
+import { ConsultationUtilityService } from './consultation-utility.service';
+import { ConsultationMediaSoupService } from './consultation-mediasoup.service';
 import { DatabaseService } from 'src/database/database.service';
 import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
 import { ConsultationStatus, UserRole } from '@prisma/client';
@@ -50,6 +52,10 @@ export class ConsultationGateway
     private readonly databaseService: DatabaseService,
     @Inject(forwardRef(() => ConsultationService))
     private readonly consultationService: ConsultationService,
+    @Inject(forwardRef(() => ConsultationUtilityService))
+    private readonly consultationUtilityService: ConsultationUtilityService,
+    @Inject(forwardRef(() => ConsultationMediaSoupService))
+    private readonly consultationMediaSoupService: ConsultationMediaSoupService,
     @Inject(forwardRef(() => MediasoupSessionService))
     private readonly mediasoupSessionService: MediasoupSessionService,
     @Inject(forwardRef(() => ConsultationInvitationService))
@@ -1082,6 +1088,252 @@ export class ConsultationGateway
       this.logger.error('Failed to handle screen share request:', error);
       client.emit('error', {
         message: 'Failed to process screen share request',
+      });
+    }
+  }
+
+  // ===================================================================
+  // ENHANCED MEDIASOUP INTEGRATION WEBSOCKET HANDLERS
+  // ===================================================================
+
+  @SubscribeMessage('join_media_session')
+  async handleJoinMediaSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      userRole: UserRole;
+    },
+  ) {
+    try {
+      const { consultationId, userId, userRole } = data;
+
+      this.logger.log(
+        `User ${userId} (${userRole}) requesting to join media session for consultation ${consultationId}`,
+      );
+
+      const result =
+        await this.consultationMediaSoupService.handleParticipantJoinMedia(
+          consultationId,
+          userId,
+          userRole,
+        );
+
+      // Send response back to the requesting client
+      client.emit('media_join_response', {
+        consultationId,
+        success: true,
+        ...result,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(
+        `User ${userId} media join handled - canJoinMedia: ${result.canJoinMedia}, waitingRoom: ${result.waitingRoomRequired}`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to handle join media session:', error);
+      client.emit('media_join_response', {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('leave_media_session')
+  async handleLeaveMediaSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      userRole: UserRole;
+    },
+  ) {
+    try {
+      const { consultationId, userId, userRole } = data;
+
+      this.logger.log(
+        `User ${userId} (${userRole}) leaving media session for consultation ${consultationId}`,
+      );
+
+      await this.consultationMediaSoupService.handleParticipantLeaveMedia(
+        consultationId,
+        userId,
+        userRole,
+      );
+
+      // Send confirmation back to the client
+      client.emit('media_leave_response', {
+        consultationId,
+        success: true,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error('Failed to handle leave media session:', error);
+      client.emit('media_leave_response', {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('request_media_session_status')
+  async handleRequestMediaSessionStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number },
+  ) {
+    try {
+      const { consultationId } = data;
+
+      const participantsStatus =
+        await this.consultationMediaSoupService.getActiveParticipantsWithMediaStatus(
+          consultationId,
+        );
+
+      const healthStatus =
+        await this.consultationMediaSoupService.getConsultationHealthStatus(
+          consultationId,
+        );
+
+      client.emit('media_session_status_response', {
+        consultationId,
+        participants: participantsStatus,
+        health: healthStatus,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error('Failed to get media session status:', error);
+      client.emit('media_session_status_response', {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('initialize_media_session')
+  async handleInitializeMediaSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      initiatorUserId: number;
+      initiatorRole: UserRole;
+    },
+  ) {
+    try {
+      const { consultationId, initiatorUserId, initiatorRole } = data;
+
+      this.logger.log(
+        `Initializing media session for consultation ${consultationId} by user ${initiatorUserId} (${initiatorRole})`,
+      );
+
+      const result =
+        await this.consultationMediaSoupService.initializeMediaSoupSession(
+          consultationId,
+          initiatorUserId,
+          initiatorRole,
+        );
+
+      // Broadcast to all participants in the consultation
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('media_session_initialized', {
+          consultationId,
+          ...result,
+          initiatedBy: {
+            userId: initiatorUserId,
+            role: initiatorRole,
+          },
+          timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+      this.logger.error('Failed to initialize media session:', error);
+      client.emit('media_session_initialization_failed', {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('transition_consultation_state')
+  async handleTransitionConsultationState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      newStatus: ConsultationStatus;
+      initiatorUserId: number;
+    },
+  ) {
+    try {
+      const { consultationId, newStatus, initiatorUserId } = data;
+
+      this.logger.log(
+        `Transitioning consultation ${consultationId} to ${newStatus} by user ${initiatorUserId}`,
+      );
+
+      await this.consultationMediaSoupService.transitionConsultationState(
+        consultationId,
+        newStatus,
+        initiatorUserId,
+      );
+
+      // Confirmation is sent via the transitionConsultationState method
+      // which emits 'consultation_state_changed' to all participants
+    } catch (error) {
+      this.logger.error('Failed to transition consultation state:', error);
+      client.emit('consultation_state_transition_failed', {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('request_participant_media_capabilities')
+  async handleRequestParticipantMediaCapabilities(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; userId: number },
+  ) {
+    try {
+      const { consultationId, userId } = data;
+
+      const participant = await this.databaseService.participant.findUnique({
+        where: { consultationId_userId: { consultationId, userId } },
+        include: {
+          user: {
+            select: { role: true },
+          },
+        },
+      });
+
+      if (!participant) {
+        throw new Error('Participant not found');
+      }
+
+      const capabilities =
+        await this.consultationUtilityService.getConsultationCapabilities(
+          participant.user.role,
+          participant.inWaitingRoom,
+        );
+
+      client.emit('participant_media_capabilities_response', {
+        consultationId,
+        userId,
+        capabilities,
+        inWaitingRoom: participant.inWaitingRoom,
+        isActive: participant.isActive,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error('Failed to get participant media capabilities:', error);
+      client.emit('participant_media_capabilities_response', {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString(),
       });
     }
   }

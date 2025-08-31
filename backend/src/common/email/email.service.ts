@@ -1,21 +1,47 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as sgMail from '@sendgrid/mail';
-import { ConfigService } from '../../config/config.service';
+import { ConfigService } from 'src/config/config.service';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private senderEmail: string;
+  private isConfigured: boolean = false;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.emailSendgridApiKey;
     this.senderEmail = this.configService.emailSenderAddress;
-    if (!apiKey) {
-      this.logger.error('SendGrid API key is missing in config');
-      throw new Error('Missing SendGrid API key');
+
+    // Check if email is properly configured
+    const hasValidApiKey = apiKey && apiKey !== 'YOUR_SENDGRID_API_KEY_HERE';
+    const hasValidSenderEmail = this.senderEmail && this.senderEmail !== 'no-reply@yourdomain.com';
+
+    if (!hasValidApiKey || !hasValidSenderEmail) {
+      this.logger.warn('⚠️  EmailService starting in DISABLED mode');
+      this.logger.warn('Email functionality will not work until proper configuration is provided:');
+      
+      if (!hasValidApiKey) {
+        this.logger.warn('- Set EMAIL_SENDGRID_API_KEY to a valid SendGrid API key');
+      }
+      if (!hasValidSenderEmail) {
+        this.logger.warn('- Set EMAIL_SENDER_ADDRESS to a valid email address');
+      }
+      
+      this.logger.warn('Application will continue to run, but email features will be mocked');
+      this.isConfigured = false;
+      return;
     }
-    sgMail.setApiKey(apiKey);
+
+    try {
+      sgMail.setApiKey(apiKey);
+      this.isConfigured = true;
+      this.logger.log('✅ SendGrid EmailService configured successfully');
+    } catch (error) {
+      this.logger.error('Failed to configure SendGrid API key:', error);
+      this.logger.warn('EmailService starting in DISABLED mode due to configuration error');
+      this.isConfigured = false;
+    }
   }
 
   private async sendEmail(
@@ -23,6 +49,11 @@ export class EmailService {
     subject: string,
     htmlContent: string,
   ): Promise<void> {
+    if (!this.isConfigured) {
+      this.logger.warn(`Email service not configured - Mocking email to ${to} - ${subject}`);
+      return;
+    }
+
     const msg = {
       to,
       from: this.senderEmail,

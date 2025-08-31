@@ -28,8 +28,9 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   private workerRouterCount: Map<number, number> = new Map();
   private connectionStats: Map<string, any> = new Map();
 
-  private redisPublisher: RedisClientType;
-  private redisSubscriber: RedisClientType;
+  private redisPublisher: RedisClientType | null = null;
+  private redisSubscriber: RedisClientType | null = null;
+  private isRedisConfigured: boolean = false;
 
   private readonly serverId: string;
   private readonly serverLoad: Map<string, number> = new Map();
@@ -47,7 +48,17 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.initializeWorkers();
-    await this.initRedis();
+
+    // Try to initialize Redis, but don't fail if it's not available
+    try {
+      await this.initRedis();
+    } catch (error) {
+      this.logger.warn(
+        '⚠️  Redis initialization failed - MediaSoup will work in standalone mode',
+      );
+      this.logger.warn('Multi-server load balancing will be disabled');
+      this.logger.debug('Redis error details:', error);
+    }
 
     setInterval(() => this.cleanupInactiveSessions(), 60 * 1000);
 
@@ -83,41 +94,124 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
 
   private async initRedis() {
     const redisUrl = this.configService.redisUrl;
+
+    // Check if Redis URL is properly configured
+    if (
+      !redisUrl ||
+      redisUrl.includes('your-redis-url') ||
+      redisUrl === 'redis://localhost:6379'
+    ) {
+      this.logger.warn(
+        '⚠️  Redis URL not configured or using placeholder value',
+      );
+      this.logger.warn(
+        'Set REDIS_URL environment variable for multi-server support',
+      );
+      this.isRedisConfigured = false;
+      return;
+    }
+
+    this.logger.log('Initializing Redis connections...');
+
     this.redisPublisher = createClient({ url: redisUrl });
     this.redisSubscriber = createClient({ url: redisUrl });
 
-    this.redisPublisher.on('error', (err) =>
-      this.logger.error('Redis Publisher error', err),
-    );
-    this.redisSubscriber.on('error', (err) =>
-      this.logger.error('Redis Subscriber error', err),
-    );
-
-    await this.redisPublisher.connect();
-    await this.redisSubscriber.connect();
-
-    await this.redisSubscriber.subscribe('mediasoup:load:update', (message) => {
-      try {
-        const parsed = JSON.parse(message);
-        this.serverLoad.set(parsed.serverId, parsed.load);
-        this.logStructured('verbose', 'Received load update', {
-          serverId: parsed.serverId,
-          load: parsed.load,
-        });
-      } catch (err) {
-        this.logger.error('Failed to parse Redis load update message', err);
-      }
+    this.redisPublisher.on('error', (err) => {
+      this.logger.error('Redis Publisher error', err);
+      this.isRedisConfigured = false;
     });
 
-    setInterval(() => this.broadcastLoad(), 5000);
+    this.redisSubscriber.on('error', (err) => {
+      this.logger.error('Redis Subscriber error', err);
+      this.isRedisConfigured = false;
+    });
+
+    // Set connection timeout
+    const connectionTimeout = 5000; // 5 seconds
+
+    try {
+      await Promise.race([
+        this.redisPublisher.connect(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Redis connection timeout')),
+            connectionTimeout,
+          ),
+        ),
+      ]);
+
+      await Promise.race([
+        this.redisSubscriber.connect(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Redis connection timeout')),
+            connectionTimeout,
+          ),
+        ),
+      ]);
+
+      await this.redisSubscriber.subscribe(
+        'mediasoup:load:update',
+        (message) => {
+          try {
+            const parsed = JSON.parse(message);
+            this.serverLoad.set(parsed.serverId, parsed.load);
+            this.logStructured('verbose', 'Received load update', {
+              serverId: parsed.serverId,
+              load: parsed.load,
+            });
+          } catch (err) {
+            this.logger.error('Failed to parse Redis load update message', err);
+          }
+        },
+      );
+
+      this.isRedisConfigured = true;
+      this.logger.log('✅ Redis connections established successfully');
+    } catch (error) {
+      this.logger.error('Failed to connect to Redis:', error);
+      this.isRedisConfigured = false;
+
+      // Clean up failed connections
+      if (this.redisPublisher) {
+        try {
+          await this.redisPublisher.disconnect();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        this.redisPublisher = null;
+      }
+
+      if (this.redisSubscriber) {
+        try {
+          await this.redisSubscriber.disconnect();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        this.redisSubscriber = null;
+      }
+
+      throw error; // Re-throw to be caught by onModuleInit
+    }
+
+    // Start broadcasting load updates if Redis is configured
+    if (this.isRedisConfigured) {
+      setInterval(() => this.broadcastLoad(), 5000);
+    }
   }
 
   private async broadcastLoad() {
+    if (!this.isRedisConfigured || this.redisPublisher === null) {
+      // Redis is not configured, skip broadcasting
+      return;
+    }
+
     const totalRouters = Array.from(this.workerRouterCount.values()).reduce(
       (a, b) => a + b,
       0,
     );
     const msg = JSON.stringify({ serverId: this.serverId, load: totalRouters });
+
     try {
       await this.redisPublisher.publish('mediasoup:load:update', msg);
       this.logStructured('verbose', 'Broadcasted load', {
@@ -1101,17 +1195,46 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   }
 
   async acquireRouterAssignmentLock(consultationId: number): Promise<boolean> {
+    // If Redis is not configured, always allow lock acquisition (single-server mode)
+    if (!this.isRedisConfigured || this.redisPublisher === null) {
+      return true;
+    }
+
     const lockKey = `mediasoup:router_lock:${consultationId}`;
-    const lockAcquired = await this.redisPublisher.set(lockKey, this.serverId, {
-      NX: true,
-      PX: 30000,
-    });
-    return lockAcquired === 'OK';
+    try {
+      const lockAcquired = await this.redisPublisher.set(
+        lockKey,
+        this.serverId,
+        {
+          NX: true,
+          PX: 30000,
+        },
+      );
+      return lockAcquired === 'OK';
+    } catch (error) {
+      this.logger.warn(
+        `Failed to acquire router assignment lock for consultation ${consultationId}: ${error.message}`,
+      );
+      // Return true to allow operation in case of Redis failure
+      return true;
+    }
   }
 
   async releaseRouterAssignmentLock(consultationId: number): Promise<void> {
+    // If Redis is not configured, no need to release lock (single-server mode)
+    if (!this.isRedisConfigured || this.redisPublisher === null) {
+      return;
+    }
+
     const lockKey = `mediasoup:router_lock:${consultationId}`;
-    await this.redisPublisher.del(lockKey);
+    try {
+      await this.redisPublisher.del(lockKey);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to release router assignment lock for consultation ${consultationId}: ${error.message}`,
+      );
+      // Continue without throwing as lock release failure is not critical
+    }
   }
 
   getConnectionStats(consultationId: number) {

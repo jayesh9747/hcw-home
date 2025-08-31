@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
@@ -12,8 +12,8 @@ import { StorageModule } from 'src/storage/storage.module';
   imports: [
     AuthModule,
     DatabaseModule,
-    ConsultationModule,
-    MediasoupModule,
+    forwardRef(() => ConsultationModule),
+    forwardRef(() => MediasoupModule),
     StorageModule,
   ],
   providers: [ChatGateway, ChatService],

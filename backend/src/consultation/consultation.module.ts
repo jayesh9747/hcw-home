@@ -6,6 +6,8 @@ import { ConsultationService } from './consultation.service';
 import { ConsultationController } from './consultation.controller';
 import { ConsultationGateway } from './consultation.gateway';
 import { ConsultationInvitationService } from './consultation-invitation.service';
+import { ConsultationUtilityService } from './consultation-utility.service';
+import { ConsultationMediaSoupService } from './consultation-mediasoup.service';
 import { DatabaseService } from 'src/database/database.service';
 import { ConfigModule } from 'src/config/config.module';
 import { ConsultationCleanupService } from './consultation-cleanup.service';
@@ -13,11 +15,13 @@ import { EmailService } from '../common/email/email.service';
 import { AvailabilityModule } from 'src/availability/availability.module';
 import { MediasoupModule } from 'src/mediasoup/mediasoup.module';
 import { ReminderModule } from 'src/reminder/reminder.module';
+import { UserModule } from 'src/user/user.module';
 
 @Module({
   imports: [
     ConfigModule,
     AvailabilityModule,
+    UserModule,
     forwardRef(() => MediasoupModule),
     ReminderModule,
     ThrottlerModule.forRoot([
@@ -32,6 +36,8 @@ import { ReminderModule } from 'src/reminder/reminder.module';
     ConsultationService,
     ConsultationGateway,
     ConsultationInvitationService,
+    ConsultationUtilityService,
+    ConsultationMediaSoupService,
     ConsultationCleanupService,
     DatabaseService,
     EmailService,
@@ -44,6 +50,11 @@ import { ReminderModule } from 'src/reminder/reminder.module';
       useClass: ThrottlerGuard,
     },
   ],
-  exports: [ConsultationService, ConsultationInvitationService],
+  exports: [
+    ConsultationService,
+    ConsultationInvitationService,
+    ConsultationUtilityService,
+    ConsultationMediaSoupService,
+  ],
 })
 export class ConsultationModule {}
