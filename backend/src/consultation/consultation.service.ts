@@ -40,10 +40,7 @@ import {
   EndConsultationDto,
   EndConsultationResponseDto,
 } from './dto/end-consultation.dto';
-import {
-  ConsultationPatientHistoryResponseDto,
-  ConsultationPatientHistoryItemDto,
-} from './dto/consultation-patient-history.dto';
+import { ConsultationPatientHistoryItemDto } from './dto/consultation-patient-history.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConfigService } from 'src/config/config.service';
 import { AvailabilityService } from 'src/availability/availability.service';
@@ -62,12 +59,6 @@ import {
   CreatePatientConsultationDto,
   CreatePatientConsultationResponseDto,
 } from './dto/invite-form.dto';
-
-type ConsultationWithParticipants = Consultation & {
-  participants: (Participant & { user: User })[];
-  owner?: User;
-  messages?: Message[];
-};
 
 @Injectable()
 export class ConsultationService {
@@ -477,7 +468,10 @@ export class ConsultationService {
           },
         });
 
-        const magicLinkUrl = `${this.configService.patientUrl}/join-consultation?token=${token}`;
+        const magicLinkUrl = this.generateMagicLinkUrl(
+          token,
+          participantDto.role,
+        );
 
         await this.emailService.sendConsultationInvitationEmail(
           participantDto.email,
@@ -783,22 +777,48 @@ export class ConsultationService {
         .emit('media_session_live', { consultationId });
     }
 
+    // Emit patient joined event to practitioner and other participants
+    if (this.consultationGateway.server) {
+      const patient = await this.db.user.findUnique({
+        where: { id: patientId },
+        select: { id: true, firstName: true, lastName: true, role: true },
+      });
+
+      this.emitConsultationStateChange(
+        consultationId,
+        'patient_joined_waiting_room',
+        {
+          patient: {
+            id: patient?.id,
+            name: `${patient?.firstName} ${patient?.lastName}`,
+            role: patient?.role,
+            joinedAt: new Date().toISOString(),
+          },
+          message: 'Patient has joined the waiting room',
+        },
+      );
+    }
+
+    const patientCapabilities = this.getConsultationCapabilities(
+      UserRole.PATIENT,
+      true,
+    );
+
     const responsePayload: JoinConsultationResponseDto = {
       success: true,
       statusCode: 200,
       message: 'Patient joined consultation and entered waiting room.',
       consultationId,
       mediasoup: { routerId: consultationId, active: true },
+      sessionUrl: this.generateSessionUrl(
+        consultationId,
+        UserRole.PATIENT,
+        true,
+      ),
       redirectTo: 'waiting-room',
-      userRole: UserRole.PATIENT,
-      waitingRoom: consultation.ownerId
-        ? {
-            practitionerId: consultation.ownerId,
-            practitionerName: 'Practitioner', // Will be updated from consultation data
-            estimatedWaitTime: '5-10 minutes',
-          }
-        : undefined,
       status: consultation.status,
+      features: patientCapabilities.features,
+      mediaConfig: patientCapabilities.mediaConfig,
       participants: consultation.participants.map((p) => ({
         id: p.user.id,
         firstName: p.user.firstName,
@@ -926,16 +946,24 @@ export class ConsultationService {
           .emit('media_session_live', { consultationId });
       }
 
+      const practitionerCapabilities = this.getConsultationCapabilities(
+        UserRole.PRACTITIONER,
+      );
+
       const responsePayload: JoinConsultationResponseDto = {
         success: true,
         statusCode: 200,
         message: 'Practitioner joined and activated the consultation.',
         consultationId,
         mediasoup: { routerId: consultationId, active: true },
-        sessionUrl: `/session/consultation/${consultationId}`,
+        sessionUrl: this.generateSessionUrl(
+          consultationId,
+          UserRole.PRACTITIONER,
+        ),
         redirectTo: 'consultation-room',
-        userRole: UserRole.PRACTITIONER,
         status: consultation.status,
+        features: practitionerCapabilities.features,
+        mediaConfig: practitionerCapabilities.mediaConfig,
         participants: consultation.participants.map((p) => ({
           id: p.user.id,
           firstName: p.user.firstName,
@@ -1243,6 +1271,12 @@ export class ConsultationService {
       }
 
       // Enhanced response with comprehensive information
+      const isWaitingRoom = invitation.role === UserRole.PATIENT;
+      const capabilities = this.getConsultationCapabilities(
+        invitation.role,
+        isWaitingRoom,
+      );
+
       const responsePayload: JoinConsultationResponseDto = {
         success: true,
         statusCode: 200,
@@ -1250,11 +1284,16 @@ export class ConsultationService {
         consultationId: consultation.id,
         mediasoup: { routerId: consultation.id, active: true },
         status: consultation.status,
+        sessionUrl:
+          invitation.role === UserRole.PATIENT
+            ? this.generateSessionUrl(consultation.id, invitation.role, true)
+            : this.generateSessionUrl(consultation.id, invitation.role),
         redirectTo:
           invitation.role === UserRole.PATIENT
             ? 'waiting-room'
             : 'consultation-room',
-        userRole: invitation.role,
+        features: capabilities.features,
+        mediaConfig: capabilities.mediaConfig,
         waitingRoom:
           invitation.role === UserRole.PATIENT && consultation.ownerId
             ? {
@@ -1286,6 +1325,48 @@ export class ConsultationService {
           createdAt: m.createdAt,
         })),
       };
+
+      // Emit WebSocket events based on user role
+      if (this.consultationGateway.server) {
+        if (
+          invitation.role === UserRole.EXPERT ||
+          invitation.role === UserRole.GUEST
+        ) {
+          // Expert/Guest joining consultation room directly
+          this.emitConsultationStateChange(
+            consultation.id,
+            'participant_joined_consultation',
+            {
+              participant: {
+                id: user.id,
+                name: `${user.firstName} ${user.lastName}`,
+                role: invitation.role,
+                email: user.email,
+                joinedAt: new Date().toISOString(),
+              },
+              message: `${invitation.role.toLowerCase()} has joined the consultation`,
+            },
+          );
+
+          // Ensure media session is ready
+          await this.ensureMediaSessionForConsultation(consultation.id);
+        } else if (invitation.role === UserRole.PATIENT) {
+          // Patient joining waiting room
+          this.emitConsultationStateChange(
+            consultation.id,
+            'patient_joined_waiting_room',
+            {
+              patient: {
+                id: user.id,
+                name: `${user.firstName} ${user.lastName}`,
+                role: invitation.role,
+                joinedAt: new Date().toISOString(),
+              },
+              message: 'Patient has joined the waiting room via invitation',
+            },
+          );
+        }
+      }
 
       this.logger.log(
         `User ${user.id} (${user.email}) successfully joined consultation ${consultation.id} via invitation token as ${invitation.role}`,
@@ -1445,6 +1526,22 @@ export class ConsultationService {
           this.logger.error('WebSocket emission failed:', socketError);
         }
       }
+
+      // Handle the transition from waiting room to consultation room
+      const participantIds = await this.db.participant
+        .findMany({
+          where: { consultationId: dto.consultationId },
+          select: { userId: true },
+        })
+        .then((participants) => participants.map((p) => p.userId));
+
+      await this.handleConsultationRoomTransition(
+        dto.consultationId,
+        'waiting',
+        'consultation',
+        participantIds,
+        user.role,
+      );
 
       return ApiResponseDto.success(
         {
@@ -2619,5 +2716,278 @@ export class ConsultationService {
     });
 
     return updatedConsultation;
+  }
+
+  /**
+   * Generate appropriate magic link URL based on user role
+   */
+  private generateMagicLinkUrl(token: string, role: UserRole): string {
+    const baseUrl = this.getBaseUrlForRole(role);
+    return `${baseUrl}/join-consultation?token=${token}`;
+  }
+
+  /**
+   * Get base URL for different user roles
+   */
+  private getBaseUrlForRole(role: UserRole): string {
+    switch (role) {
+      case UserRole.PATIENT:
+        return (
+          this.configService.getOptional<string>('PATIENT_URL') ||
+          this.configService.corsOrigin[2] || // fallback to corsOrigin patient URL
+          'http://localhost:4200'
+        ); // development fallback
+      case UserRole.PRACTITIONER:
+        return (
+          this.configService.getOptional<string>('PRACTITIONER_URL') ||
+          this.configService.corsOrigin[1] || // fallback to corsOrigin practitioner URL
+          'http://localhost:4201'
+        ); // development fallback
+      case UserRole.EXPERT:
+      case UserRole.GUEST:
+        // Experts and guests can use any of the interfaces, default to practitioner
+        return (
+          this.configService.getOptional<string>('PRACTITIONER_URL') ||
+          this.configService.corsOrigin[1] ||
+          'http://localhost:4201'
+        );
+      case UserRole.ADMIN:
+        return (
+          this.configService.getOptional<string>('ADMIN_URL') ||
+          this.configService.corsOrigin[0] || // fallback to corsOrigin admin URL
+          'http://localhost:4202'
+        ); // development fallback
+      default:
+        return (
+          this.configService.getOptional<string>('PATIENT_URL') ||
+          'http://localhost:4200'
+        );
+    }
+  }
+
+  /**
+   * Generate session URL for consultation participants
+   */
+  private generateSessionUrl(
+    consultationId: number,
+    userRole: UserRole,
+    isWaitingRoom: boolean = false,
+  ): string {
+    if (isWaitingRoom && userRole === UserRole.PATIENT) {
+      return `/waiting-room/${consultationId}`;
+    }
+    return `/consultation-room/${consultationId}`;
+  }
+
+  /**
+   * Emit consultation state change events via WebSocket
+   */
+  private emitConsultationStateChange(
+    consultationId: number,
+    eventType: string,
+    data: any,
+    targetRoom?: string,
+  ): void {
+    if (!this.consultationGateway.server) {
+      this.logger.warn(
+        'WebSocket server not available for state change emission',
+      );
+      return;
+    }
+
+    const room = targetRoom || `consultation:${consultationId}`;
+    this.consultationGateway.server.to(room).emit(eventType, {
+      consultationId,
+      timestamp: new Date().toISOString(),
+      ...data,
+    });
+  }
+
+  /**
+   * Ensure media session is ready for consultation
+   */
+  private async ensureMediaSessionForConsultation(
+    consultationId: number,
+  ): Promise<boolean> {
+    try {
+      const router =
+        await this.mediasoupSessionService.ensureRouterForConsultation(
+          consultationId,
+        );
+      if (router) {
+        this.emitConsultationStateChange(
+          consultationId,
+          'media_session_ready',
+          {
+            routerId: consultationId,
+            message: 'WebRTC media session is ready',
+          },
+        );
+        return true;
+      }
+      return false;
+    } catch (error) {
+      this.logger.error(
+        `Failed to ensure media session for consultation ${consultationId}:`,
+        error.message,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Handle consultation room transitions and emit appropriate events
+   */
+  private async handleConsultationRoomTransition(
+    consultationId: number,
+    fromState: 'waiting' | 'consultation',
+    toState: 'waiting' | 'consultation',
+    participantIds: number[],
+    initiatedBy: UserRole,
+  ): Promise<void> {
+    try {
+      if (fromState === 'waiting' && toState === 'consultation') {
+        // Moving from waiting room to consultation room
+        this.emitConsultationStateChange(
+          consultationId,
+          'transition_to_consultation_room',
+          {
+            participantIds,
+            fromState,
+            toState,
+            initiatedBy,
+            message: 'All participants are being moved to consultation room',
+            features: {
+              chat: true,
+              voice: true,
+              video: true,
+              screenShare: true,
+              fileShare: true,
+            },
+          },
+        );
+
+        // Ensure media session is ready for the transition
+        await this.ensureMediaSessionForConsultation(consultationId);
+
+        // Update consultation status
+        await this.db.consultation.update({
+          where: { id: consultationId },
+          data: {
+            status: ConsultationStatus.ACTIVE,
+            version: { increment: 1 },
+          },
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle consultation room transition for ${consultationId}:`,
+        error.message,
+      );
+    }
+  }
+
+  /**
+   * Get consultation capabilities based on user role and consultation state
+   */
+  private getConsultationCapabilities(
+    role: UserRole,
+    isInWaitingRoom: boolean = false,
+  ) {
+    if (isInWaitingRoom) {
+      return {
+        features: {
+          chat: role === UserRole.PATIENT, // Patients can chat in waiting room
+          voice: false,
+          video: false,
+          screenShare: false,
+          fileShare: false,
+        },
+        mediaConfig: {
+          audioEnabled: false,
+          videoEnabled: false,
+          screenShareEnabled: false,
+        },
+      };
+    }
+
+    // Consultation room capabilities
+    switch (role) {
+      case UserRole.PRACTITIONER:
+        return {
+          features: {
+            chat: true,
+            voice: true,
+            video: true,
+            screenShare: true,
+            fileShare: true,
+          },
+          mediaConfig: {
+            audioEnabled: true,
+            videoEnabled: true,
+            screenShareEnabled: true,
+          },
+        };
+      case UserRole.EXPERT:
+        return {
+          features: {
+            chat: true,
+            voice: true,
+            video: true,
+            screenShare: true,
+            fileShare: true,
+          },
+          mediaConfig: {
+            audioEnabled: true,
+            videoEnabled: true,
+            screenShareEnabled: true,
+          },
+        };
+      case UserRole.PATIENT:
+        return {
+          features: {
+            chat: true,
+            voice: true,
+            video: true,
+            screenShare: false, // Patients typically don't screen share
+            fileShare: true,
+          },
+          mediaConfig: {
+            audioEnabled: true,
+            videoEnabled: true,
+            screenShareEnabled: false,
+          },
+        };
+      case UserRole.GUEST:
+        return {
+          features: {
+            chat: true,
+            voice: true,
+            video: true,
+            screenShare: false, // Guests have limited screen share
+            fileShare: false, // Guests have limited file share
+          },
+          mediaConfig: {
+            audioEnabled: true,
+            videoEnabled: true,
+            screenShareEnabled: false,
+          },
+        };
+      default:
+        return {
+          features: {
+            chat: true,
+            voice: false,
+            video: false,
+            screenShare: false,
+            fileShare: false,
+          },
+          mediaConfig: {
+            audioEnabled: false,
+            videoEnabled: false,
+            screenShareEnabled: false,
+          },
+        };
+    }
   }
 }

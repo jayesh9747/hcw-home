@@ -157,6 +157,52 @@ export class JoinConsultationResponseDto {
   })
   status?: ConsultationStatus;
 
+  @ApiPropertyOptional({
+    description: 'Available features in the consultation room',
+    type: 'object',
+    properties: {
+      chat: { type: 'boolean', example: true },
+      voice: { type: 'boolean', example: true },
+      video: { type: 'boolean', example: true },
+      screenShare: { type: 'boolean', example: true },
+      fileShare: { type: 'boolean', example: true },
+    },
+    example: {
+      chat: true,
+      voice: true,
+      video: true,
+      screenShare: true,
+      fileShare: true,
+    },
+  })
+  features?: {
+    chat: boolean;
+    voice: boolean;
+    video: boolean;
+    screenShare: boolean;
+    fileShare: boolean;
+  };
+
+  @ApiPropertyOptional({
+    description: 'WebRTC and media session configuration',
+    type: 'object',
+    properties: {
+      audioEnabled: { type: 'boolean', example: true },
+      videoEnabled: { type: 'boolean', example: true },
+      screenShareEnabled: { type: 'boolean', example: true },
+    },
+    example: {
+      audioEnabled: true,
+      videoEnabled: true,
+      screenShareEnabled: true,
+    },
+  })
+  mediaConfig?: {
+    audioEnabled: boolean;
+    videoEnabled: boolean;
+    screenShareEnabled: boolean;
+  };
+
   constructor(partial: Partial<JoinConsultationResponseDto>) {
     Object.assign(this, partial);
   }

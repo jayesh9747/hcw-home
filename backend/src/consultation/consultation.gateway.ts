@@ -928,4 +928,161 @@ export class ConsultationGateway
       });
     }
   }
+
+  @SubscribeMessage('request_consultation_state')
+  async handleRequestConsultationState(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number },
+  ) {
+    try {
+      const { consultationId } = data;
+      const consultation = await this.databaseService.consultation.findUnique({
+        where: { id: consultationId },
+        include: {
+          participants: {
+            include: { user: true },
+          },
+          messages: {
+            orderBy: { createdAt: 'asc' },
+            take: 50, // Last 50 messages
+          },
+        },
+      });
+
+      if (!consultation) {
+        client.emit('error', { message: 'Consultation not found' });
+        return;
+      }
+
+      client.emit('consultation_state_update', {
+        consultationId,
+        status: consultation.status,
+        participants: consultation.participants.map((p) => ({
+          id: p.user.id,
+          name: `${p.user.firstName} ${p.user.lastName}`,
+          role: p.user.role,
+          isActive: p.isActive,
+          inWaitingRoom: p.inWaitingRoom,
+        })),
+        messages: consultation.messages.map((m) => ({
+          id: m.id,
+          userId: m.userId,
+          content: m.content,
+          mediaUrl: m.mediaUrl,
+          mediaType: m.mediaType,
+          createdAt: m.createdAt,
+        })),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error('Failed to get consultation state:', error);
+      client.emit('error', { message: 'Failed to get consultation state' });
+    }
+  }
+
+  @SubscribeMessage('update_participant_status')
+  async handleUpdateParticipantStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      status: 'active' | 'away' | 'busy';
+    },
+  ) {
+    try {
+      const { consultationId, userId, status } = data;
+
+      await this.databaseService.participant.updateMany({
+        where: { consultationId, userId },
+        data: {
+          isActive: status === 'active',
+          lastActiveAt: new Date(),
+        },
+      });
+
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('participant_status_changed', {
+          consultationId,
+          userId,
+          status,
+          timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+      this.logger.error('Failed to update participant status:', error);
+      client.emit('error', { message: 'Failed to update participant status' });
+    }
+  }
+
+  @SubscribeMessage('typing_indicator')
+  async handleTypingIndicator(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      userId: number;
+      isTyping: boolean;
+    },
+  ) {
+    const { consultationId, userId, isTyping } = data;
+
+    // Broadcast typing indicator to other participants (exclude sender)
+    client.to(`consultation:${consultationId}`).emit('user_typing', {
+      consultationId,
+      userId,
+      isTyping,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  @SubscribeMessage('share_screen_request')
+  async handleShareScreenRequest(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; userId: number },
+  ) {
+    try {
+      const { consultationId, userId } = data;
+
+      // Check if user has permission to share screen
+      const participant = await this.databaseService.participant.findUnique({
+        where: { consultationId_userId: { consultationId, userId } },
+        include: { user: true },
+      });
+
+      if (!participant) {
+        client.emit('error', {
+          message: 'Not a participant in this consultation',
+        });
+        return;
+      }
+
+      const canShareScreen =
+        (participant.user.role as string) === 'PRACTITIONER' ||
+        (participant.user.role as string) === 'EXPERT';
+
+      if (!canShareScreen) {
+        client.emit('screen_share_denied', {
+          reason: 'Permission denied',
+          message: 'Only practitioners and experts can share screen',
+        });
+        return;
+      }
+
+      // Notify all participants about screen share request
+      this.server
+        .to(`consultation:${consultationId}`)
+        .emit('screen_share_started', {
+          consultationId,
+          userId,
+          userName: `${participant.user.firstName} ${participant.user.lastName}`,
+          timestamp: new Date().toISOString(),
+        });
+    } catch (error) {
+      this.logger.error('Failed to handle screen share request:', error);
+      client.emit('error', {
+        message: 'Failed to process screen share request',
+      });
+    }
+  }
 }
