@@ -43,39 +43,42 @@ export class ConsultationUtilityService {
   getBaseUrlForRole(role: UserRole): string {
     // Each participant type uses their own CORS origin/frontend URL
     // but all access the same consultation room interface from their respective frontends
+    let baseUrl: string;
+
     switch (role) {
       case UserRole.PATIENT:
-        return (
-          this.configService.getOptional<string>('PATIENT_URL') ||
-          this.configService.corsOrigin[2] || // fallback to corsOrigin patient URL
-          'http://localhost:4200'
-        );
+        baseUrl =
+          this.configService.patientUrl || this.configService.corsOrigin[2];
+        break;
       case UserRole.PRACTITIONER:
-        return (
-          this.configService.getOptional<string>('PRACTITIONER_URL') ||
-          this.configService.corsOrigin[1] || // fallback to corsOrigin practitioner URL
-          'http://localhost:4201'
-        );
+        baseUrl =
+          this.configService.practitionerUrl ||
+          this.configService.corsOrigin[1];
+        break;
       case UserRole.EXPERT:
       case UserRole.GUEST:
         // Experts and guests use practitioner frontend but maintain their own access
-        return (
-          this.configService.getOptional<string>('PRACTITIONER_URL') ||
-          this.configService.corsOrigin[1] ||
-          'http://localhost:4201'
-        );
+        baseUrl =
+          this.configService.practitionerUrl ||
+          this.configService.corsOrigin[1];
+        break;
       case UserRole.ADMIN:
-        return (
-          this.configService.getOptional<string>('ADMIN_URL') ||
-          this.configService.corsOrigin[0] || // fallback to corsOrigin admin URL
-          'http://localhost:4202'
-        );
+        baseUrl =
+          this.configService.adminUrl || this.configService.corsOrigin[0];
+        break;
       default:
-        return (
-          this.configService.getOptional<string>('PATIENT_URL') ||
-          'http://localhost:4200'
-        );
+        baseUrl = this.configService.patientUrl;
+        break;
     }
+
+    if (!baseUrl) {
+      this.logger.error(
+        `No base URL configured for role: ${role}. Please check your environment configuration.`,
+      );
+      throw new Error(`Base URL not configured for user role: ${role}`);
+    }
+
+    return baseUrl;
   }
 
   /**

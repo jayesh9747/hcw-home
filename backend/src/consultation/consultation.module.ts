@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
@@ -22,7 +22,7 @@ import { UserModule } from 'src/user/user.module';
     ConfigModule,
     AvailabilityModule,
     UserModule,
-    forwardRef(() => MediasoupModule),
+    MediasoupModule,
     ReminderModule,
     ThrottlerModule.forRoot([
       {

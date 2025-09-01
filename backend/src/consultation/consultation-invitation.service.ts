@@ -187,4 +187,108 @@ export class ConsultationInvitationService {
 
     this.logger.log(`Expired ${expiredInvites.length} invitations`);
   }
+
+  /**
+   * Gets all invitations for a consultation
+   * @param consultationId - ID of the consultation
+   * @returns Array of invitations with basic details
+   */
+  async getConsultationInvitations(consultationId: number): Promise<any[]> {
+    return await this.db.consultationInvitation.findMany({
+      where: { consultationId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Gets invitation statistics for a consultation
+   * @param consultationId - ID of the consultation
+   * @returns Statistics object
+   */
+  async getInvitationStats(consultationId: number): Promise<{
+    total: number;
+    pending: number;
+    used: number;
+    expired: number;
+    revoked: number;
+  }> {
+    const invitations = await this.db.consultationInvitation.findMany({
+      where: { consultationId },
+      select: { status: true },
+    });
+
+    const stats = {
+      total: invitations.length,
+      pending: 0,
+      used: 0,
+      expired: 0,
+      revoked: 0,
+    };
+
+    invitations.forEach((inv) => {
+      switch (inv.status) {
+        case InvitationStatus.PENDING:
+          stats.pending++;
+          break;
+        case InvitationStatus.USED:
+          stats.used++;
+          break;
+        case InvitationStatus.EXPIRED:
+          stats.expired++;
+          break;
+        case InvitationStatus.REVOKED:
+          stats.revoked++;
+          break;
+      }
+    });
+
+    return stats;
+  }
+
+  /**
+   * Validates bulk invitation email formats
+   * @param emails - Array of email addresses
+   * @returns Object with valid and invalid emails
+   */
+  validateBulkEmails(emails: string[]): {
+    valid: string[];
+    invalid: Array<{ email: string; error: string }>;
+  } {
+    const valid: string[] = [];
+    const invalid: Array<{ email: string; error: string }> = [];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    emails.forEach((email) => {
+      if (!email || !email.trim()) {
+        invalid.push({ email: email || '', error: 'Email is required' });
+      } else if (!emailRegex.test(email.trim())) {
+        invalid.push({ email, error: 'Invalid email format' });
+      } else {
+        valid.push(email.trim().toLowerCase());
+      }
+    });
+
+    return { valid, invalid };
+  }
+
+  /**
+   * Checks if email already has pending invitation for consultation
+   * @param consultationId - ID of the consultation
+   * @param email - Email address to check
+   * @returns Promise<boolean> indicating if pending invitation exists
+   */
+  async hasPendingInvitation(
+    consultationId: number,
+    email: string,
+  ): Promise<boolean> {
+    const invitation = await this.db.consultationInvitation.findFirst({
+      where: {
+        consultationId,
+        inviteEmail: email.toLowerCase().trim(),
+        status: InvitationStatus.PENDING,
+      },
+    });
+
+    return !!invitation;
+  }
 }

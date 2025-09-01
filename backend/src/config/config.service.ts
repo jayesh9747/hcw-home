@@ -92,15 +92,24 @@ export class ConfigService {
   }
 
   get patientUrl(): string {
-    return this.configService.get<string>('PATIENT_URL', '');
+    return this.configService.get<string>(
+      'PATIENT_URL',
+      this.isDevelopment ? 'http://localhost:4201' : '',
+    );
   }
 
   get practitionerUrl(): string {
-    return this.configService.get<string>('PRACTITIONER_URL', '');
+    return this.configService.get<string>(
+      'PRACTITIONER_URL',
+      this.isDevelopment ? 'http://localhost:4202' : '',
+    );
   }
 
   get adminUrl(): string {
-    return this.configService.get<string>('ADMIN_URL', '');
+    return this.configService.get<string>(
+      'ADMIN_URL',
+      this.isDevelopment ? 'http://localhost:4200' : '',
+    );
   }
 
   get mediasoupAnnouncedIp(): string {

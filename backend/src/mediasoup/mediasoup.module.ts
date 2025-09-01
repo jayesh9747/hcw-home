@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '../config/config.module';
@@ -9,7 +9,6 @@ import { MediasoupGateway } from './mediasoup.gateway';
 import { DatabaseModule } from '../database/database.module';
 import { UserModule } from '../user/user.module';
 import { AuthModule } from '../auth/auth.module';
-import { ConsultationModule } from '../consultation/consultation.module';
 import { MediaEventService } from './media-event.service';
 import { ChatModule } from '../chat/chat.module';
 
@@ -19,8 +18,7 @@ import { ChatModule } from '../chat/chat.module';
     DatabaseModule,
     UserModule,
     AuthModule,
-    forwardRef(() => ConsultationModule),
-    forwardRef(() => ChatModule),
+    ChatModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
