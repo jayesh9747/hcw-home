@@ -26,9 +26,11 @@ import { AvailabilityModule } from './availability/availability.module';
 import { ReminderModule } from './reminder/reminder.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationModule } from './notification/notification.module';
+import { CoreModule } from './core/core.module';
 
 @Module({
   imports: [
+    CoreModule,
     ConfigModule,
     LoggerModule,
     DatabaseModule,

@@ -10,15 +10,14 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { Logger, UseGuards, Inject, forwardRef } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import * as mediasoup from 'mediasoup';
 import { Server, Socket } from 'socket.io';
 import { MediasoupSessionService } from './mediasoup-session.service';
-import { WsAuthGuard } from '../auth/guards/ws-auth.guard';
-import { sanitizePayload } from '../common/helpers/sanitize.helper';
-import { DatabaseService } from '../database/database.service';
-import { ConsultationService } from '../consultation/consultation.service';
-import { ConsultationInvitationService } from '../consultation/consultation-invitation.service';
+import { WsAuthGuard } from 'src/auth/guards/ws-auth.guard';
+import { sanitizePayload } from 'src/common/helpers/sanitize.helper';
+import { DatabaseService } from 'src/database/database.service';
+import { ConsultationInvitationService } from 'src/consultation/consultation-invitation.service';
 import { UserRole } from '@prisma/client';
 
 import { MediaEventService } from './media-event.service';
@@ -38,9 +37,6 @@ export class MediasoupGateway
 
   constructor(
     private readonly mediasoupService: MediasoupSessionService,
-    @Inject(forwardRef(() => ConsultationService))
-    private readonly consultationService: ConsultationService,
-    @Inject(forwardRef(() => ConsultationInvitationService))
     private readonly invitationService: ConsultationInvitationService,
     private readonly databaseService: DatabaseService,
     private readonly mediaEventService: MediaEventService,

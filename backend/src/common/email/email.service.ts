@@ -1,21 +1,47 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as sgMail from '@sendgrid/mail';
-import { ConfigService } from '../../config/config.service';
+import { ConfigService } from 'src/config/config.service';
 import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private senderEmail: string;
+  private isConfigured: boolean = false;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.emailSendgridApiKey;
     this.senderEmail = this.configService.emailSenderAddress;
-    if (!apiKey) {
-      this.logger.error('SendGrid API key is missing in config');
-      throw new Error('Missing SendGrid API key');
+
+    // Check if email is properly configured
+    const hasValidApiKey = apiKey && apiKey !== 'YOUR_SENDGRID_API_KEY_HERE';
+    const hasValidSenderEmail = this.senderEmail && this.senderEmail !== 'no-reply@yourdomain.com';
+
+    if (!hasValidApiKey || !hasValidSenderEmail) {
+      this.logger.warn('⚠️  EmailService starting in DISABLED mode');
+      this.logger.warn('Email functionality will not work until proper configuration is provided:');
+      
+      if (!hasValidApiKey) {
+        this.logger.warn('- Set EMAIL_SENDGRID_API_KEY to a valid SendGrid API key');
+      }
+      if (!hasValidSenderEmail) {
+        this.logger.warn('- Set EMAIL_SENDER_ADDRESS to a valid email address');
+      }
+      
+      this.logger.warn('Application will continue to run, but email features will be mocked');
+      this.isConfigured = false;
+      return;
     }
-    sgMail.setApiKey(apiKey);
+
+    try {
+      sgMail.setApiKey(apiKey);
+      this.isConfigured = true;
+      this.logger.log('✅ SendGrid EmailService configured successfully');
+    } catch (error) {
+      this.logger.error('Failed to configure SendGrid API key:', error);
+      this.logger.warn('EmailService starting in DISABLED mode due to configuration error');
+      this.isConfigured = false;
+    }
   }
 
   private async sendEmail(
@@ -23,6 +49,11 @@ export class EmailService {
     subject: string,
     htmlContent: string,
   ): Promise<void> {
+    if (!this.isConfigured) {
+      this.logger.warn(`Email service not configured - Mocking email to ${to} - ${subject}`);
+      return;
+    }
+
     const msg = {
       to,
       from: this.senderEmail,
@@ -47,48 +78,191 @@ export class EmailService {
     inviteeName?: string,
     notes?: string,
   ) {
-    const roleDisplay = this.getRoleDisplayName(role);
-    const subject = `You're invited to join a consultation as ${roleDisplay}`;
+    try {
+      if (!toEmail?.trim() || !magicLinkUrl?.trim()) {
+        throw new Error('Email address and magic link URL are required');
+      }
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; background-color: #f5f9ff; padding: 20px; color: #333;">
-        <table width="100%" cellpadding="0" cellspacing="0" border="0" 
-               style="max-width: 600px; margin: auto; background-color: white;
-                      border-radius: 8px; overflow: hidden; border: 1px solid #e0e7ff;">
-          <tr>
-            <td style="background-color: #3b82f6; color: white; padding: 20px; 
-                       text-align: center; font-size: 20px; font-weight: bold;">
-              Consultation Invitation
-            </td>
-          </tr>
-          <tr>
-            <td style="padding: 20px; font-size: 16px; line-height: 1.6;">
-              <p>Hello${inviteeName ? ` ${inviteeName}` : ''},</p>
-              <p><strong>${inviterName}</strong> has invited you to join a consultation as <strong>${roleDisplay}</strong>.</p>
-              <p><strong>Consultation ID:</strong> ${consultationId}</p>
-              ${notes ? `<p><em>Note from inviter:</em> ${notes}</p>` : ''}
-              <p>Please click the button below to join securely:</p>
-              <p style="text-align: center;">
-                <a href="${magicLinkUrl}" 
-                   style="background-color: #facc15; color: #000; padding: 12px 20px; 
-                          text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">
-                  Join Consultation
-                </a>
+      const roleDisplay = this.getRoleDisplayName(role);
+      const subject = `🏥 You're invited to join a consultation as ${roleDisplay}`;
+
+      const urlDomain = new URL(magicLinkUrl).hostname;
+
+      const securityNotice =
+        role === UserRole.PATIENT
+          ? 'This secure link is personal to you and will expire in 24 hours for your privacy and security.'
+          : 'This invitation link is secure and will expire in 24 hours. Please join promptly.';
+
+      const html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Consultation Invitation</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+            .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; }
+            .header h1 { color: white; font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+            .header p { color: #bfdbfe; font-size: 14px; }
+            .content { padding: 40px 30px; }
+            .greeting { font-size: 18px; font-weight: 500; color: #1f2937; margin-bottom: 20px; }
+            .invitation-details { background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 4px; }
+            .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+            .detail-label { font-weight: 500; color: #374151; }
+            .detail-value { color: #1f2937; }
+            .cta-section { text-align: center; margin: 30px 0; }
+            .cta-button { 
+              display: inline-block; 
+              background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
+              color: white; 
+              padding: 16px 32px; 
+              text-decoration: none; 
+              font-weight: 600; 
+              border-radius: 8px; 
+              font-size: 16px;
+              box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+              transition: transform 0.2s;
+            }
+            .cta-button:hover { transform: translateY(-1px); }
+            .notes { background-color: #fffbeb; border: 1px solid #fed7aa; padding: 16px; border-radius: 6px; margin: 20px 0; }
+            .notes-title { font-weight: 500; color: #92400e; margin-bottom: 8px; }
+            .notes-content { color: #451a03; line-height: 1.5; }
+            .security-notice { background-color: #ecfdf5; border: 1px solid #bbf7d0; padding: 16px; border-radius: 6px; margin: 20px 0; }
+            .security-icon { display: inline-block; margin-right: 8px; }
+            .security-text { font-size: 14px; color: #065f46; line-height: 1.5; }
+            .footer { background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; }
+            .footer-text { font-size: 12px; color: #6b7280; line-height: 1.5; }
+            .divider { height: 1px; background-color: #e5e7eb; margin: 20px 0; }
+            @media (max-width: 600px) {
+              .content { padding: 20px 15px; }
+              .cta-button { padding: 14px 24px; font-size: 15px; }
+              .detail-row { flex-direction: column; margin-bottom: 12px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <!-- Header -->
+            <div class="header">
+              <h1>Consultation Invitation</h1>
+              <p>Secure Healthcare Platform</p>
+            </div>
+
+            <!-- Main Content -->
+            <div class="content">
+              <div class="greeting">
+                Hello${inviteeName ? ` ${inviteeName}` : ''},
+              </div>
+
+              <p style="color: #374151; line-height: 1.6; margin-bottom: 20px;">
+                <strong>${inviterName}</strong> has invited you to join a healthcare consultation as <strong>${roleDisplay}</strong>.
               </p>
-              <p style="font-size: 14px; color: #6b7280;">This link will expire shortly for security purposes.</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color: #f5f9ff; text-align: center; padding: 15px;
-                       font-size: 12px; color: #6b7280;">
-              Thank you for using our platform.
-            </td>
-          </tr>
-        </table>
-      </div>
-    `;
 
-    await this.sendEmail(toEmail, subject, html);
+              <!-- Consultation Details -->
+              <div class="invitation-details">
+                <div class="detail-row">
+                  <span class="detail-label">Consultation ID:</span>
+                  <span class="detail-value">#${consultationId}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Role:</span>
+                  <span class="detail-value">${roleDisplay}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Invited by:</span>
+                  <span class="detail-value">${inviterName}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Platform:</span>
+                  <span class="detail-value">${urlDomain}</span>
+                </div>
+              </div>
+
+              ${
+                notes
+                  ? `
+                <div class="notes">
+                  <div class="notes-title">📝 Note from ${inviterName}:</div>
+                  <div class="notes-content">${notes}</div>
+                </div>
+              `
+                  : ''
+              }
+
+              <!-- Call to Action -->
+              <div class="cta-section">
+                <p style="color: #374151; margin-bottom: 16px;">Click the button below to join the consultation securely:</p>
+                <a href="${magicLinkUrl}" class="cta-button">
+                  Join Consultation Now
+                </a>
+              </div>
+
+              <!-- Security Notice -->
+              <div class="security-notice">
+                <div class="security-text">
+                  <span class="security-icon">🔒</span>
+                  <strong>Security Notice:</strong> ${securityNotice}
+                </div>
+              </div>
+
+              <div class="divider"></div>
+
+              <!-- Additional Information -->
+              <div style="font-size: 14px; color: #6b7280; line-height: 1.5;">
+                <p style="margin-bottom: 8px;"><strong>What to expect:</strong></p>
+                <ul style="margin-left: 20px; margin-bottom: 16px;">
+                  ${
+                    role === UserRole.PATIENT
+                      ? `
+                    <li>You'll be placed in a secure waiting room initially</li>
+                    <li>The practitioner will admit you when ready</li>
+                    <li>You can chat, make voice calls, and video calls during the consultation</li>
+                  `
+                      : `
+                    <li>You'll join the consultation room directly</li>
+                    <li>Chat, voice, and video capabilities are available</li>
+                    <li>You can contribute as an ${roleDisplay.toLowerCase()} participant</li>
+                  `
+                  }
+                </ul>
+                
+                <p style="margin-bottom: 8px;"><strong>Technical requirements:</strong></p>
+                <ul style="margin-left: 20px;">
+                  <li>Modern web browser (Chrome, Firefox, Safari, Edge)</li>
+                  <li>Stable internet connection</li>
+                  <li>Camera and microphone for video/voice calls (optional)</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <div class="footer-text">
+                <p>This is an automated message from our secure healthcare platform.</p>
+                <p>If you received this invitation in error, please ignore this email.</p>
+                <p style="margin-top: 8px;">© ${new Date().getFullYear()} Healthcare Platform. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await this.sendEmail(toEmail, subject, html);
+
+      this.logger.log(
+        `Consultation invitation email sent successfully - To: ${toEmail}, Role: ${role}, Consultation: ${consultationId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send consultation invitation email to ${toEmail}: ${error.message}`,
+        error.stack,
+      );
+      throw new Error(`Email delivery failed: ${error.message}`);
+    }
   }
 
   private getRoleDisplayName(role: UserRole): string {

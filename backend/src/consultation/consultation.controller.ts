@@ -16,6 +16,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
+import { ConsultationMediaSoupService } from './consultation-mediasoup.service';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
   JoinConsultationDto,
@@ -23,7 +24,7 @@ import {
 } from './dto/join-consultation.dto';
 import { UserIdParamPipe } from './validation/user-id-param.pipe';
 import { ConsultationIdParamPipe } from './validation/consultation-id-param.pipe';
-import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
+import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { WaitingRoomPreviewResponseDto } from './dto/waiting-room-preview.dto';
 import {
   AdmitPatientDto,
@@ -60,7 +61,7 @@ import {
   OpenConsultationResponseDto,
   OpenConsultationQueryDto,
 } from './dto/open-consultation.dto';
-import { ResponseStatus } from '../common/helpers/response/response-status.enum';
+import { ResponseStatus } from 'src/common/helpers/response/response-status.enum';
 import { CreatePatientConsultationResponseDto } from './dto/invite-form.dto';
 import { CreatePatientConsultationDto } from './dto/invite-form.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
@@ -69,20 +70,20 @@ import { AddParticipantDto } from './dto/add-participant.dto';
 @Controller('consultation')
 @UseGuards(ThrottlerGuard)
 export class ConsultationController {
-  constructor(private readonly consultationService: ConsultationService) {}
-
-  @Post('/add-participant')
-  @ApiOperation({ summary: 'Add a participant to a consultation in real-time' })
+  @Post(':consultationId/participants')
+  @ApiOperation({ summary: 'Add a participant to a specific consultation' })
   @ApiBody({ type: AddParticipantDto })
   @ApiOkResponse({
     description: 'Participant added successfully',
     type: ApiResponseDto,
   })
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  async addParticipant(
+  async addParticipantToConsultation(
+    @Param('consultationId', ParseIntPipe) consultationId: number,
     @Body() addParticipantDto: AddParticipantDto,
     @Query('userId', UserIdParamPipe) userId: number,
   ): Promise<any> {
+    addParticipantDto.consultationId = consultationId;
     const result = await this.consultationService.addParticipantToConsultation(
       addParticipantDto,
       userId,
@@ -92,6 +93,10 @@ export class ConsultationController {
       timestamp: new Date().toISOString(),
     };
   }
+  constructor(
+    private readonly consultationService: ConsultationService,
+    private readonly consultationMediaSoupService: ConsultationMediaSoupService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -156,7 +161,8 @@ export class ConsultationController {
 
   @Post('create-patient-consultation')
   @ApiOperation({
-    summary: 'Create patient and consultation from invite form (creates patient if not exists)',
+    summary:
+      'Create patient and consultation from invite form (creates patient if not exists)',
   })
   @ApiBody({ type: CreatePatientConsultationDto })
   @ApiCreatedResponse({
@@ -180,6 +186,36 @@ export class ConsultationController {
     );
     return {
       ...ApiResponseDto.success(result.data, result.message, result.statusCode),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Post('join-by-token')
+  @ApiOperation({ summary: 'Join a consultation using magic link token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: { type: 'string' },
+        userId: { type: 'number' },
+      },
+      required: ['token'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Successfully joined consultation via token',
+    type: ApiResponseDto<JoinConsultationResponseDto>,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async joinByToken(
+    @Body() body: { token: string; userId?: number },
+  ): Promise<any> {
+    const result = await this.consultationService.joinConsultationByToken(
+      body.token,
+      body.userId,
+    );
+    return {
+      ...result,
       timestamp: new Date().toISOString(),
     };
   }
@@ -380,52 +416,55 @@ export class ConsultationController {
       timestamp: new Date().toISOString(),
     };
   }
-@Get(':id/pdf')
-@ApiOperation({ summary: 'Download consultation PDF' })
-@ApiParam({ name: 'id', type: Number })
-@ApiQuery({
-  name: 'requesterId',
-  type: Number,
-  description: 'ID of requesting user',
-})
-@Header('Content-Type', 'application/pdf')
-async downloadPdf(
-  @Param('id', ConsultationIdParamPipe) id: number,
-  @Query('requesterId', ParseIntPipe) requesterId: number,
-  @Res() res: Response,
-) {
-  try {
-    console.log(`PDF download request - Consultation ID: ${id}, Requester ID: ${requesterId}`);
-    
-    const pdfBuffer = await this.consultationService.downloadConsultationPdf(
-      id,
-      requesterId,
-    );
-    
-    console.log(`PDF generated successfully - Size: ${pdfBuffer.length} bytes`);
-    
-    res
-      .status(HttpStatus.OK)
-      .set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="consultation_${id}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
-      })
-      .send(pdfBuffer);
-      
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    
-    if (error.status) {
-      throw error;
-    } else {
-      throw new HttpException(
-        `Failed to generate PDF: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Download consultation PDF' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiQuery({
+    name: 'requesterId',
+    type: Number,
+    description: 'ID of requesting user',
+  })
+  @Header('Content-Type', 'application/pdf')
+  async downloadPdf(
+    @Param('id', ConsultationIdParamPipe) id: number,
+    @Query('requesterId', ParseIntPipe) requesterId: number,
+    @Res() res: Response,
+  ) {
+    try {
+      console.log(
+        `PDF download request - Consultation ID: ${id}, Requester ID: ${requesterId}`,
       );
+
+      const pdfBuffer = await this.consultationService.downloadConsultationPdf(
+        id,
+        requesterId,
+      );
+
+      console.log(
+        `PDF generated successfully - Size: ${pdfBuffer.length} bytes`,
+      );
+
+      res
+        .status(HttpStatus.OK)
+        .set({
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="consultation_${id}.pdf"`,
+          'Content-Length': pdfBuffer.length.toString(),
+        })
+        .send(pdfBuffer);
+    } catch (error) {
+      console.error('PDF generation error:', error);
+
+      if (error.status) {
+        throw error;
+      } else {
+        throw new HttpException(
+          `Failed to generate PDF: ${error.message}`,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
     }
   }
-}
 
   @Get('/patient/history')
   @ApiOperation({ summary: 'Fetch consultation history for a patient' })
@@ -620,5 +659,213 @@ async downloadPdf(
       ),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  // ===================================================================
+  // ENHANCED MEDIASOUP INTEGRATION ENDPOINTS
+  // ===================================================================
+
+  @Get(':id/participants/media-status')
+  @ApiOperation({
+    summary: 'Get participants with MediaSoup session status',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiOkResponse({
+    description: 'Participants with media status retrieved successfully',
+  })
+  async getParticipantsWithMediaStatus(
+    @Param('id', ParseIntPipe) consultationId: number,
+  ) {
+    const result =
+      await this.consultationMediaSoupService.getActiveParticipantsWithMediaStatus(
+        consultationId,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'Participants with media status retrieved successfully',
+    );
+  }
+
+  @Get(':id/health-check')
+  @ApiOperation({
+    summary: 'Get comprehensive health check including MediaSoup status',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiOkResponse({
+    description: 'Consultation health status retrieved successfully',
+  })
+  async getConsultationHealthCheck(
+    @Param('id', ParseIntPipe) consultationId: number,
+  ) {
+    const result =
+      await this.consultationMediaSoupService.getConsultationHealthStatus(
+        consultationId,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'Consultation health status retrieved successfully',
+    );
+  }
+
+  @Post(':id/participants/:userId/join-media')
+  @ApiOperation({
+    summary: 'Handle participant joining MediaSoup session',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiParam({ name: 'userId', type: Number, description: 'User ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userRole: {
+          type: 'string',
+          enum: ['PATIENT', 'PRACTITIONER', 'EXPERT', 'GUEST'],
+        },
+      },
+      required: ['userRole'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Participant media join handled successfully',
+  })
+  async handleParticipantJoinMedia(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() body: { userRole: string },
+  ) {
+    const result =
+      await this.consultationMediaSoupService.handleParticipantJoinMedia(
+        consultationId,
+        userId,
+        body.userRole as any,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'Participant media join handled successfully',
+    );
+  }
+
+  @Post(':id/participants/:userId/leave-media')
+  @ApiOperation({
+    summary: 'Handle participant leaving MediaSoup session',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiParam({ name: 'userId', type: Number, description: 'User ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userRole: {
+          type: 'string',
+          enum: ['PATIENT', 'PRACTITIONER', 'EXPERT', 'GUEST'],
+        },
+      },
+      required: ['userRole'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Participant media leave handled successfully',
+  })
+  async handleParticipantLeaveMedia(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body() body: { userRole: string },
+  ) {
+    await this.consultationMediaSoupService.handleParticipantLeaveMedia(
+      consultationId,
+      userId,
+      body.userRole as any,
+    );
+
+    return ApiResponseDto.success(
+      { success: true },
+      'Participant media leave handled successfully',
+    );
+  }
+
+  @Patch(':id/transition-state')
+  @ApiOperation({
+    summary: 'Transition consultation state with MediaSoup coordination',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        newStatus: {
+          type: 'string',
+          enum: [
+            'DRAFT',
+            'SCHEDULED',
+            'WAITING',
+            'ACTIVE',
+            'COMPLETED',
+            'CANCELLED',
+            'TERMINATED_OPEN',
+          ],
+        },
+        initiatorUserId: { type: 'number' },
+      },
+      required: ['newStatus', 'initiatorUserId'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Consultation state transitioned successfully',
+  })
+  async transitionConsultationState(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Body() body: { newStatus: string; initiatorUserId: number },
+  ) {
+    await this.consultationMediaSoupService.transitionConsultationState(
+      consultationId,
+      body.newStatus as any,
+      body.initiatorUserId,
+    );
+
+    return ApiResponseDto.success(
+      { success: true },
+      'Consultation state transitioned successfully',
+    );
+  }
+
+  @Post(':id/initialize-media-session')
+  @ApiOperation({
+    summary: 'Initialize MediaSoup session for consultation',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        initiatorUserId: { type: 'number' },
+        initiatorRole: {
+          type: 'string',
+          enum: ['PATIENT', 'PRACTITIONER', 'EXPERT', 'GUEST'],
+        },
+      },
+      required: ['initiatorUserId', 'initiatorRole'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'MediaSoup session initialized successfully',
+  })
+  async initializeMediaSoupSession(
+    @Param('id', ParseIntPipe) consultationId: number,
+    @Body() body: { initiatorUserId: number; initiatorRole: string },
+  ) {
+    const result =
+      await this.consultationMediaSoupService.initializeMediaSoupSession(
+        consultationId,
+        body.initiatorUserId,
+        body.initiatorRole as any,
+      );
+
+    return ApiResponseDto.success(
+      result,
+      'MediaSoup session initialized successfully',
+    );
   }
 }

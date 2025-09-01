@@ -1,17 +1,16 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '../config/config.module';
+import { ConfigModule } from 'src/config/config.module';
 import { MediasoupServerService } from './mediasoup.service';
-import { MediasoupSessionService } from './mediasoup-session.service';
 import { MediasoupServerController } from './mediasoup.controller';
 import { MediasoupGateway } from './mediasoup.gateway';
-import { DatabaseModule } from '../database/database.module';
-import { UserModule } from '../user/user.module';
-import { AuthModule } from '../auth/auth.module';
-import { ConsultationModule } from '../consultation/consultation.module';
+import { DatabaseModule } from 'src/database/database.module';
+import { UserModule } from 'src/user/user.module';
+import { AuthModule } from 'src/auth/auth.module';
 import { MediaEventService } from './media-event.service';
-import { ChatModule } from '../chat/chat.module';
+import { ChatModule } from 'src/chat/chat.module';
+import { CoreModule } from 'src/core/core.module';
 
 @Module({
   imports: [
@@ -19,8 +18,8 @@ import { ChatModule } from '../chat/chat.module';
     DatabaseModule,
     UserModule,
     AuthModule,
-    forwardRef(() => ConsultationModule),
     ChatModule,
+    CoreModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -31,7 +30,6 @@ import { ChatModule } from '../chat/chat.module';
   controllers: [MediasoupServerController],
   providers: [
     MediasoupServerService,
-    MediasoupSessionService,
     MediasoupGateway,
     MediaEventService,
     {
@@ -39,6 +37,6 @@ import { ChatModule } from '../chat/chat.module';
       useClass: ThrottlerGuard,
     },
   ],
-  exports: [MediasoupServerService, MediasoupSessionService, MediaEventService],
+  exports: [MediasoupServerService, MediaEventService],
 })
 export class MediasoupModule {}

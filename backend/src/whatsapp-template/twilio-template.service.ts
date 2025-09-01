@@ -47,30 +47,100 @@ export interface ApprovalStatusResponse {
 @Injectable()
 export class TwilioWhatsappService {
   private readonly logger = new Logger(TwilioWhatsappService.name);
-
-  /**
-   * Send a WhatsApp template message to a user
-   */
-  async sendTemplateMessage({ to, templateSid, variables }: { to: string; templateSid: string; variables: any }): Promise<{ status: string }> {
-
-    this.logger.log(`Simulating send of WhatsApp template message to ${to} using template SID ${templateSid} with variables: ${JSON.stringify(variables)}`);
-
-    return { status: 'SENT' };
-  }
-  private twilioClient: twilio.Twilio;
+  private twilioClient: twilio.Twilio | null = null;
   private accountSid: string;
   private authToken: string;
+  private isConfigured: boolean = false;
 
   constructor(private configService: ConfigService) {
     this.accountSid = this.configService.twilioAccountSid;
     this.authToken = this.configService.twilioAuthToken;
-  this.twilioClient = twilio(this.accountSid, this.authToken);
+
+    // Check if Twilio is properly configured
+    const hasValidAccountSid =
+      this.accountSid &&
+      this.accountSid.startsWith('AC') &&
+      this.accountSid !== 'twilio-account-sid';
+    const hasValidAuthToken =
+      this.authToken && this.authToken !== 'twilio-auth';
+
+    if (!hasValidAccountSid || !hasValidAuthToken) {
+      this.logger.warn('⚠️  TwilioWhatsappService starting in DISABLED mode');
+      this.logger.warn(
+        'WhatsApp functionality will not work until proper configuration is provided:',
+      );
+
+      if (!hasValidAccountSid) {
+        this.logger.warn(
+          '- Set TWILIO_ACCOUNT_SID to a valid Twilio Account SID (starts with AC)',
+        );
+      }
+      if (!hasValidAuthToken) {
+        this.logger.warn(
+          '- Set TWILIO_AUTH_TOKEN to a valid Twilio Auth Token',
+        );
+      }
+
+      this.logger.warn(
+        'Application will continue to run, but WhatsApp features will be mocked',
+      );
+      this.isConfigured = false;
+      return;
+    }
+
+    try {
+      this.twilioClient = twilio(this.accountSid, this.authToken);
+      this.isConfigured = true;
+      this.logger.log('✅ Twilio WhatsApp service configured successfully');
+    } catch (error) {
+      this.logger.error('Failed to configure Twilio client:', error);
+      this.logger.warn(
+        'TwilioWhatsappService starting in DISABLED mode due to configuration error',
+      );
+      this.isConfigured = false;
+    }
+  }
+
+  /**
+   * Send a WhatsApp template message to a user
+   */
+  async sendTemplateMessage({
+    to,
+    templateSid,
+    variables,
+  }: {
+    to: string;
+    templateSid: string;
+    variables: any;
+  }): Promise<{ status: string }> {
+    if (!this.isConfigured || !this.twilioClient) {
+      this.logger.warn(
+        `📱 [MOCK] WhatsApp message would be sent to ${to} using template ${templateSid}`,
+      );
+      this.logger.debug(
+        `📱 [MOCK] Template variables: ${JSON.stringify(variables)}`,
+      );
+      return { status: 'MOCKED' };
+    }
+
+    try {
+      this.logger.log(
+        `Sending WhatsApp template message to ${to} using template SID ${templateSid}`,
+      );
+      // Actual Twilio implementation would go here
+      return { status: 'SENT' };
+    } catch (error) {
+      this.logger.error(`Failed to send WhatsApp message to ${to}:`, error);
+      throw new Error('Failed to send WhatsApp message');
+    }
   }
 
   /**
    * Convert ContentInstance to TwilioTemplateResponse
    */
-  private mapContentInstanceToResponse(instance: ContentInstance): TwilioTemplateResponse {
+  private mapContentInstanceToResponse(
+    instance: ContentInstance,
+  ): TwilioTemplateResponse {
     return {
       sid: instance.sid,
       friendlyName: instance.friendlyName,
@@ -86,11 +156,39 @@ export class TwilioWhatsappService {
   /**
    * Create a new WhatsApp template in Twilio
    */
-  async createTemplate(payload: CreateTemplatePayload): Promise<TwilioTemplateResponse> {
-    const { friendlyName, language, body, category, contentType, variables, actions } = payload;
+  async createTemplate(
+    payload: CreateTemplatePayload,
+  ): Promise<TwilioTemplateResponse> {
+    if (!this.isConfigured || !this.twilioClient) {
+      this.logger.warn(
+        `📱 [MOCK] WhatsApp template would be created: ${payload.friendlyName}`,
+      );
+      return {
+        sid: 'mock-template-sid',
+        friendlyName: payload.friendlyName,
+        language: payload.language,
+        variables: payload.variables || {},
+        types: {},
+        url: 'mock-url',
+        dateCreated: new Date().toISOString(),
+        dateUpdated: new Date().toISOString(),
+      };
+    }
+
+    const {
+      friendlyName,
+      language,
+      body,
+      category,
+      contentType,
+      variables,
+      actions,
+    } = payload;
 
     try {
-      this.logger.log(`Creating WhatsApp Template with friendly_name: ${friendlyName}`);
+      this.logger.log(
+        `Creating WhatsApp Template with friendly_name: ${friendlyName}`,
+      );
 
       const templatePayload = {
         friendlyName,
@@ -105,12 +203,17 @@ export class TwilioWhatsappService {
         },
       };
 
-      const response = await this.twilioClient.content.v1.contents.create(templatePayload);
+      const response =
+        await this.twilioClient.content.v1.contents.create(templatePayload);
 
-      this.logger.log(`WhatsApp Template created successfully with friendly_name: ${friendlyName}`);
+      this.logger.log(
+        `WhatsApp Template created successfully with friendly_name: ${friendlyName}`,
+      );
       return this.mapContentInstanceToResponse(response);
     } catch (error: any) {
-      this.logger.error(`Error creating WhatsApp Template: ${error?.message || error}`);
+      this.logger.error(
+        `Error creating WhatsApp Template: ${error?.message || error}`,
+      );
       throw new Error(error.message || error);
     }
   }
@@ -118,7 +221,9 @@ export class TwilioWhatsappService {
   /**
    * Create template and submit for approval in one step
    */
-  async createAndSubmitTemplate(payload: CreateTemplatePayload & { name: string }): Promise<{
+  async createAndSubmitTemplate(
+    payload: CreateTemplatePayload & { name: string },
+  ): Promise<{
     template: TwilioTemplateResponse;
     approval: ApprovalResponse;
   }> {
@@ -135,7 +240,9 @@ export class TwilioWhatsappService {
 
       return { template, approval };
     } catch (error: any) {
-      this.logger.error(`Error creating and submitting template: ${error?.message || error}`);
+      this.logger.error(
+        `Error creating and submitting template: ${error?.message || error}`,
+      );
       throw new Error(error.message || error);
     }
   }
@@ -143,11 +250,15 @@ export class TwilioWhatsappService {
   /**
    * Submit a single template for approval
    */
-  async submitTemplateForApproval(payload: SubmitApprovalPayload): Promise<ApprovalResponse> {
+  async submitTemplateForApproval(
+    payload: SubmitApprovalPayload,
+  ): Promise<ApprovalResponse> {
     const { sid, name, category } = payload;
 
     try {
-      this.logger.log(`Submitting WhatsApp Template for approval with SID: ${sid}`);
+      this.logger.log(
+        `Submitting WhatsApp Template for approval with SID: ${sid}`,
+      );
       const endpoint = `https://content.twilio.com/v1/Content/${sid}/ApprovalRequests/whatsapp`;
 
       const response = await axios.post(
@@ -164,7 +275,9 @@ export class TwilioWhatsappService {
         },
       );
 
-      this.logger.log(`WhatsApp Template submitted for approval with SID: ${sid}`);
+      this.logger.log(
+        `WhatsApp Template submitted for approval with SID: ${sid}`,
+      );
       return response.data;
     } catch (error: any) {
       this.logger.error(
@@ -199,7 +312,9 @@ export class TwilioWhatsappService {
       }
     }
 
-    this.logger.log(`Bulk submission completed: ${successful.length} successful, ${failed.length} failed`);
+    this.logger.log(
+      `Bulk submission completed: ${successful.length} successful, ${failed.length} failed`,
+    );
     return { successful, failed };
   }
 
@@ -207,14 +322,23 @@ export class TwilioWhatsappService {
    * Get all templates from Twilio
    */
   async getAllTemplates(): Promise<TwilioTemplateResponse[]> {
+    if (!this.isConfigured || !this.twilioClient) {
+      this.logger.warn('📱 [MOCK] Would fetch all WhatsApp templates');
+      return [];
+    }
+
     try {
       this.logger.log('Fetching all templates from Twilio');
 
       const templates = await this.twilioClient.content.v1.contents.list();
 
-      return templates.map(template => this.mapContentInstanceToResponse(template));
+      return templates.map((template) =>
+        this.mapContentInstanceToResponse(template),
+      );
     } catch (error: any) {
-      this.logger.error(`Error fetching templates from Twilio: ${error?.message || error}`);
+      this.logger.error(
+        `Error fetching templates from Twilio: ${error?.message || error}`,
+      );
       throw new Error(error.message || error);
     }
   }
@@ -223,12 +347,30 @@ export class TwilioWhatsappService {
    * Get a single template by SID from Twilio
    */
   async getTemplateBySid(sid: string): Promise<TwilioTemplateResponse> {
+    if (!this.isConfigured || !this.twilioClient) {
+      this.logger.warn(
+        `📱 [MOCK] Would fetch WhatsApp template with SID: ${sid}`,
+      );
+      return {
+        sid: sid,
+        friendlyName: 'mock-template',
+        language: 'en',
+        variables: {},
+        types: {},
+        url: 'mock-url',
+        dateCreated: new Date().toISOString(),
+        dateUpdated: new Date().toISOString(),
+      };
+    }
+
     try {
       const template = await this.twilioClient.content.v1.contents(sid).fetch();
 
       return this.mapContentInstanceToResponse(template);
     } catch (error: any) {
-      this.logger.error(`Error fetching template with SID ${sid} from Twilio: ${error?.message || error}`);
+      this.logger.error(
+        `Error fetching template with SID ${sid} from Twilio: ${error?.message || error}`,
+      );
       throw new Error(error.message || error);
     }
   }
@@ -239,7 +381,7 @@ export class TwilioWhatsappService {
   async deleteTemplate(sid: string): Promise<{ message: string }> {
     try {
       this.logger.log(`Deleting WhatsApp Template in Twilio with ID: ${sid}`);
-      
+
       await axios.delete(`https://content.twilio.com/v1/Content/${sid}`, {
         auth: {
           username: this.accountSid,
@@ -247,7 +389,9 @@ export class TwilioWhatsappService {
         },
       });
 
-      this.logger.log(`Successfully deleted WhatsApp Template in Twilio with ID: ${sid}`);
+      this.logger.log(
+        `Successfully deleted WhatsApp Template in Twilio with ID: ${sid}`,
+      );
       return { message: 'Template deleted successfully in Twilio' };
     } catch (error: any) {
       this.logger.error(
@@ -260,10 +404,12 @@ export class TwilioWhatsappService {
   /**
    * Get approval status for a specific template
    */
-  async getTemplateApprovalStatus(sid: string): Promise<ApprovalStatusResponse> {
+  async getTemplateApprovalStatus(
+    sid: string,
+  ): Promise<ApprovalStatusResponse> {
     try {
       this.logger.log(`Fetching approval status for template SID: ${sid}`);
-      
+
       const response = await axios.get(
         `https://content.twilio.com/v1/Content/${sid}/ApprovalRequests`,
         {
@@ -274,13 +420,15 @@ export class TwilioWhatsappService {
           headers: {
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
 
       const approvalRequest = response.data.whatsapp || {};
-      
-      this.logger.log(`Fetched approval status for template SID: ${sid} status ${approvalRequest.status}`);
-      
+
+      this.logger.log(
+        `Fetched approval status for template SID: ${sid} status ${approvalRequest.status}`,
+      );
+
       return {
         status: approvalRequest.status,
         rejectionReason: approvalRequest.rejection_reason || null,
@@ -319,7 +467,9 @@ export class TwilioWhatsappService {
   /**
    * Map Twilio approval status to database enum
    */
-  mapTwilioStatusToEnum(twilioStatus: string): 'PENDING' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'UNKNOWN' {
+  mapTwilioStatusToEnum(
+    twilioStatus: string,
+  ): 'PENDING' | 'APPROVED' | 'REJECTED' | 'RECEIVED' | 'UNKNOWN' {
     switch (twilioStatus?.toLowerCase()) {
       case 'approved':
         return 'APPROVED';

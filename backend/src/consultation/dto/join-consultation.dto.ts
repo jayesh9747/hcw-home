@@ -54,6 +54,20 @@ export class JoinConsultationMessageDto {
   createdAt: Date;
 }
 
+export class WaitingRoomInfoDto {
+  @ApiProperty({ example: 123, description: 'ID of the practitioner' })
+  practitionerId: number;
+
+  @ApiProperty({
+    example: 'Dr. Smith',
+    description: 'Name of the practitioner',
+  })
+  practitionerName: string;
+
+  @ApiProperty({ example: '5-10 minutes', description: 'Estimated wait time' })
+  estimatedWaitTime: string;
+}
+
 /**
  * Standardized response DTO for joining a consultation.
  */
@@ -86,6 +100,27 @@ export class JoinConsultationResponseDto {
     type: String,
   })
   sessionUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'Where to redirect user after joining',
+    example: 'waiting-room',
+    enum: ['waiting-room', 'consultation-room'],
+  })
+  redirectTo?: 'waiting-room' | 'consultation-room';
+
+  @ApiPropertyOptional({
+    description: 'Role of the user who joined',
+    example: 'PATIENT',
+    enum: UserRole,
+  })
+  userRole?: UserRole;
+
+  @ApiPropertyOptional({
+    description:
+      'Waiting room information if user is redirected to waiting room',
+    type: WaitingRoomInfoDto,
+  })
+  waitingRoom?: WaitingRoomInfoDto;
 
   @ApiPropertyOptional({
     type: [JoinConsultationParticipantDto],
@@ -121,6 +156,52 @@ export class JoinConsultationResponseDto {
     enum: ConsultationStatus,
   })
   status?: ConsultationStatus;
+
+  @ApiPropertyOptional({
+    description: 'Available features in the consultation room',
+    type: 'object',
+    properties: {
+      chat: { type: 'boolean', example: true },
+      voice: { type: 'boolean', example: true },
+      video: { type: 'boolean', example: true },
+      screenShare: { type: 'boolean', example: true },
+      fileShare: { type: 'boolean', example: true },
+    },
+    example: {
+      chat: true,
+      voice: true,
+      video: true,
+      screenShare: true,
+      fileShare: true,
+    },
+  })
+  features?: {
+    chat: boolean;
+    voice: boolean;
+    video: boolean;
+    screenShare: boolean;
+    fileShare: boolean;
+  };
+
+  @ApiPropertyOptional({
+    description: 'WebRTC and media session configuration',
+    type: 'object',
+    properties: {
+      audioEnabled: { type: 'boolean', example: true },
+      videoEnabled: { type: 'boolean', example: true },
+      screenShareEnabled: { type: 'boolean', example: true },
+    },
+    example: {
+      audioEnabled: true,
+      videoEnabled: true,
+      screenShareEnabled: true,
+    },
+  })
+  mediaConfig?: {
+    audioEnabled: boolean;
+    videoEnabled: boolean;
+    screenShareEnabled: boolean;
+  };
 
   constructor(partial: Partial<JoinConsultationResponseDto>) {
     Object.assign(this, partial);

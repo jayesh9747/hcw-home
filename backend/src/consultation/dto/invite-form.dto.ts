@@ -21,7 +21,10 @@ export class CreatePatientConsultationDto {
   @IsNotEmpty()
   lastName: string;
 
-  @ApiProperty({ description: 'Patient gender', enum: ['Male', 'Female', 'Other'] })
+  @ApiProperty({
+    description: 'Patient gender',
+    enum: ['Male', 'Female', 'Other'],
+  })
   @IsString()
   @IsNotEmpty()
   gender: string;
@@ -36,14 +39,15 @@ export class CreatePatientConsultationDto {
   @IsString()
   group?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Patient contact (email or phone number with +41 or +33)',
-    example: '+41123456789 or patient@example.com'
+    example: '+41123456789 or patient@example.com',
   })
   @IsString()
   @IsNotEmpty()
   @Matches(/(^\+\d{2}\d{6,}$)|(^\S+@\S+\.\S+$)/, {
-    message: 'Contact must be a valid email or phone number starting with +41 or +33'
+    message:
+      'Contact must be a valid email or phone number starting with +41 or +33',
   })
   contact: string;
 

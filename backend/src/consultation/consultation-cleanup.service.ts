@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService } from 'src/database/database.service';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { ConfigService } from '../config/config.service';
-import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
-import { UserService } from '../user/user.service';
+import { ConfigService } from 'src/config/config.service';
+import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class ConsultationCleanupService {
