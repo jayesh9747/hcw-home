@@ -1,7 +1,6 @@
 import {
   Injectable,
   Inject,
-  forwardRef,
   Logger,
   HttpStatus,
   NotFoundException,
@@ -13,12 +12,15 @@ import {
   Consultation,
   UserSex,
 } from '@prisma/client';
+import {
+  IConsultationGateway,
+  CONSULTATION_GATEWAY_TOKEN,
+} from './interfaces/consultation-gateway.interface';
 import PDFDocument from 'pdfkit';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { ConsultationGateway } from './consultation.gateway';
-import { HttpExceptionHelper } from '../common/helpers/execption/http-exception.helper';
-import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
+import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
+import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { JoinConsultationResponseDto } from './dto/join-consultation.dto';
 import { WaitingRoomPreviewResponseDto } from './dto/waiting-room-preview.dto';
 import {
@@ -70,10 +72,9 @@ export class ConsultationService {
     private readonly consultationInvitationService: ConsultationInvitationService,
     private readonly consultationUtilityService: ConsultationUtilityService,
     private readonly consultationMediaSoupService: ConsultationMediaSoupService,
-    @Inject(forwardRef(() => MediasoupSessionService))
     private readonly mediasoupSessionService: MediasoupSessionService,
-    @Inject(forwardRef(() => ConsultationGateway))
-    private readonly consultationGateway: ConsultationGateway,
+    @Inject(CONSULTATION_GATEWAY_TOKEN)
+    private readonly consultationGateway: IConsultationGateway,
     private readonly reminderService: ReminderService,
   ) {}
 

@@ -24,7 +24,7 @@ import {
 } from './dto/join-consultation.dto';
 import { UserIdParamPipe } from './validation/user-id-param.pipe';
 import { ConsultationIdParamPipe } from './validation/consultation-id-param.pipe';
-import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
+import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { WaitingRoomPreviewResponseDto } from './dto/waiting-room-preview.dto';
 import {
   AdmitPatientDto,
@@ -61,7 +61,7 @@ import {
   OpenConsultationResponseDto,
   OpenConsultationQueryDto,
 } from './dto/open-consultation.dto';
-import { ResponseStatus } from '../common/helpers/response/response-status.enum';
+import { ResponseStatus } from 'src/common/helpers/response/response-status.enum';
 import { CreatePatientConsultationResponseDto } from './dto/invite-form.dto';
 import { CreatePatientConsultationDto } from './dto/invite-form.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';

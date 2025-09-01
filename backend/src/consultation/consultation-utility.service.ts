@@ -1,10 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '../config/config.service';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { ConfigService } from 'src/config/config.service';
 import { UserRole, ConsultationStatus } from '@prisma/client';
-import { DatabaseService } from '../database/database.service';
-import { ConsultationGateway } from './consultation.gateway';
-import { MediasoupSessionService } from '../mediasoup/mediasoup-session.service';
-import { Inject, forwardRef } from '@nestjs/common';
+import { DatabaseService } from 'src/database/database.service';
+import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service';
+import {
+  IConsultationGateway,
+  CONSULTATION_GATEWAY_TOKEN,
+} from './interfaces/consultation-gateway.interface';
 
 /**
  * Consultation Utility Service
@@ -23,9 +25,8 @@ export class ConsultationUtilityService {
   constructor(
     private readonly configService: ConfigService,
     private readonly db: DatabaseService,
-    @Inject(forwardRef(() => ConsultationGateway))
-    private readonly consultationGateway: ConsultationGateway,
-    @Inject(forwardRef(() => MediasoupSessionService))
+    @Inject(CONSULTATION_GATEWAY_TOKEN)
+    private readonly consultationGateway: IConsultationGateway,
     private readonly mediasoupSessionService: MediasoupSessionService,
   ) {}
 

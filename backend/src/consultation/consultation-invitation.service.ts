@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
-import { ConfigService } from '../config/config.service';
+import { DatabaseService } from 'src/database/database.service';
+import { ConfigService } from 'src/config/config.service';
 import {
   ConsultationInvitation,
   UserRole,
   InvitationStatus,
 } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
-import { EmailService } from '../common/email/email.service';
+import { EmailService } from 'src/common/email/email.service';
 import { addMinutes, isAfter } from 'date-fns';
 
 const ALLOWED_INVITE_ROLES: UserRole[] = [

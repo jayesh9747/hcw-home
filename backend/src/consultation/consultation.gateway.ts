@@ -9,7 +9,7 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { forwardRef, Inject, Logger, UseGuards } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { ConsultationService } from './consultation.service';
 import { ConsultationUtilityService } from './consultation-utility.service';
 import { ConsultationMediaSoupService } from './consultation-mediasoup.service';
@@ -19,6 +19,7 @@ import { ConsultationStatus, UserRole } from '@prisma/client';
 import { EndConsultationDto } from './dto/end-consultation.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConsultationInvitationService } from './consultation-invitation.service';
+import { IConsultationGateway } from './interfaces/consultation-gateway.interface';
 
 function sanitizePayload<T extends object, K extends keyof T>(
   payload: T,
@@ -35,7 +36,7 @@ function sanitizePayload<T extends object, K extends keyof T>(
 
 @WebSocketGateway({ namespace: '/consultation', cors: true })
 export class ConsultationGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, IConsultationGateway
 {
   @WebSocketServer()
   server: Server;
@@ -50,15 +51,10 @@ export class ConsultationGateway
 
   constructor(
     private readonly databaseService: DatabaseService,
-    @Inject(forwardRef(() => ConsultationService))
     private readonly consultationService: ConsultationService,
-    @Inject(forwardRef(() => ConsultationUtilityService))
     private readonly consultationUtilityService: ConsultationUtilityService,
-    @Inject(forwardRef(() => ConsultationMediaSoupService))
     private readonly consultationMediaSoupService: ConsultationMediaSoupService,
-    @Inject(forwardRef(() => MediasoupSessionService))
     private readonly mediasoupSessionService: MediasoupSessionService,
-    @Inject(forwardRef(() => ConsultationInvitationService))
     private readonly invitationService: ConsultationInvitationService,
   ) {}
 
@@ -1336,5 +1332,14 @@ export class ConsultationGateway
         timestamp: new Date().toISOString(),
       });
     }
+  }
+
+  // Implementation for IConsultationGateway interface
+  emitToRoom(consultationId: number, event: string, data: any): void {
+    this.server.to(`consultation-${consultationId}`).emit(event, data);
+  }
+
+  emitToUser(userId: number, event: string, data: any): void {
+    this.server.to(`user-${userId}`).emit(event, data);
   }
 }
