@@ -23,26 +23,50 @@ export class PaymentController {
 
   @Post('create-intent')
   @Roles(UserRole.PATIENT)
-  async createPaymentIntent(@Body() createPaymentDto: CreatePaymentDto, @Request() req) {
+  async createPaymentIntent(
+    @Body() createPaymentDto: CreatePaymentDto, 
+    @Request() req
+  ): Promise<any> {
     const patientId = req.user.id;
-    return this.paymentService.createPaymentIntent(createPaymentDto, patientId);
+    const result = await this.paymentService.createPaymentIntent(createPaymentDto, patientId);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post('confirm')
   @Roles(UserRole.PATIENT)
-  async confirmPayment(@Body() confirmPaymentDto: ConfirmPaymentDto, @Request() req) {
+  async confirmPayment(
+    @Body() confirmPaymentDto: ConfirmPaymentDto, 
+    @Request() req
+  ): Promise<any> {
     const patientId = req.user.id;
-    return this.paymentService.confirmPayment(confirmPaymentDto.paymentIntentId, patientId);
+    const result = await this.paymentService.confirmPayment(confirmPaymentDto.paymentIntentId, patientId);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post('refund')
   @Roles(UserRole.ADMIN)
-  async refundPayment(@Body() refundPaymentDto: RefundPaymentDto) {
-    return this.paymentService.refundPayment(refundPaymentDto);
+  async refundPayment(@Body() refundPaymentDto: RefundPaymentDto): Promise<any> {
+    const result = await this.paymentService.refundPayment(refundPaymentDto);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('config/:organizationId')
-  async getPaymentConfig(@Param('organizationId', ParseIntPipe) organizationId: number) {
-    return this.paymentService.getPaymentConfig(organizationId);
+  async getPaymentConfig(
+    @Param('organizationId', ParseIntPipe) organizationId: number
+  ): Promise<any> {
+    const result = await this.paymentService.getPaymentConfig(organizationId);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 }

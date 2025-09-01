@@ -2,8 +2,10 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { DatabaseService } from '../database/database.service';
 import { StripeService } from '../stripe/stripe.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { RefundPaymentDto } from './dto/refund-payment.dto'
+import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { PaymentStatus, ConsultationStatus, UserRole } from '@prisma/client';
+import { ApiResponseDto } from '../common/helpers/response/api-response.dto';
+import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 
 @Injectable()
 export class PaymentService {
@@ -12,7 +14,7 @@ export class PaymentService {
     private readonly stripeService: StripeService,
   ) {}
 
-  async createPaymentIntent(createPaymentDto: CreatePaymentDto, patientId: number) {
+  async createPaymentIntent(createPaymentDto: CreatePaymentDto, patientId: number): Promise<ApiResponseDto<any>> {
     const { consultationId, amount, currency = 'USD' } = createPaymentDto;
 
     const consultation = await this.prisma.consultation.findUnique({
@@ -27,17 +29,17 @@ export class PaymentService {
     });
 
     if (!consultation) {
-      throw new NotFoundException('Consultation not found');
+      throw HttpExceptionHelper.notFound('Consultation not found');
     }
 
     if (consultation.payment) {
-      throw new BadRequestException('Payment already exists for this consultation');
+      throw HttpExceptionHelper.badRequest('Payment already exists for this consultation');
     }
 
     // Check if user is a participant and is a patient
     const participant = consultation.participants.find(p => p.userId === patientId && p.role === 'PATIENT');
     if (!participant) {
-      throw new BadRequestException('You are not authorized to pay for this consultation');
+      throw HttpExceptionHelper.forbidden('You are not authorized to pay for this consultation');
     }
 
     const patient = await this.prisma.user.findUnique({
@@ -45,7 +47,7 @@ export class PaymentService {
     });
 
     if (!patient) {
-      throw new NotFoundException('Patient not found');
+      throw HttpExceptionHelper.notFound('Patient not found');
     }
 
     let stripeCustomerId = patient.stripeCustomerId;
@@ -85,20 +87,26 @@ export class PaymentService {
       },
     });
 
-    return {
+    const responseData = {
       clientSecret: paymentIntent.client_secret,
       paymentId: payment.id,
     };
+
+    return ApiResponseDto.success(
+      responseData,
+      'Payment intent created successfully',
+      201,
+    );
   }
 
-  async confirmPayment(paymentIntentId: string, patientId: number) {
+  async confirmPayment(paymentIntentId: string, patientId: number): Promise<ApiResponseDto<any>> {
     const payment = await this.prisma.payment.findUnique({
       where: { stripeIntentId: paymentIntentId },
       include: { consultation: true },
     });
 
     if (!payment || payment.patientId !== patientId) {
-      throw new NotFoundException('Payment not found');
+      throw HttpExceptionHelper.notFound('Payment not found');
     }
 
     const paymentIntent = await this.stripeService.retrievePaymentIntent(paymentIntentId);
@@ -120,10 +128,18 @@ export class PaymentService {
       });
     }
 
-    return updatedPayment;
+    const message = paymentIntent.status === 'succeeded' 
+      ? 'Payment confirmed successfully' 
+      : 'Payment confirmation failed';
+
+    return ApiResponseDto.success(
+      updatedPayment,
+      message,
+      200,
+    );
   }
 
-  async refundPayment(refundDto: RefundPaymentDto) {
+  async refundPayment(refundDto: RefundPaymentDto): Promise<ApiResponseDto<any>> {
     const { paymentId, amount, reason } = refundDto;
 
     const payment = await this.prisma.payment.findUnique({
@@ -131,7 +147,7 @@ export class PaymentService {
     });
 
     if (!payment || payment.status !== PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Payment not found or not eligible for refund');
+      throw HttpExceptionHelper.badRequest('Payment not found or not eligible for refund');
     }
 
     // Create refund in Stripe
@@ -169,20 +185,30 @@ export class PaymentService {
       data: { status: paymentStatus },
     });
 
-    return paymentRefund;
+    return ApiResponseDto.success(
+      paymentRefund,
+      'Payment refunded successfully',
+      200,
+    );
   }
 
-  async getPaymentConfig(organizationId: number) {
+  async getPaymentConfig(organizationId: number): Promise<ApiResponseDto<any>> {
     const paymentConfig = await this.prisma.paymentConfig.findUnique({
       where: { organizationId },
     });
 
-    return {
+    const responseData = {
       stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
       organizationId,
       consultationFee: paymentConfig?.consultationFee || 50.00,
       currency: paymentConfig?.currency || 'USD',
       isActive: paymentConfig?.isActive || false,
     };
+
+    return ApiResponseDto.success(
+      responseData,
+      'Payment configuration retrieved successfully',
+      200,
+    );
   }
 }
