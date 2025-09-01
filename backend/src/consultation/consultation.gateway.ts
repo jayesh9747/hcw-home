@@ -1334,6 +1334,157 @@ export class ConsultationGateway
     }
   }
 
+  @SubscribeMessage('smart_patient_join')
+  async handleSmartPatientJoin(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      consultationId: number;
+      patientId: number;
+      joinType: 'magic-link' | 'dashboard' | 'readmission';
+    },
+  ) {
+    try {
+      const { consultationId, patientId, joinType } = data;
+      const { userId, role } = client.data;
+
+      // Validate that the requesting user is the patient or has permission
+      if (
+        role !== UserRole.PATIENT &&
+        role !== UserRole.PRACTITIONER &&
+        role !== UserRole.ADMIN
+      ) {
+        throw new WsException('Unauthorized to initiate smart patient join');
+      }
+
+      if (role === UserRole.PATIENT && userId !== patientId) {
+        throw new WsException('Patient can only join for themselves');
+      }
+
+      // Call the smart patient join service
+      const joinResult = await this.consultationService.smartPatientJoin(
+        consultationId,
+        patientId,
+        joinType,
+      );
+
+      if (joinResult.success && joinResult.data) {
+        // Emit success response to the requesting client
+        client.emit('smart_patient_join_response', {
+          success: true,
+          consultationId,
+          patientId,
+          joinType,
+          redirectTo: joinResult.data.redirectTo,
+          inWaitingRoom: joinResult.data.waitingRoom ? true : false,
+          message: joinResult.data.message,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Emit state change to all participants
+        this.server
+          .to(`consultation:${consultationId}`)
+          .emit('patient_join_state_change', {
+            consultationId,
+            patientId,
+            joinType,
+            newState:
+              joinResult.data.redirectTo === 'waiting-room'
+                ? 'waiting'
+                : 'active',
+            consultationStatus: joinResult.data.status,
+            timestamp: new Date().toISOString(),
+          });
+
+        this.logger.log(
+          `Smart patient join successful: Patient ${patientId}, JoinType: ${joinType}, Destination: ${joinResult.data.redirectTo}`,
+        );
+      } else {
+        throw new Error(joinResult.message || 'Smart patient join failed');
+      }
+    } catch (error) {
+      this.logger.error('Smart patient join failed:', error);
+      client.emit('smart_patient_join_error', {
+        error: error.message,
+        consultationId: data.consultationId,
+        patientId: data.patientId,
+        joinType: data.joinType,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('check_patient_admission_status')
+  async handleCheckPatientAdmissionStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; patientId: number },
+  ) {
+    try {
+      const { consultationId, patientId } = data;
+
+      // Get consultation and patient status
+      const participant = await this.databaseService.participant.findUnique({
+        where: { consultationId_userId: { consultationId, userId: patientId } },
+        include: {
+          user: {
+            select: { id: true, firstName: true, lastName: true, role: true },
+          },
+          consultation: {
+            select: { id: true, status: true, ownerId: true },
+          },
+        },
+      });
+
+      if (!participant) {
+        throw new WsException('Patient not found in consultation');
+      }
+
+      // Determine appropriate action for patient
+      let recommendedAction: 'wait' | 'join-consultation' | 'error' = 'wait';
+      let canJoinDirectly = false;
+
+      if (
+        participant.consultation.status === ConsultationStatus.ACTIVE &&
+        !participant.inWaitingRoom
+      ) {
+        recommendedAction = 'join-consultation';
+        canJoinDirectly = true;
+      } else if (
+        participant.consultation.status === ConsultationStatus.WAITING ||
+        participant.inWaitingRoom
+      ) {
+        recommendedAction = 'wait';
+        canJoinDirectly = false;
+      }
+
+      client.emit('patient_admission_status_response', {
+        consultationId,
+        patientId,
+        consultationStatus: participant.consultation.status,
+        inWaitingRoom: participant.inWaitingRoom,
+        isActive: participant.isActive,
+        canJoinDirectly,
+        recommendedAction,
+        message: canJoinDirectly
+          ? 'Patient can join consultation directly'
+          : 'Patient needs to wait for admission',
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(
+        `Patient admission status checked: Patient ${patientId}, Status: ${recommendedAction}, CanJoinDirectly: ${canJoinDirectly}`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to check patient admission status:', error);
+      client.emit('patient_admission_status_error', {
+        error: error.message,
+        consultationId: data.consultationId,
+        patientId: data.patientId,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   // Implementation for IConsultationGateway interface
   emitToRoom(consultationId: number, event: string, data: any): void {
     this.server.to(`consultation-${consultationId}`).emit(event, data);

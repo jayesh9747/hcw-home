@@ -8,13 +8,17 @@ import { AuthModule } from 'src/auth/auth.module';
 import { TwilioWhatsappService } from './twilio-template.service';
 
 @Module({
-  imports: [DatabaseModule , ConfigModule , AuthModule],
+  imports: [DatabaseModule, ConfigModule, AuthModule],
   controllers: [WhatsappTemplateController],
   providers: [
     WhatsappTemplateService,
     WhatsappTemplateSeederService,
-    TwilioWhatsappService
+    TwilioWhatsappService,
   ],
-  exports: [WhatsappTemplateService, WhatsappTemplateSeederService , TwilioWhatsappService],
+  exports: [
+    WhatsappTemplateService,
+    WhatsappTemplateSeederService,
+    TwilioWhatsappService,
+  ],
 })
 export class WhatsappTemplateModule {}

@@ -836,6 +836,319 @@ export class ConsultationService {
     );
   }
 
+  /**
+   * Smart Patient Join - Handles intelligent patient joining logic
+   *
+   * Flow Logic:
+   * 1. Magic Link (first time) → Always go to waiting room
+   * 2. Dashboard Join → Check if patient was previously admitted
+   *    - If consultation is ACTIVE and patient was admitted before → Direct to consultation room
+   *    - If consultation is WAITING or patient never admitted → Go to waiting room
+   * 3. Readmission → Patient returning after disconnection from active consultation
+   */
+  async smartPatientJoin(
+    consultationId: number,
+    patientId: number,
+    joinType: 'magic-link' | 'dashboard' | 'readmission',
+  ): Promise<ApiResponseDto<JoinConsultationResponseDto>> {
+    try {
+      // Get consultation with full context
+      const consultation = await this.db.consultation.findUnique({
+        where: { id: consultationId },
+        include: {
+          participants: {
+            include: { user: true },
+            where: { userId: patientId },
+          },
+          messages: {
+            orderBy: { createdAt: 'asc' },
+            take: 50,
+          },
+          owner: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
+      });
+
+      if (!consultation) {
+        throw HttpExceptionHelper.notFound('Consultation not found');
+      }
+
+      if (consultation.status === ConsultationStatus.COMPLETED) {
+        throw HttpExceptionHelper.badRequest(
+          'Cannot join completed consultation',
+        );
+      }
+
+      // Get patient info
+      const patient = await this.db.user.findUnique({
+        where: { id: patientId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          email: true,
+        },
+      });
+
+      if (!patient || patient.role !== UserRole.PATIENT) {
+        throw HttpExceptionHelper.badRequest('User is not a patient');
+      }
+
+      // Get patient's participation history
+      const participant = consultation.participants[0];
+      if (!participant) {
+        throw HttpExceptionHelper.forbidden(
+          'Patient is not assigned to this consultation',
+        );
+      }
+
+      // Check if patient is in another active consultation
+      const activeConsultation = await this.db.consultation.findFirst({
+        where: {
+          id: { not: consultationId },
+          participants: {
+            some: { userId: patientId, isActive: true },
+          },
+          status: {
+            in: [ConsultationStatus.WAITING, ConsultationStatus.ACTIVE],
+          },
+        },
+      });
+
+      if (activeConsultation) {
+        throw HttpExceptionHelper.conflict(
+          'Patient is already active in another consultation',
+        );
+      }
+
+      // Determine destination based on join type and consultation state
+      let redirectTo: 'waiting-room' | 'consultation-room';
+      let inWaitingRoom: boolean;
+      let message: string;
+      let websocketEvent: string;
+      let participantUpdateData: any = {
+        isActive: true,
+        joinedAt: new Date(),
+      };
+
+      switch (joinType) {
+        case 'magic-link':
+          // First time joining via invitation - always go to waiting room
+          redirectTo = 'waiting-room';
+          inWaitingRoom = true;
+          message = 'Patient joined via invitation link and is in waiting room';
+          websocketEvent = 'patient_joined_waiting_room';
+          participantUpdateData.inWaitingRoom = true;
+
+          // Update consultation status if needed
+          if (consultation.status === ConsultationStatus.SCHEDULED) {
+            await this.db.consultation.update({
+              where: { id: consultationId },
+              data: { status: ConsultationStatus.WAITING },
+            });
+            consultation.status = ConsultationStatus.WAITING;
+          }
+          break;
+
+        case 'dashboard':
+          // Patient rejoining from dashboard - check previous admission status
+          if (
+            consultation.status === ConsultationStatus.ACTIVE &&
+            !participant.inWaitingRoom
+          ) {
+            // Patient was previously admitted and consultation is active - direct join
+            redirectTo = 'consultation-room';
+            inWaitingRoom = false;
+            message = 'Patient rejoined active consultation directly';
+            websocketEvent = 'patient_rejoined_consultation';
+            participantUpdateData.inWaitingRoom = false;
+          } else {
+            // Patient needs to wait for admission
+            redirectTo = 'waiting-room';
+            inWaitingRoom = true;
+            message = 'Patient rejoined and is waiting for admission';
+            websocketEvent = 'patient_returned_waiting_room';
+            participantUpdateData.inWaitingRoom = true;
+
+            // Update consultation status if needed
+            if (consultation.status === ConsultationStatus.SCHEDULED) {
+              await this.db.consultation.update({
+                where: { id: consultationId },
+                data: { status: ConsultationStatus.WAITING },
+              });
+              consultation.status = ConsultationStatus.WAITING;
+            }
+          }
+          break;
+
+        case 'readmission':
+          // Patient returning after disconnection from active consultation
+          if (consultation.status === ConsultationStatus.ACTIVE) {
+            redirectTo = 'consultation-room';
+            inWaitingRoom = false;
+            message = 'Patient returned to active consultation';
+            websocketEvent = 'patient_readmitted_consultation';
+            participantUpdateData.inWaitingRoom = false;
+          } else {
+            redirectTo = 'waiting-room';
+            inWaitingRoom = true;
+            message =
+              'Patient returned and is waiting for consultation to resume';
+            websocketEvent = 'patient_waiting_for_resume';
+            participantUpdateData.inWaitingRoom = true;
+          }
+          break;
+
+        default:
+          throw HttpExceptionHelper.badRequest('Invalid join type');
+      }
+
+      // Update participant status
+      await this.db.participant.update({
+        where: { consultationId_userId: { consultationId, userId: patientId } },
+        data: participantUpdateData,
+      });
+
+      // Setup MediaSoup session if needed
+      try {
+        await this.consultationMediaSoupService.handleParticipantJoinMedia(
+          consultationId,
+          patientId,
+          UserRole.PATIENT,
+        );
+      } catch (mediaErr) {
+        this.logger.error(
+          `MediaSoup setup failed for smart patient join: ${mediaErr.message}`,
+          mediaErr.stack,
+        );
+        // Don't fail the join for media errors, just log them
+      }
+
+      // Emit appropriate WebSocket events
+      if (this.consultationGateway.server) {
+        const eventData = {
+          consultationId,
+          patient: {
+            id: patient.id,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+            email: patient.email,
+            joinType,
+          },
+          joinTime: new Date(),
+          redirectTo,
+          inWaitingRoom,
+          consultationStatus: consultation.status,
+        };
+
+        // Notify practitioner
+        if (consultation.ownerId) {
+          this.consultationGateway.server
+            .to(`practitioner:${consultation.ownerId}`)
+            .emit(websocketEvent, eventData);
+        }
+
+        // Notify all participants in consultation
+        this.consultationGateway.server
+          .to(`consultation:${consultationId}`)
+          .emit('patient_status_update', {
+            ...eventData,
+            message,
+            timestamp: new Date().toISOString(),
+          });
+
+        // Emit specific events based on destination
+        if (redirectTo === 'waiting-room') {
+          this.consultationGateway.server
+            .to(`consultation:${consultationId}`)
+            .emit('patient_in_waiting_room', eventData);
+        } else {
+          this.consultationGateway.server
+            .to(`consultation:${consultationId}`)
+            .emit('patient_joined_consultation_room', eventData);
+        }
+      }
+
+      // Get consultation capabilities
+      const patientCapabilities =
+        this.consultationUtilityService.getConsultationCapabilities(
+          UserRole.PATIENT,
+          inWaitingRoom,
+        );
+
+      // Build response
+      const responsePayload: JoinConsultationResponseDto = {
+        success: true,
+        statusCode: 200,
+        message,
+        consultationId,
+        mediasoup: { routerId: consultationId, active: true },
+        sessionUrl: this.consultationUtilityService.generateSessionUrl(
+          consultationId,
+          UserRole.PATIENT,
+          inWaitingRoom,
+        ),
+        redirectTo,
+        status: consultation.status,
+        features: patientCapabilities.features,
+        mediaConfig: patientCapabilities.mediaConfig,
+        waitingRoom: inWaitingRoom
+          ? {
+              practitionerId: consultation.ownerId || 0,
+              practitionerName: consultation.owner
+                ? `${consultation.owner.firstName} ${consultation.owner.lastName}`.trim()
+                : 'Practitioner',
+              estimatedWaitTime: '5-10 minutes',
+            }
+          : undefined,
+        participants: consultation.participants.map((p) => ({
+          id: p.user.id,
+          firstName: p.user.firstName,
+          lastName: p.user.lastName,
+          role: p.user.role,
+          isActive: p.isActive,
+        })),
+        messages: consultation.messages.map((m) => ({
+          id: m.id,
+          userId: m.userId,
+          content: m.content,
+          mediaUrl: m.mediaUrl ?? null,
+          mediaType: m.mediaType ?? null,
+          createdAt: m.createdAt,
+        })),
+      };
+
+      this.logger.log(
+        `Smart patient join: Patient ${patientId}, JoinType: ${joinType}, Destination: ${redirectTo}, Consultation: ${consultationId}`,
+      );
+
+      return ApiResponseDto.success(
+        responsePayload,
+        responsePayload.message,
+        responsePayload.statusCode,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Smart patient join failed: Patient ${patientId}, JoinType: ${joinType}, Consultation: ${consultationId}`,
+        error.stack,
+      );
+
+      // Re-throw known HTTP exceptions
+      if (error.status) {
+        throw error;
+      }
+
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to join consultation',
+        undefined,
+        undefined,
+        error,
+      );
+    }
+  }
+
   async joinAsPractitioner(
     consultationId: number,
     practitionerId: number,
