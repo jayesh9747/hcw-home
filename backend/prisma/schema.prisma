@@ -17,6 +17,29 @@ enum ConsultationStatus {
   TERMINATED_OPEN
 }
 
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  DIGITAL_WALLET
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
 enum InvitationStatus {
   PENDING
   USED
@@ -42,6 +65,7 @@ model User {
   acceptedAt         DateTime?
   termId             Int?
   termVersion        Float                      @default(0.00)
+  stripeCustomerId   String?                    @unique
   term               Terms?                     @relation(fields: [termId], references: [id])
   Participant        Participant[]
   OrganizationMember OrganizationMember[]
@@ -58,6 +82,7 @@ model User {
   @@map("users")
   MessageReadReceipt MessageReadReceipt[]
   MediaPermissionStatus MediaPermissionStatus[]
+  payments           Payment[]           
   ConsultationInvitesCreated ConsultationInvitation[] @relation("InvitesCreatedBy")
   ConsultationInvitesReceived ConsultationInvitation[] @relation("InvitedUser")
   MediaEvent         MediaEvent[]
@@ -108,6 +133,7 @@ model Organization {
   members OrganizationMember[]
   groups  Group[]
   terms   Terms[]
+  paymentConfig PaymentConfig?
 
   @@map("organizations")
 }
@@ -249,6 +275,7 @@ model Consultation {
   deletionScheduledAt  DateTime?
   version              Int                @default(1)
   isDeleted            Boolean            @default(false)
+  requiresPayment      Boolean            @default(true)  // New field
   reminderEnabled      Boolean            @default(true)
   remindersSent        Json?              @default("{}")
 
@@ -262,6 +289,7 @@ model Consultation {
   DeletedConsultationLog DeletedConsultationLog[]
   rating                 ConsultationRating?
   MediasoupTransport     MediasoupTransport[]
+  payment                Payment?       
   reminders              ConsultationReminder[]
 
   @@index([status])
@@ -299,6 +327,70 @@ model ConsultationInvitation {
   @@index([consultationId])
   @@index([inviteEmail])
 }
+
+model PaymentConfig {
+  id                    Int      @id @default(autoincrement())
+  organizationId        Int
+  stripePublishableKey  String?
+  stripeSecretKey       String?
+  consultationFee       Decimal  @db.Decimal(10, 2)
+  currency              String   @default("USD") @db.VarChar(3)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId])
+  @@map("payment_config")
+}
+
+// Main Payment Model
+model Payment {
+  id                  Int           @id @default(autoincrement())
+  consultationId      Int           @unique
+  patientId           Int
+  stripePaymentId     String?       @unique
+  stripeIntentId      String?       @unique
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("USD") @db.VarChar(3)
+  status              PaymentStatus @default(PENDING)
+  paymentMethod       PaymentMethod?
+  failureReason       String?
+  metadata            Json?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  paidAt              DateTime?
+
+  // Relations
+  consultation Consultation    @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  patient      User            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  refunds      PaymentRefund[]
+
+  @@index([patientId])
+  @@index([status])
+  @@map("payments")
+}
+
+// Payment Refund Model
+model PaymentRefund {
+  id               Int          @id @default(autoincrement())
+  paymentId        Int
+  stripeRefundId   String       @unique
+  amount           Decimal      @db.Decimal(10, 2)
+  reason           String?
+  status           RefundStatus @default(PENDING)
+  metadata         Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  processedAt      DateTime?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_refunds")
+}
+
 
 model MediasoupServer {
   id                  String            @id @default(cuid())
