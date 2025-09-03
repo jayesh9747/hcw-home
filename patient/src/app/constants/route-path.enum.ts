@@ -1,3 +1,4 @@
+
 export const RoutePaths = {
   Dashboard: 'dashboard',
   Home: 'home',
@@ -7,4 +8,6 @@ export const RoutePaths = {
   ChooseConsultationTimeslot: 'choose-consultation-timeslot/:practitionerId',
   Login: 'login',
   Profile: 'profile',
+  JoinConsultation:'join-consultation',
+  AcceptTerm:"accept-term"
 };

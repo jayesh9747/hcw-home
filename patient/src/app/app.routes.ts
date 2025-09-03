@@ -8,7 +8,8 @@ import { LoginPage } from './pages/login/login.page';
 import { RoutePaths } from './constants/route-path.enum';
 import { AuthGuard } from './auth/guards/auth.guard';
 import { ProfileComponent } from './components/profile/profile.component';
-
+import { JoinConsultationComponent } from './pages/join-consultation/join-consultation.component';
+import { TermBoxComponent } from './components/term-box/term-box.component';
 export const routes: Routes = [
   {
     path: RoutePaths.Home,
@@ -20,7 +21,7 @@ export const routes: Routes = [
     redirectTo: RoutePaths.Home,
     pathMatch: 'full',
   },
-  {  
+  {
     path: RoutePaths.ConsultationRequest,
     component: ConsultationRequestPage,
     canActivate: [AuthGuard],
@@ -43,6 +44,17 @@ export const routes: Routes = [
   {
     path: RoutePaths.Profile,
     component: ProfileComponent,
+    canActivate: [AuthGuard],
+  },
+  {
+    path: `${RoutePaths.JoinConsultation}/:id`,
+    component: JoinConsultationComponent,
+    canActivate: [AuthGuard],
+  },
+   
+  {
+    path: RoutePaths.AcceptTerm,
+    component: TermBoxComponent,
     canActivate: [AuthGuard],
   },
   {

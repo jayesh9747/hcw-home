@@ -7,6 +7,8 @@ import { AppComponent } from './app/app.component';
 import { addIcons } from 'ionicons';
 import { checkmarkCircleOutline, pulseOutline, timeOutline } from 'ionicons/icons';
 import { authInterceptor } from './app/auth/auth.interceptor';
+import { provideMarkdown } from 'ngx-markdown';
+
 addIcons({
   'pulse-outline': pulseOutline,
   'checkmark-circle-outline': checkmarkCircleOutline,
@@ -18,5 +20,10 @@ bootstrapApplication(AppComponent, {
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     provideIonicAngular(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
-    provideHttpClient(withInterceptors([authInterceptor])),  ],
+    provideHttpClient(withInterceptors([authInterceptor])),
+    provideMarkdown()
+
+
+  ],
+
 });
