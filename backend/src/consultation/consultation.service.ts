@@ -76,7 +76,7 @@ export class ConsultationService {
     @Inject(CONSULTATION_GATEWAY_TOKEN)
     private readonly consultationGateway: IConsultationGateway,
     private readonly reminderService: ReminderService,
-  ) {}
+  ) { }
 
   async addParticipantToConsultation(
     addParticipantDto: AddParticipantDto,
@@ -540,9 +540,9 @@ export class ConsultationService {
         ...(isEmail
           ? { email: createDto.contact }
           : {
-              phoneNumber: createDto.contact,
-              email: `temp_${Date.now()}@temporary.local`,
-            }),
+            phoneNumber: createDto.contact,
+            email: `temp_${Date.now()}@temporary.local`,
+          }),
       };
 
       patient = await this.db.user.create({
@@ -923,16 +923,25 @@ export class ConsultationService {
         );
       }
 
-      // Determine destination based on join type and consultation state
+      // Production-Grade Transition Logic with Config Service URLs
       let redirectTo: 'waiting-room' | 'consultation-room';
       let inWaitingRoom: boolean;
       let message: string;
       let websocketEvent: string;
+      let consultationUrls: any;
       let participantUpdateData: any = {
         isActive: true,
         joinedAt: new Date(),
+        lastActiveAt: new Date(),
       };
 
+      // Generate all consultation URLs using config service
+      consultationUrls = this.configService.generateConsultationUrls(
+        consultationId,
+        UserRole.PATIENT,
+      );
+
+      // Determine transition based on join type and current state
       switch (joinType) {
         case 'magic-link':
           // First time joining via invitation - always go to waiting room
@@ -956,7 +965,8 @@ export class ConsultationService {
           // Patient rejoining from dashboard - check previous admission status
           if (
             consultation.status === ConsultationStatus.ACTIVE &&
-            !participant.inWaitingRoom
+            participant.joinedAt && // Patient was previously admitted
+            !participant.inWaitingRoom // And was not in waiting room last time
           ) {
             // Patient was previously admitted and consultation is active - direct join
             redirectTo = 'consultation-room';
@@ -985,7 +995,10 @@ export class ConsultationService {
 
         case 'readmission':
           // Patient returning after disconnection from active consultation
-          if (consultation.status === ConsultationStatus.ACTIVE) {
+          if (
+            consultation.status === ConsultationStatus.ACTIVE &&
+            participant.joinedAt // Patient was previously in consultation
+          ) {
             redirectTo = 'consultation-room';
             inWaitingRoom = false;
             message = 'Patient returned to active consultation';
@@ -994,8 +1007,7 @@ export class ConsultationService {
           } else {
             redirectTo = 'waiting-room';
             inWaitingRoom = true;
-            message =
-              'Patient returned and is waiting for consultation to resume';
+            message = 'Patient returned and is waiting for consultation to resume';
             websocketEvent = 'patient_waiting_for_resume';
             participantUpdateData.inWaitingRoom = true;
           }
@@ -1004,6 +1016,12 @@ export class ConsultationService {
         default:
           throw HttpExceptionHelper.badRequest('Invalid join type');
       }
+
+      // Get final URLs based on destination
+      const finalSessionUrl = inWaitingRoom
+        ? consultationUrls.patient.waitingRoom
+        : consultationUrls.patient.consultationRoom;
+      const finalFrontendRoute = finalSessionUrl; // Same as session URL for direct navigation
 
       // Update participant status
       await this.db.participant.update({
@@ -1026,7 +1044,7 @@ export class ConsultationService {
         // Don't fail the join for media errors, just log them
       }
 
-      // Emit appropriate WebSocket events
+      // Emit production-grade WebSocket events with proper URLs
       if (this.consultationGateway.server) {
         const eventData = {
           consultationId,
@@ -1037,17 +1055,56 @@ export class ConsultationService {
             email: patient.email,
             joinType,
           },
-          joinTime: new Date(),
-          redirectTo,
-          inWaitingRoom,
-          consultationStatus: consultation.status,
+          transition: {
+            from: participant.inWaitingRoom ? 'waiting-room' : 'consultation-room',
+            to: redirectTo,
+            sessionUrl: finalSessionUrl,
+            frontendRoute: finalFrontendRoute,
+            timestamp: new Date().toISOString(),
+            message,
+          },
+          urls: consultationUrls,
+          navigation: {
+            redirectTo,
+            inWaitingRoom,
+            autoRedirect: true,
+            requiresPractitionerAction: inWaitingRoom,
+            sessionTimeout: this.configService.sessionTimeoutMs,
+          },
+          consultation: {
+            id: consultationId,
+            status: consultation.status,
+            ownerId: consultation.ownerId,
+            ownerName: consultation.owner ?
+              `${consultation.owner.firstName} ${consultation.owner.lastName}` :
+              'Unknown Practitioner',
+          },
+          mediasoup: {
+            ready: true,
+            namespace: consultationUrls.websocket.mediasoup,
+          },
+          session: {
+            timeout: this.configService.sessionTimeoutMs,
+            canRejoin: true,
+            timestamp: new Date().toISOString(),
+          },
         };
 
-        // Notify practitioner
+        // Notify practitioner with comprehensive action data
         if (consultation.ownerId) {
           this.consultationGateway.server
             .to(`practitioner:${consultation.ownerId}`)
-            .emit(websocketEvent, eventData);
+            .emit(websocketEvent, {
+              ...eventData,
+              practitioner: {
+                actionRequired: inWaitingRoom,
+                message: inWaitingRoom
+                  ? 'Patient is waiting for admission'
+                  : 'Patient has joined the consultation',
+                dashboardUrl: consultationUrls.practitioner.dashboard,
+                patientManagementUrl: consultationUrls.practitioner.patientManagement,
+              },
+            });
         }
 
         // Notify all participants in consultation
@@ -1055,20 +1112,65 @@ export class ConsultationService {
           .to(`consultation:${consultationId}`)
           .emit('patient_status_update', {
             ...eventData,
-            message,
             timestamp: new Date().toISOString(),
           });
 
-        // Emit specific events based on destination
+        // Emit specific navigation events for seamless transitions
         if (redirectTo === 'waiting-room') {
           this.consultationGateway.server
             .to(`consultation:${consultationId}`)
-            .emit('patient_in_waiting_room', eventData);
+            .emit('patient_in_waiting_room', {
+              ...eventData,
+              waitingRoom: {
+                practitionerId: consultation.ownerId,
+                practitionerName: eventData.consultation.ownerName,
+                estimatedWaitTime: '2-5 minutes',
+                canLeave: true,
+                leaveUrl: consultationUrls.patient.dashboard,
+              },
+            });
+
+          // Send frontend navigation command to patient
+          this.consultationGateway.server
+            .to(`patient:${patientId}`)
+            .emit('navigate_to_waiting_room', {
+              url: finalFrontendRoute,
+              sessionUrl: finalSessionUrl,
+              autoRedirect: true,
+              message: 'You are in the waiting room. The practitioner will admit you shortly.',
+            });
         } else {
           this.consultationGateway.server
             .to(`consultation:${consultationId}`)
-            .emit('patient_joined_consultation_room', eventData);
+            .emit('patient_joined_consultation_room', {
+              ...eventData,
+              consultationRoom: {
+                mediaEnabled: true,
+                chatEnabled: true,
+                participantCount: consultation.participants?.length || 1,
+                practitionerPresent: !!consultation.ownerId,
+              },
+            });
+
+          // Send frontend navigation command to patient
+          this.consultationGateway.server
+            .to(`patient:${patientId}`)
+            .emit('navigate_to_consultation_room', {
+              url: finalFrontendRoute,
+              sessionUrl: finalSessionUrl,
+              autoRedirect: true,
+              message: 'You are being redirected to the consultation room.',
+            });
         }
+
+        // Additional real-time synchronization events
+        this.consultationGateway.server
+          .to(`consultation:${consultationId}`)
+          .emit('consultation_participant_update', {
+            consultationId,
+            participantCount: consultation.participants?.length || 0,
+            timestamp: new Date().toISOString(),
+          });
       }
 
       // Get consultation capabilities
@@ -1078,30 +1180,29 @@ export class ConsultationService {
           inWaitingRoom,
         );
 
-      // Build response
+      // Build comprehensive response with enhanced session URLs and navigation
       const responsePayload: JoinConsultationResponseDto = {
         success: true,
         statusCode: 200,
         message,
         consultationId,
-        mediasoup: { routerId: consultationId, active: true },
-        sessionUrl: this.consultationUtilityService.generateSessionUrl(
-          consultationId,
-          UserRole.PATIENT,
-          inWaitingRoom,
-        ),
+        mediasoup: {
+          routerId: consultationId,
+          active: true,
+        },
+        sessionUrl: finalSessionUrl,
         redirectTo,
         status: consultation.status,
         features: patientCapabilities.features,
         mediaConfig: patientCapabilities.mediaConfig,
         waitingRoom: inWaitingRoom
           ? {
-              practitionerId: consultation.ownerId || 0,
-              practitionerName: consultation.owner
-                ? `${consultation.owner.firstName} ${consultation.owner.lastName}`.trim()
-                : 'Practitioner',
-              estimatedWaitTime: '5-10 minutes',
-            }
+            practitionerId: consultation.ownerId || 0,
+            practitionerName: consultation.owner
+              ? `${consultation.owner.firstName} ${consultation.owner.lastName}`.trim()
+              : 'Practitioner',
+            estimatedWaitTime: '5-10 minutes',
+          }
           : undefined,
         participants: consultation.participants.map((p) => ({
           id: p.user.id,
@@ -1123,6 +1224,11 @@ export class ConsultationService {
       this.logger.log(
         `Smart patient join: Patient ${patientId}, JoinType: ${joinType}, Destination: ${redirectTo}, Consultation: ${consultationId}`,
       );
+
+      // Additional navigation and session information is sent via WebSocket events:
+      // - navigate_to_waiting_room / navigate_to_consultation_room (for frontend routing)
+      // - patient_status_update (with real-time state information)
+      // - Frontend can use check_session_status WebSocket event for reconnection logic
 
       return ApiResponseDto.success(
         responsePayload,
@@ -1595,14 +1701,14 @@ export class ConsultationService {
         sessionUrl:
           invitation.role === UserRole.PATIENT
             ? this.consultationUtilityService.generateSessionUrl(
-                consultation.id,
-                invitation.role,
-                true,
-              )
+              consultation.id,
+              invitation.role,
+              true,
+            )
             : this.consultationUtilityService.generateSessionUrl(
-                consultation.id,
-                invitation.role,
-              ),
+              consultation.id,
+              invitation.role,
+            ),
         redirectTo:
           invitation.role === UserRole.PATIENT
             ? 'waiting-room'
@@ -1612,17 +1718,17 @@ export class ConsultationService {
         waitingRoom:
           invitation.role === UserRole.PATIENT && consultation.ownerId
             ? {
-                practitionerId: consultation.ownerId,
-                practitionerName:
-                  consultation.owner?.firstName +
-                    ' ' +
-                    (consultation.owner?.lastName || '') ||
-                  consultation.participants.find(
-                    (p) => p.user.id === consultation.ownerId,
-                  )?.user.firstName ||
-                  'Practitioner',
-                estimatedWaitTime: '5-10 minutes',
-              }
+              practitionerId: consultation.ownerId,
+              practitionerName:
+                consultation.owner?.firstName +
+                ' ' +
+                (consultation.owner?.lastName || '') ||
+                consultation.participants.find(
+                  (p) => p.user.id === consultation.ownerId,
+                )?.user.firstName ||
+                'Practitioner',
+              estimatedWaitTime: '5-10 minutes',
+            }
             : undefined,
         participants: consultation.participants.map((p) => ({
           id: p.user.id,
@@ -2586,11 +2692,10 @@ export class ConsultationService {
         )
         .text(`Email: ${consultation.owner.email || 'N/A'}`)
         .text(
-          `Specialities: ${
-            consultation.owner.specialities
-              ?.map((s) => s.speciality?.name)
-              .filter(Boolean)
-              .join(', ') || 'N/A'
+          `Specialities: ${consultation.owner.specialities
+            ?.map((s) => s.speciality?.name)
+            .filter(Boolean)
+            .join(', ') || 'N/A'
           }`,
         );
       doc.moveDown(0.5);

@@ -20,6 +20,7 @@ import { EndConsultationDto } from './dto/end-consultation.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
 import { ConsultationInvitationService } from './consultation-invitation.service';
 import { IConsultationGateway } from './interfaces/consultation-gateway.interface';
+import { ConfigService } from '../config/config.service';
 
 function sanitizePayload<T extends object, K extends keyof T>(
   payload: T,
@@ -36,8 +37,7 @@ function sanitizePayload<T extends object, K extends keyof T>(
 
 @WebSocketGateway({ namespace: '/consultation', cors: true })
 export class ConsultationGateway
-  implements OnGatewayConnection, OnGatewayDisconnect, IConsultationGateway
-{
+  implements OnGatewayConnection, OnGatewayDisconnect, IConsultationGateway {
   @WebSocketServer()
   server: Server;
 
@@ -56,7 +56,8 @@ export class ConsultationGateway
     private readonly consultationMediaSoupService: ConsultationMediaSoupService,
     private readonly mediasoupSessionService: MediasoupSessionService,
     private readonly invitationService: ConsultationInvitationService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) { }
 
   async handleConnection(client: Socket) {
     try {
@@ -231,10 +232,10 @@ export class ConsultationGateway
               : '',
             rating: consultation.rating
               ? {
-                  value: consultation.rating.rating,
-                  color: consultation.rating.rating >= 4 ? 'green' : 'red',
-                  done: true,
-                }
+                value: consultation.rating.rating,
+                color: consultation.rating.rating >= 4 ? 'green' : 'red',
+                done: true,
+              }
               : { value: 0, color: null, done: false },
           });
         }
@@ -368,10 +369,10 @@ export class ConsultationGateway
   @SubscribeMessage('admit_patient')
   async handleAdmitPatient(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { consultationId: number },
+    @MessageBody() data: { consultationId: number; patientId?: number },
   ) {
     try {
-      const { consultationId } = data;
+      const { consultationId, patientId } = data;
       const { role, userId } = client.data;
 
       if (role !== UserRole.PRACTITIONER && role !== UserRole.ADMIN) {
@@ -396,16 +397,103 @@ export class ConsultationGateway
           );
         }
 
+        // Get patient information for transition event
+        const consultation = await this.databaseService.consultation.findUnique({
+          where: { id: consultationId },
+          include: {
+            participants: {
+              where: { role: UserRole.PATIENT },
+              include: { user: true },
+            },
+          },
+        });
+
+        const patientParticipant = consultation?.participants.find(
+          p => !patientId || p.userId === patientId
+        );
+
+        // Emit consultation status change
         this.server
           .to(`consultation:${consultationId}`)
           .emit('consultation_status', {
             status: ConsultationStatus.ACTIVE,
             initiatedBy: role,
+            timestamp: new Date().toISOString(),
           });
 
+        // Emit patient admission event with production-grade navigation details
+        if (patientParticipant) {
+          // Generate proper URLs using config service
+          const consultationUrls = this.configService.generateConsultationUrls(
+            consultationId,
+            UserRole.PATIENT,
+          );
+
+          const transitionEvent = {
+            consultationId,
+            patient: {
+              id: patientParticipant.userId,
+              firstName: patientParticipant.user.firstName,
+              lastName: patientParticipant.user.lastName,
+            },
+            transition: {
+              from: 'waiting-room',
+              to: 'consultation-room',
+              timestamp: new Date().toISOString(),
+              admittedBy: userId,
+              admittedByRole: role,
+            },
+            navigation: {
+              redirectTo: 'consultation-room',
+              sessionUrl: consultationUrls.patient.consultationRoom,
+              frontendRoute: consultationUrls.patient.consultationRoom,
+              autoRedirect: true,
+              timeout: this.configService.sessionTimeoutMs,
+            },
+            urls: consultationUrls,
+            consultation: {
+              status: ConsultationStatus.ACTIVE,
+              mediasoupReady: !!mediasoupRouter,
+            },
+          };
+
+          // Notify all participants about patient admission
+          this.server
+            .to(`consultation:${consultationId}`)
+            .emit('patient_admitted', transitionEvent);
+
+          // Send direct navigation command to patient
+          this.server
+            .to(`patient:${patientParticipant.userId}`)
+            .emit('navigate_to_consultation_room', {
+              url: transitionEvent.navigation.frontendRoute,
+              sessionUrl: transitionEvent.navigation.sessionUrl,
+              autoRedirect: true,
+              message: 'You have been admitted to the consultation. Redirecting...',
+              timeout: transitionEvent.navigation.timeout,
+            });
+
+          // Notify practitioner of successful admission
+          this.server
+            .to(`practitioner:${userId}`)
+            .emit('patient_admission_confirmed', {
+              ...transitionEvent,
+              practitioner: {
+                message: 'Patient has been successfully admitted to consultation',
+                dashboardUrl: transitionEvent.urls.practitioner.dashboard,
+                consultationRoomUrl: transitionEvent.urls.practitioner.consultationRoom,
+              },
+            });
+        }
+
+        // Emit media session ready event
         this.server
           .to(`consultation:${consultationId}`)
-          .emit('media_session_live', { consultationId });
+          .emit('media_session_live', {
+            consultationId,
+            timestamp: new Date().toISOString(),
+            mediasoupReady: true,
+          });
       }
 
       return admissionResult;
@@ -416,6 +504,134 @@ export class ConsultationGateway
         details: error.message,
       });
     }
+  }
+
+  @SubscribeMessage('check_session_status')
+  async handleCheckSessionStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { consultationId: number; patientId: number },
+  ) {
+    try {
+      const { consultationId, patientId } = data;
+
+      // Get current consultation and participant status
+      const consultation = await this.databaseService.consultation.findUnique({
+        where: { id: consultationId },
+        include: {
+          participants: {
+            where: { userId: patientId },
+            include: { user: true },
+          },
+          owner: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
+      });
+
+      if (!consultation) {
+        client.emit('session_status_response', {
+          success: false,
+          error: 'Consultation not found',
+        });
+        return;
+      }
+
+      const participant = consultation.participants[0];
+      if (!participant) {
+        client.emit('session_status_response', {
+          success: false,
+          error: 'Patient not found in consultation',
+        });
+        return;
+      }
+
+      // Determine current session state and appropriate navigation with proper URLs
+      const consultationUrls = this.configService.generateConsultationUrls(
+        consultationId,
+        UserRole.PATIENT,
+      );
+
+      const sessionStatus = {
+        consultationId,
+        patientId,
+        consultation: {
+          status: consultation.status,
+          isActive: consultation.status === ConsultationStatus.ACTIVE,
+          practitionerOnline: await this.isPractitionerOnline(consultationId),
+        },
+        participant: {
+          isActive: participant.isActive,
+          inWaitingRoom: participant.inWaitingRoom,
+          joinedAt: participant.joinedAt,
+          lastActiveAt: participant.lastActiveAt,
+        },
+        navigation: {
+          currentLocation: participant.inWaitingRoom ? 'waiting-room' : 'consultation-room',
+          recommendedAction: this.getRecommendedAction(consultation.status, participant),
+          sessionUrl: participant.inWaitingRoom
+            ? consultationUrls.patient.waitingRoom
+            : consultationUrls.patient.consultationRoom,
+          frontendRoute: participant.inWaitingRoom
+            ? consultationUrls.patient.waitingRoom
+            : consultationUrls.patient.consultationRoom,
+          timeout: this.configService.sessionTimeoutMs,
+        },
+        urls: consultationUrls,
+        config: {
+          sessionTimeout: this.configService.sessionTimeoutMs,
+          consultationTimeout: this.configService.consultationTimeoutMs,
+          canRejoin: true,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      client.emit('session_status_response', {
+        success: true,
+        data: sessionStatus,
+      });
+
+    } catch (error) {
+      this.logger.error(`Session status check failed: ${error.message}`, error.stack);
+      client.emit('session_status_response', {
+        success: false,
+        error: 'Failed to check session status',
+      });
+    }
+  }
+
+  // Helper methods
+  private async isPractitionerOnline(consultationId: number): Promise<boolean> {
+    try {
+      const onlinePractitioner = await this.databaseService.participant.findFirst({
+        where: {
+          consultationId,
+          role: UserRole.PRACTITIONER,
+          isActive: true,
+        },
+      });
+      return !!onlinePractitioner;
+    } catch {
+      return false;
+    }
+  }
+
+  private getRecommendedAction(
+    consultationStatus: ConsultationStatus,
+    participant: any,
+  ): string {
+    if (consultationStatus === ConsultationStatus.COMPLETED) {
+      return 'consultation_ended';
+    }
+
+    if (participant.inWaitingRoom) {
+      return consultationStatus === ConsultationStatus.ACTIVE
+        ? 'wait_for_admission'
+        : 'wait_for_practitioner';
+    }
+
+    return consultationStatus === ConsultationStatus.ACTIVE
+      ? 'join_consultation'
+      : 'wait_in_consultation_room';
   }
 
   @UseGuards()
@@ -863,13 +1079,11 @@ export class ConsultationGateway
           camera,
           microphone,
           timestamp: new Date().toISOString(),
-          message: `User ${userId} has denied permission for ${
-            camera === 'denied' || camera === 'blocked' ? 'camera ' : ''
-          }${
-            microphone === 'denied' || microphone === 'blocked'
+          message: `User ${userId} has denied permission for ${camera === 'denied' || camera === 'blocked' ? 'camera ' : ''
+            }${microphone === 'denied' || microphone === 'blocked'
               ? 'microphone'
               : ''
-          }.`,
+            }.`,
         });
     } catch (error) {
       this.logger.error(

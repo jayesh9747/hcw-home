@@ -1,13 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService as NestConfigService } from '@nestjs/config';
 import { Environment } from './environment.enum';
 
 @Injectable()
 export class ConfigService {
-  get<T>(arg0: string) {
-    throw new Error('Method not implemented.');
-  }
-  constructor(private readonly configService: NestConfigService) {}
+  private readonly logger = new Logger(ConfigService.name);
+
+  constructor(private readonly configService: NestConfigService) { }
 
   get port(): number {
     return this.configService.get<number>('PORT', 3000);
@@ -204,6 +203,113 @@ export class ConfigService {
     return this.getNumber('CONSULTATION_DELETION_BUFFER_HOURS', 1);
   }
 
+  get backendApiBaseUrl(): string {
+    return this.configService.get<string>('BACKEND_API_BASE_URL') ||
+      `http://localhost:${this.port}`;
+  }  // WebSocket Configuration
+  get websocketNamespace(): string {
+    return this.configService.get<string>('WEBSOCKET_NAMESPACE', '/');
+  }
+
+  get corsOrigins(): string[] {
+    // Use simplified single URL configuration
+    const corsOrigins = this.configService.get<string>('CORS_ORIGINS', '');
+    const appUrls = [
+      this.patientUrl,
+      this.practitionerUrl,
+      this.adminUrl
+    ].filter(Boolean);
+
+    const allOrigins = [
+      ...corsOrigins.split(',').map(origin => origin.trim()).filter(Boolean),
+      ...appUrls
+    ];
+
+    // Remove duplicates and filter out empty values
+    return [...new Set(allOrigins)].filter(Boolean);
+  }
+
+  // Session and Timeout Configuration
+  get sessionTimeoutMs(): number {
+    return this.getNumber('SESSION_TIMEOUT_MS', 30 * 60 * 1000); // 30 minutes
+  }
+
+  get consultationTimeoutMs(): number {
+    return this.getNumber('CONSULTATION_TIMEOUT_MS', 60 * 60 * 1000); // 1 hour
+  }
+
+  // Frontend Route Generators - Simplified URL Management
+  generatePatientRoute(route: string): string {
+    const baseUrl = this.patientUrl;
+    if (!baseUrl) {
+      this.logger.warn('Patient app URL not configured, using relative path');
+      return route.startsWith('/') ? route : `/${route}`;
+    }
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    const cleanRoute = route.startsWith('/') ? route : `/${route}`;
+    return `${cleanBaseUrl}${cleanRoute}`;
+  }
+
+  generatePractitionerRoute(route: string): string {
+    const baseUrl = this.practitionerUrl;
+    if (!baseUrl) {
+      this.logger.warn('Practitioner app URL not configured, using relative path');
+      return route.startsWith('/') ? route : `/${route}`;
+    }
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    const cleanRoute = route.startsWith('/') ? route : `/${route}`;
+    return `${cleanBaseUrl}${cleanRoute}`;
+  }
+
+  generateAdminRoute(route: string): string {
+    const baseUrl = this.adminUrl;
+    if (!baseUrl) {
+      this.logger.warn('Admin app URL not configured, using relative path');
+      return route.startsWith('/') ? route : `/${route}`;
+    }
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    const cleanRoute = route.startsWith('/') ? route : `/${route}`;
+    return `${cleanBaseUrl}${cleanRoute}`;
+  }
+
+  generateApiRoute(route: string): string {
+    const baseUrl = this.backendApiBaseUrl;
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    const cleanRoute = route.startsWith('/') ? route : `/${route}`;
+    return `${cleanBaseUrl}${cleanRoute}`;
+  }
+
+  // Consultation-Specific URL Generators
+  generateConsultationUrls(consultationId: number, userRole: string) {
+    const patientWaitingRoom = this.generatePatientRoute(`/waiting-room/${consultationId}`);
+    const patientConsultationRoom = this.generatePatientRoute(`/consultation-room/${consultationId}`);
+    const practitionerConsultationRoom = this.generatePractitionerRoute(`/consultation/${consultationId}`);
+
+    return {
+      patient: {
+        waitingRoom: patientWaitingRoom,
+        consultationRoom: patientConsultationRoom,
+        dashboard: this.generatePatientRoute('/dashboard'),
+      },
+      practitioner: {
+        consultationRoom: practitionerConsultationRoom,
+        dashboard: this.generatePractitionerRoute('/dashboard'),
+        patientManagement: this.generatePractitionerRoute(`/consultation/${consultationId}/patients`),
+      },
+      api: {
+        smartJoin: this.generateApiRoute(`/consultation/${consultationId}/join/patient/smart`),
+        status: this.generateApiRoute(`/consultation/${consultationId}/status`),
+        admit: this.generateApiRoute(`/consultation/${consultationId}/admit`),
+        leave: this.generateApiRoute(`/consultation/${consultationId}/leave`),
+      },
+      websocket: {
+        chat: `/chat?consultationId=${consultationId}&userRole=${userRole}`,
+        consultation: `/consultation?consultationId=${consultationId}&role=${userRole}`,
+        mediasoup: `/mediasoup?consultationId=${consultationId}`,
+      },
+    };
+  }
+
   getOptional<T = string>(key: string): T | undefined {
     return this.configService.get<T>(key);
   }
@@ -226,33 +332,113 @@ export class ConfigService {
     return isNaN(parsed) ? defaultValue : parsed;
   }
 
-  getAdminOidcConfig() {
-    const oidc = this.configService.get('oidc');
-    const callbackURL = `${oidc.callbackBaseURL}/openidconnect_admin?role=admin`;
-    return {
-      issuer: oidc.issuer,
-      authorizationURL: oidc.authorizationURL,
-      tokenURL: oidc.tokenURL,
-      userInfoURL: oidc.userInfoURL,
-      clientID: oidc.clientID,
-      clientSecret: oidc.clientSecret,
-      callbackURL,
-      scope: oidc.scope,
-    };
-  }
-  getPractitionerOidcConfig() {
-    const oidc = this.configService.get('oidc');
-    const callbackURL = `${oidc.callbackBaseURL}/openidconnect_practitioner?role=practitioner`;
+  /**
+   * Validates all critical configuration at startup
+   * Call this in main.ts or app module to catch config errors early
+   */
+  validateConfiguration(): void {
+    const errors: string[] = [];
 
-    return {
-      issuer: oidc.issuer,
-      authorizationURL: oidc.authorizationURL,
-      tokenURL: oidc.tokenURL,
-      userInfoURL: oidc.userInfoURL,
-      clientID: oidc.clientID,
-      clientSecret: oidc.clientSecret,
-      callbackURL,
-      scope: oidc.scope,
-    };
+    // Critical production checks
+    if (this.isProduction) {
+      if (!this.databaseUrl) {
+        errors.push('DATABASE_URL is required in production');
+      }
+      if (!this.jwtSecret) {
+        errors.push('APP_SECRET is required in production');
+      }
+      if (!this.patientUrl) {
+        errors.push('PATIENT_URL is required in production');
+      }
+      if (!this.practitionerUrl) {
+        errors.push('PRACTITIONER_URL is required in production');
+      }
+      if (!this.adminUrl) {
+        errors.push('ADMIN_URL is required in production');
+      }
+    }
+
+    // Always required
+    try {
+      this.mediasoupAnnouncedIp;
+    } catch (error) {
+      errors.push('MEDIASOUP_ANNOUNCED_IP is required');
+    }
+
+    try {
+      this.redisUrl;
+    } catch (error) {
+      errors.push('REDIS_URL is required');
+    }
+
+    try {
+      this.serverId;
+    } catch (error) {
+      errors.push('SERVER_ID is required');
+    }
+
+    if (errors.length > 0) {
+      this.logger.error('Configuration validation failed:');
+      errors.forEach(error => this.logger.error(`  - ${error}`));
+      throw new Error(`Configuration validation failed: ${errors.join(', ')}`);
+    }
+
+    this.logger.log('Configuration validation passed');
+    this.logger.log(`Environment: ${this.environment}`);
+    this.logger.log(`Patient App: ${this.patientUrl}`);
+    this.logger.log(`Practitioner App: ${this.practitionerUrl}`);
+    this.logger.log(`Admin App: ${this.adminUrl}`);
+    this.logger.log(`Backend API: ${this.backendApiBaseUrl}`);
+  }
+
+  getAdminOidcConfig() {
+    try {
+      const oidc = this.configService.get('oidc');
+      if (!oidc) {
+        this.logger.warn('OIDC configuration not found');
+        return null;
+      }
+
+      const callbackURL = `${oidc.callbackBaseURL}/openidconnect_admin?role=admin`;
+      return {
+        issuer: oidc.issuer,
+        authorizationURL: oidc.authorizationURL,
+        tokenURL: oidc.tokenURL,
+        userInfoURL: oidc.userInfoURL,
+        clientID: oidc.clientID,
+        clientSecret: oidc.clientSecret,
+        callbackURL,
+        scope: oidc.scope,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get admin OIDC config:', error.message);
+      return null;
+    }
+  }
+
+  getPractitionerOidcConfig() {
+    try {
+      const oidc = this.configService.get('oidc');
+      if (!oidc) {
+        this.logger.warn('OIDC configuration not found');
+        return null;
+      }
+
+      const callbackURL = `${oidc.callbackBaseURL}/openidconnect_practitioner?role=practitioner`;
+
+      return {
+        issuer: oidc.issuer,
+        authorizationURL: oidc.authorizationURL,
+        tokenURL: oidc.tokenURL,
+        userInfoURL: oidc.userInfoURL,
+        clientID: oidc.clientID,
+        clientSecret: oidc.clientSecret,
+        callbackURL,
+        scope: oidc.scope,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get practitioner OIDC config:', error.message);
+      return null;
+    }
   }
 }

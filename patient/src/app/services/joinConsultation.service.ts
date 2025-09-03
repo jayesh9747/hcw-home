@@ -12,7 +12,7 @@ export class JoinConsultationService {
   constructor(private http: HttpClient) {}
 
   joinConsultation(consultationId: number, userId: number) {
-    const url = `${environment.apiUrl}/consultation/${consultationId}/join/patient`;
+    const url = `${environment.apiUrl}/consultation/${consultationId}/join/patient`; // update thuis
     const body = { userId };
 
     return this.http.post(url, body);
