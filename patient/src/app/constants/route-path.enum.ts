@@ -1,10 +1,15 @@
 export const RoutePaths = {
-  Dashboard: 'dashboard',
-  Home: 'home',
-  ConsultationRequest: 'consultation-request',
+  // Main Dashboard - Primary patient entry point
   PatientDashboard: 'dashboard',
-  PostConsultationFeedback: 'post-consultation-feedback',
-  ChooseConsultationTimeslot: 'choose-consultation-timeslot/:practitionerId',
+  Dashboard: 'dashboard', // Alias for backwards compatibility
+
+  // Core User Routes
   Login: 'login',
   Profile: 'profile',
+
+  // Consultation Flow - Essential functionality
+  PostConsultationFeedback: 'post-consultation-feedback',
+  WaitingRoom: 'waiting-room/:consultationId',
+  ConsultationRoom: 'consultation-room/:consultationId',
+  JoinConsultation: 'join-consultation',
 };
