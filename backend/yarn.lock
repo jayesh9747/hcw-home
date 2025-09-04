@@ -1610,7 +1610,7 @@
 
 "@types/compression@^1.8.1":
   version "1.8.1"
-  resolved "https://registry.npmjs.org/@types/compression/-/compression-1.8.1.tgz"
+  resolved "https://registry.yarnpkg.com/@types/compression/-/compression-1.8.1.tgz#57cd1a5c0c585aca56124ab4daef1d254d6f5a7d"
   integrity sha512-kCFuWS0ebDbmxs0AXYn6e2r2nrGAb5KwQhknjSPSPgJcGd8+HVSILlUyFhGqML2gk39HcG7D1ydW9/qpYkN00Q==
   dependencies:
     "@types/express" "*"
@@ -2980,7 +2980,7 @@ compressible@~2.0.18:
 
 compression@^1.8.1:
   version "1.8.1"
-  resolved "https://registry.npmjs.org/compression/-/compression-1.8.1.tgz"
+  resolved "https://registry.yarnpkg.com/compression/-/compression-1.8.1.tgz#4a45d909ac16509195a9a28bd91094889c180d79"
   integrity sha512-9mAqGPHLakhCLeNyxPkK4xVo746zQ/czLH1Ky+vkitMnWfWZps8r0qXuwhwizagCRttsL4lfG4pIOvaWLpAP0w==
   dependencies:
     bytes "3.1.2"
@@ -3020,6 +3020,11 @@ confbox@^0.2.2:
   version "0.2.2"
   resolved "https://registry.npmjs.org/confbox/-/confbox-0.2.2.tgz"
   integrity sha512-1NB+BKqhtNipMsov4xI/NnhCKp9XG9NamYp5PVm9klAT0fsrNPjaFICsCFhNhwZJKNh7zB/3q8qXz0E9oaMNtQ==
+
+connect-redis@^9.0.0:
+  version "9.0.0"
+  resolved "https://registry.yarnpkg.com/connect-redis/-/connect-redis-9.0.0.tgz#d3c68451a466d007c4be9fae8b652e0f60d9b769"
+  integrity sha512-QwzyvUePTMvEzG1hy45gZYw3X3YHrjmEdSkayURlcZft7hqadQ3X39wYkmCqblK2rGlw+XItELYt6GnyG6DEIQ==
 
 consola@^3.2.3, consola@^3.4.0, consola@^3.4.2:
   version "3.4.2"
@@ -3631,7 +3636,7 @@ expect@^29.0.0, expect@^29.7.0:
 
 express-rate-limit@^8.1.0:
   version "8.1.0"
-  resolved "https://registry.npmjs.org/express-rate-limit/-/express-rate-limit-8.1.0.tgz"
+  resolved "https://registry.yarnpkg.com/express-rate-limit/-/express-rate-limit-8.1.0.tgz#b956708999347e4d87146f8c3e6dd954fde7718b"
   integrity sha512-4nLnATuKupnmwqiJc27b4dCFmB/T60ExgmtDD7waf4LdrbJ8CPZzZRHYErDYNhoz+ql8fUdYwM/opf90PoPAQA==
   dependencies:
     ip-address "10.0.1"
@@ -5922,9 +5927,20 @@ readdirp@^4.0.1:
   resolved "https://registry.npmjs.org/readdirp/-/readdirp-4.1.2.tgz"
   integrity sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==
 
-redis@*, redis@^5.8.0:
+redis@*:
   version "5.8.2"
   resolved "https://registry.npmjs.org/redis/-/redis-5.8.2.tgz"
+  integrity sha512-31vunZj07++Y1vcFGcnNWEf5jPoTkGARgfWI4+Tk55vdwHxhAvug8VEtW7Cx+/h47NuJTEg/JL77zAwC6E0OeA==
+  dependencies:
+    "@redis/bloom" "5.8.2"
+    "@redis/client" "5.8.2"
+    "@redis/json" "5.8.2"
+    "@redis/search" "5.8.2"
+    "@redis/time-series" "5.8.2"
+
+redis@^5.8.2:
+  version "5.8.2"
+  resolved "https://registry.yarnpkg.com/redis/-/redis-5.8.2.tgz#e24a2e36a1dc72f286a92de76f08a63d34a9e02a"
   integrity sha512-31vunZj07++Y1vcFGcnNWEf5jPoTkGARgfWI4+Tk55vdwHxhAvug8VEtW7Cx+/h47NuJTEg/JL77zAwC6E0OeA==
   dependencies:
     "@redis/bloom" "5.8.2"
