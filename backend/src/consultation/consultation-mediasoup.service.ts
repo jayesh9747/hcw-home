@@ -28,7 +28,7 @@ export class ConsultationMediaSoupService {
     @Inject(CONSULTATION_GATEWAY_TOKEN)
     private readonly consultationGateway: IConsultationGateway,
     private readonly consultationUtilityService: ConsultationUtilityService,
-  ) {}
+  ) { }
 
   /**
    * Enhanced MediaSoup session initialization with comprehensive participant tracking
@@ -48,14 +48,17 @@ export class ConsultationMediaSoupService {
         `Initializing MediaSoup session for consultation ${consultationId} by user ${initiatorUserId} (${initiatorRole})`,
       );
 
-      let router = this.mediasoupSessionService.getRouter(consultationId);
+      // Use ensureRouterForConsultation for more robust router management
+      const router = await this.mediasoupSessionService.ensureRouterForConsultation(consultationId);
       let sessionInitialized = false;
 
-      if (!router) {
-        router =
-          await this.mediasoupSessionService.createRouterForConsultation(
-            consultationId,
-          );
+      // Check if this is a new router creation
+      const existingRouterRecord = await this.db.mediasoupRouter.findUnique({
+        where: { consultationId },
+        include: { server: true },
+      });
+
+      if (!existingRouterRecord) {
         sessionInitialized = true;
 
         // Update consultation status if needed
@@ -80,7 +83,7 @@ export class ConsultationMediaSoupService {
         consultationId,
         initiatorUserId,
         'session_initialized',
-        { role: initiatorRole, routerId: consultationId.toString() },
+        { role: initiatorRole, routerId: router.id },
       );
 
       const participantCount = await this.db.participant.count({
@@ -95,7 +98,7 @@ export class ConsultationMediaSoupService {
           .to(`consultation:${consultationId}`)
           .emit('media_session_ready', {
             consultationId,
-            routerId: consultationId.toString(),
+            routerId: router.id,
             rtpCapabilities: router.rtpCapabilities,
             sessionInitialized,
             participantCount,
@@ -107,7 +110,7 @@ export class ConsultationMediaSoupService {
       }
 
       return {
-        routerId: consultationId.toString(),
+        routerId: router.id,
         routerRtpCapabilities: router.rtpCapabilities,
         sessionInitialized,
         participantCount,
@@ -265,6 +268,10 @@ export class ConsultationMediaSoupService {
     userRole: UserRole,
   ): Promise<void> {
     try {
+      this.logger.log(
+        `Handling participant leave for user ${userId} (${userRole}) in consultation ${consultationId}`,
+      );
+
       // Update participant status
       await this.db.participant.updateMany({
         where: { consultationId, userId },
@@ -289,10 +296,31 @@ export class ConsultationMediaSoupService {
         },
       });
 
+      this.logger.log(
+        `Active participants remaining in consultation ${consultationId}: ${activeParticipants}`,
+      );
+
+      // Clean up MediaSoup session if no active participants
       if (activeParticipants === 0) {
+        this.logger.log(
+          `No active participants remaining, cleaning up MediaSoup session for consultation ${consultationId}`,
+        );
         await this.consultationUtilityService.cleanupMediaSoupSession(
           consultationId,
         );
+
+        // Update consultation status to terminated if it was active
+        const consultation = await this.db.consultation.findUnique({
+          where: { id: consultationId },
+          select: { status: true },
+        });
+
+        if (consultation?.status === ConsultationStatus.ACTIVE) {
+          await this.db.consultation.update({
+            where: { id: consultationId },
+            data: { status: ConsultationStatus.TERMINATED_OPEN },
+          });
+        }
       }
 
       // Emit participant left event
@@ -307,6 +335,7 @@ export class ConsultationMediaSoupService {
               leftAt: new Date(),
             },
             activeParticipantsCount: activeParticipants,
+            sessionCleanedUp: activeParticipants === 0,
           });
       }
 
@@ -317,6 +346,12 @@ export class ConsultationMediaSoupService {
       this.logger.error(
         `Failed to handle participant media leave: ${error.message}`,
         error.stack,
+      );
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to handle participant leave',
+        undefined,
+        undefined,
+        error,
       );
     }
   }
@@ -595,6 +630,206 @@ export class ConsultationMediaSoupService {
         mediaSessionActive: false,
         mediaSessionHealth: null,
         issues: [`Health check failed: ${error.message}`],
+      };
+    }
+  }
+
+  /**
+   * Clean up participant's MediaSoup resources (transports, producers, consumers)
+   * this will be handled by the MediaSoup session service during cleanup
+   */
+  async cleanupParticipantMediaResources(
+    consultationId: number,
+    userId: number,
+  ): Promise<void> {
+    try {
+      this.logger.log(
+        `Initiating MediaSoup resource cleanup for user ${userId} in consultation ${consultationId}`,
+      );
+
+      // The MediaSoup session service will handle cleanup when participants disconnect their transports/producers
+
+      // Update participant status to trigger proper cleanup
+      await this.consultationUtilityService.updateParticipantMediaStatus(
+        consultationId,
+        userId,
+        'resources_cleanup_initiated',
+        { timestamp: new Date(), reason: 'participant_leave' },
+      );
+
+      this.logger.log(
+        `MediaSoup resource cleanup initiated for user ${userId} in consultation ${consultationId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to cleanup participant media resources: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  /**
+   * Handle MediaSoup connection state changes for participants
+   */
+  async handleParticipantConnectionStateChange(
+    consultationId: number,
+    userId: number,
+    connectionState: 'connected' | 'disconnected' | 'failed',
+  ): Promise<void> {
+    try {
+      this.logger.log(
+        `Handling connection state change for user ${userId} in consultation ${consultationId}: ${connectionState}`,
+      );
+
+      await this.consultationUtilityService.updateParticipantMediaStatus(
+        consultationId,
+        userId,
+        'connection_state_changed',
+        { connectionState, timestamp: new Date() },
+      );
+
+      // Update participant's last active timestamp
+      await this.db.participant.updateMany({
+        where: { consultationId, userId },
+        data: { lastActiveAt: new Date() },
+      });
+
+      // Handle disconnection or failure
+      if (connectionState === 'disconnected' || connectionState === 'failed') {
+        // Clean up participant's media resources
+        await this.cleanupParticipantMediaResources(consultationId, userId);
+
+        // Check if participant should be marked as inactive
+        const participant = await this.db.participant.findFirst({
+          where: { consultationId, userId },
+          include: { user: true },
+        });
+
+        if (participant && connectionState === 'failed') {
+          // Mark participant as inactive if connection failed
+          await this.db.participant.updateMany({
+            where: { consultationId, userId },
+            data: { isActive: false, lastSeenAt: new Date() },
+          });
+
+          // Emit connection failure event
+          if (this.consultationGateway.server) {
+            this.consultationGateway.server
+              .to(`consultation:${consultationId}`)
+              .emit('participant_connection_failed', {
+                consultationId,
+                participant: {
+                  userId,
+                  role: participant.user.role,
+                  connectionState,
+                  timestamp: new Date(),
+                },
+              });
+          }
+        }
+      }
+
+      // Emit connection state change event
+      if (this.consultationGateway.server) {
+        this.consultationGateway.server
+          .to(`consultation:${consultationId}`)
+          .emit('participant_connection_state_changed', {
+            consultationId,
+            userId,
+            connectionState,
+            timestamp: new Date(),
+          });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle participant connection state change: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  /**
+   * Validate MediaSoup integration status for a consultation
+   */
+  async validateMediaSoupIntegration(consultationId: number): Promise<{
+    isValid: boolean;
+    issues: string[];
+    recommendations: string[];
+  }> {
+    const issues: string[] = [];
+    const recommendations: string[] = [];
+
+    try {
+      // Check if consultation exists
+      const consultation = await this.db.consultation.findUnique({
+        where: { id: consultationId },
+        include: { participants: true },
+      });
+
+      if (!consultation) {
+        issues.push('Consultation not found');
+        return { isValid: false, issues, recommendations };
+      }
+
+      // Check MediaSoup router status
+      const router = this.mediasoupSessionService.getRouter(consultationId);
+      const routerDbRecord = await this.db.mediasoupRouter.findUnique({
+        where: { consultationId },
+        include: { server: true },
+      });
+
+      if (consultation.status === ConsultationStatus.ACTIVE) {
+        if (!router) {
+          issues.push('Active consultation missing MediaSoup router');
+          recommendations.push('Initialize MediaSoup session for active consultation');
+        }
+
+        if (!routerDbRecord) {
+          issues.push('MediaSoup router not found in database');
+          recommendations.push('Ensure router database record consistency');
+        } else if (!routerDbRecord.server.active) {
+          issues.push('MediaSoup server is not active');
+          recommendations.push('Activate MediaSoup server or migrate to active server');
+        }
+      }
+
+      // Check participant consistency
+      const activeParticipants = consultation.participants.filter(p => p.isActive);
+      if (consultation.status === ConsultationStatus.ACTIVE && activeParticipants.length === 0) {
+        issues.push('Active consultation has no active participants');
+        recommendations.push('Update consultation status or activate participants');
+      }
+
+      // Check MediaSoup health if router exists
+      if (router) {
+        try {
+          const mediaHealth = await this.mediasoupSessionService.checkConsultationMediaHealth(consultationId);
+          if (!mediaHealth.routerActive) {
+            issues.push('MediaSoup router is not active');
+            recommendations.push('Restart MediaSoup router or recreate session');
+          }
+        } catch (healthError) {
+          issues.push(`Failed to check MediaSoup health: ${healthError.message}`);
+          recommendations.push('Investigate MediaSoup service connectivity');
+        }
+      }
+
+      const isValid = issues.length === 0;
+
+      if (isValid) {
+        recommendations.push('MediaSoup integration is functioning correctly');
+      }
+
+      return { isValid, issues, recommendations };
+    } catch (error) {
+      this.logger.error(
+        `Failed to validate MediaSoup integration: ${error.message}`,
+        error.stack,
+      );
+      return {
+        isValid: false,
+        issues: [`Validation failed: ${error.message}`],
+        recommendations: ['Check system logs and MediaSoup service status'],
       };
     }
   }
