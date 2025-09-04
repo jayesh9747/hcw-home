@@ -119,11 +119,18 @@ export class ConfigService {
   }
 
   get redisUrl(): string {
-    return this.getRequired<string>('REDIS_URL', 'Redis URL is required');
+    // For development, allow localhost Redis or disable Redis for single-server mode
+    if (this.isDevelopment) {
+      return this.configService.get<string>('REDIS_URL', '');
+    }
+    return this.getRequired<string>('REDIS_URL', 'Redis URL is required for production');
   }
 
   get serverId(): string {
-    return this.getRequired<string>('SERVER_ID', 'Server ID is required');
+    if (this.isDevelopment) {
+      return this.configService.get<string>('SERVER_ID', 'dev-server-1');
+    }
+    return this.getRequired<string>('SERVER_ID', 'Server ID is required for production');
   }
 
   get swaggerConfig() {
@@ -212,7 +219,6 @@ export class ConfigService {
   }
 
   get corsOrigins(): string[] {
-    // Use simplified single URL configuration
     const corsOrigins = this.configService.get<string>('CORS_ORIGINS', '');
     const appUrls = [
       this.patientUrl,
@@ -358,7 +364,6 @@ export class ConfigService {
       }
     }
 
-    // Always required
     try {
       this.mediasoupAnnouncedIp;
     } catch (error) {
