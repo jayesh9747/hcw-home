@@ -1,33 +1,46 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-
 import { ConsultationController } from './consultation.controller';
-import { DatabaseService } from 'src/database/database.service';
+import { DatabaseModule } from 'src/database/database.module';
 import { ConfigModule } from 'src/config/config.module';
 import { ConsultationCleanupService } from './consultation-cleanup.service';
+import { UserModule } from 'src/user/user.module';
 import { CoreModule } from 'src/core/core.module';
+import { ConsultationService } from './consultation.service';
+import { ConsultationMediaSoupService } from './consultation-mediasoup.service';
+import { ConsultationGateway } from './consultation.gateway';
+import { AvailabilityModule } from 'src/availability/availability.module';
+import { CONSULTATION_GATEWAY_TOKEN } from './interfaces/consultation-gateway.interface';
+import { ConsultationUtilityService } from './consultation-utility.service';
+import { ConsultationInvitationModule } from './consultation-invitation.module';
 
 @Module({
   imports: [
     ConfigModule,
+    DatabaseModule,
+    UserModule,
     CoreModule,
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 10,
-      },
-    ]),
+    AvailabilityModule,
+    ConsultationInvitationModule,
   ],
   controllers: [ConsultationController],
   providers: [
+    ConsultationService,
+    ConsultationMediaSoupService,
+    ConsultationGateway,
     ConsultationCleanupService,
-    DatabaseService,
+    ConsultationUtilityService,
     {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      provide: CONSULTATION_GATEWAY_TOKEN,
+      useExisting: ConsultationGateway,
     },
   ],
-  exports: [],
+  exports: [
+    ConsultationService,
+    ConsultationMediaSoupService,
+    ConsultationGateway,
+    ConsultationCleanupService,
+    ConsultationUtilityService,
+    CONSULTATION_GATEWAY_TOKEN,
+  ],
 })
-export class ConsultationModule {}
+export class ConsultationModule { }
