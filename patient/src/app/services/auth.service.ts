@@ -65,9 +65,9 @@ export class AuthService {
       })
     );
   }
-  loginMagic(token:string) {
+  loginMagic(token: string) {
     return this.http
-      .post<any>(`${this.baseurl}/magic-login`, {token})
+      .post<any>(`${this.baseurl}/magic-login`, { token })
       .pipe(
         switchMap(res => {
           const accessToken = res.data?.accessToken;
@@ -155,6 +155,7 @@ export class AuthService {
     const user = this._user();
     return user;
   }
+
   requestMagicLink(contact: string, type: string): Observable<MagicLinkResponse> {
     return this.http
       .post<ApiResponse<MagicLinkResponse>>(`${this.baseurl}/request-magic-link`, { contact, type })
@@ -162,9 +163,9 @@ export class AuthService {
   }
 
 
-  updatePassword(password:string,username:string){
-    return this.http.post<any>(`${this.baseurl}/update-password`,{password:password, username:username}).pipe(
-      map(res=>{return res.data})
+  updatePassword(password: string, username: string) {
+    return this.http.post<any>(`${this.baseurl}/update-password`, { password: password, username: username }).pipe(
+      map(res => { return res.data })
     )
   }
 
