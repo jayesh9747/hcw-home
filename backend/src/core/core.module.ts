@@ -11,7 +11,9 @@ import { ConsultationGateway } from 'src/consultation/consultation.gateway';
 import { AvailabilityModule } from 'src/availability/availability.module';
 import { UserModule } from 'src/user/user.module';
 import { ReminderModule } from 'src/reminder/reminder.module';
+import { StorageModule } from 'src/storage/storage.module';
 import { CONSULTATION_GATEWAY_TOKEN } from 'src/consultation/interfaces/consultation-gateway.interface';
+import { ChatService } from 'src/chat/chat.service';
 
 /**
  * Core module that provides ALL shared services used across multiple modules
@@ -24,6 +26,7 @@ import { CONSULTATION_GATEWAY_TOKEN } from 'src/consultation/interfaces/consulta
     AvailabilityModule,
     UserModule,
     ReminderModule,
+    StorageModule,
   ],
   providers: [
     MediasoupSessionService,
@@ -33,6 +36,7 @@ import { CONSULTATION_GATEWAY_TOKEN } from 'src/consultation/interfaces/consulta
     ConsultationService,
     ConsultationUtilityService,
     ConsultationMediaSoupService,
+    ChatService,
     // Provide the token mapping for dependency injection
     {
       provide: CONSULTATION_GATEWAY_TOKEN,
@@ -47,8 +51,9 @@ import { CONSULTATION_GATEWAY_TOKEN } from 'src/consultation/interfaces/consulta
     ConsultationUtilityService,
     ConsultationMediaSoupService,
     ConsultationGateway,
+    ChatService,
     CONSULTATION_GATEWAY_TOKEN,
     UserModule,
   ],
 })
-export class CoreModule {}
+export class CoreModule { }

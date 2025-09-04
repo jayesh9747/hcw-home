@@ -27,6 +27,7 @@ import { ReminderModule } from './reminder/reminder.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationModule } from './notification/notification.module';
 import { CoreModule } from './core/core.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { CoreModule } from './core/core.module';
     OrganizationModule,
     GroupModule,
     MediasoupModule,
+    ChatModule,
     SmsProviderModule,
     WhatsappTemplateModule,
     LanguageModule,

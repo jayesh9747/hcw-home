@@ -9,7 +9,6 @@ import { DatabaseModule } from 'src/database/database.module';
 import { UserModule } from 'src/user/user.module';
 import { AuthModule } from 'src/auth/auth.module';
 import { MediaEventService } from './media-event.service';
-import { ChatModule } from 'src/chat/chat.module';
 import { CoreModule } from 'src/core/core.module';
 
 @Module({
@@ -18,7 +17,6 @@ import { CoreModule } from 'src/core/core.module';
     DatabaseModule,
     UserModule,
     AuthModule,
-    ChatModule,
     CoreModule,
     ThrottlerModule.forRoot([
       {
@@ -39,4 +37,4 @@ import { CoreModule } from 'src/core/core.module';
   ],
   exports: [MediasoupServerService, MediaEventService],
 })
-export class MediasoupModule {}
+export class MediasoupModule { }

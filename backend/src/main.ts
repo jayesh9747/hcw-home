@@ -15,7 +15,6 @@ class ApplicationBootstrap {
 
   async bootstrap(): Promise<void> {
     try {
-      // Validate environment before creating app
       this.validateEnvironment();
 
       const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -51,7 +50,7 @@ class ApplicationBootstrap {
           resave: false,
           saveUninitialized: true,
           cookie: {
-            maxAge:6000000,
+            maxAge: 6000000,
           },
         }),
       );
@@ -61,7 +60,7 @@ class ApplicationBootstrap {
       this.logger.log('Static files served from /uploads');
       // initialize passpport
       app.use(passport.initialize());
-      app.use(passport.session()); 
+      app.use(passport.session());
 
       // Start application
       await this.startApplication(app, configService);
@@ -192,6 +191,12 @@ class ApplicationBootstrap {
   }
 
   private logApplicationInfo(port: number, configService: ConfigService): void {
+    console.log(`🚀 APPLICATION STARTED SUCCESSFULLY!`);
+    console.log(`📍 Server running at: http://localhost:${port}/api/v1`);
+    console.log(`📚 Swagger docs at: http://localhost:${port}/api/docs`);
+    console.log(`🌍 Environment: ${configService.environment}`);
+    console.log(`⏰ Started at: ${new Date().toISOString()}`);
+
     this.logger.logServerAction(`Application started successfully on http://localhost:${port}/api/v1`, {
       url: `http://localhost:${port}/api/v1`,
       port,
