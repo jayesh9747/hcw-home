@@ -347,8 +347,6 @@ export class AuthController {
     @Req() req: ExtendedRequest,
   ) {
     const { username, password } = body;
-    console.log(body);
-
     if (!username || !password) {
       throw new HttpException(
         'Email and password are required',

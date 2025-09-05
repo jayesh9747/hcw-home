@@ -610,8 +610,6 @@ export class AuthService {
     try {
       // Step 2: Verify JWT token using the secret
       const decoded = await this.JwtService.verify(token, { secret });
-      console.log(decoded);
-
       // Optional: Check for required fields in decoded payload
       if (!decoded?.userId || !decoded?.contact || !decoded?.type) {
         this.logger.error('Decoded JWT token is missing required fields');
