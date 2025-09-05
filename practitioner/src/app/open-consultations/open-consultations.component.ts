@@ -46,7 +46,7 @@ export class OpenConsultationsComponent implements OnInit, OnDestroy {
     private router: Router,
     private cdr: ChangeDetectorRef,
     private userService: UserService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loadConsultations();
@@ -59,7 +59,7 @@ export class OpenConsultationsComponent implements OnInit, OnDestroy {
 
   loadConsultations(): void {
     this.isLoading = true;
-    
+
     this.userService.getCurrentUser()
       .pipe(
         switchMap(user => {
@@ -119,11 +119,9 @@ export class OpenConsultationsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           if (response.success) {
-            if (response.sessionUrl) {
-              window.location.href = response.sessionUrl;
-            } else {
-              this.router.navigate(['/consultation', consultationId]);
-            }
+            this.router.navigate(['/consultation-room', consultationId], {
+              queryParams: { practitionerId: this.practitionerId }
+            });
           } else {
             console.error('Failed to join consultation:', response.message);
           }
