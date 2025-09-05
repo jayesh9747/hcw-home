@@ -1,15 +1,15 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { 
-  IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
-  IonList, IonItem, IonLabel, IonButton, IonIcon, 
+import {
+  IonCard, IonCardHeader, IonCardTitle, IonCardContent,
+  IonList, IonItem, IonLabel, IonButton, IonIcon,
   IonChip, IonText, ToastController,
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { 
+import {
   videocamOutline, starOutline,
-  calendarOutline, checkmarkCircle 
+  calendarOutline, checkmarkCircle
 } from 'ionicons/icons';
 
 import { AuthService } from 'src/app/services/auth.service';
@@ -23,16 +23,16 @@ import { JoinConsultationService } from 'src/app/services/joinConsultation.servi
   standalone: true,
   imports: [
     CommonModule,
-    IonCard, 
-    IonCardHeader, 
-    IonCardTitle, 
-    IonCardContent, 
-    IonList, 
-    IonItem, 
-    IonLabel, 
-    IonButton, 
-    IonIcon, 
-    IonChip, 
+    IonCard,
+    IonCardHeader,
+    IonCardTitle,
+    IonCardContent,
+    IonList,
+    IonItem,
+    IonLabel,
+    IonButton,
+    IonIcon,
+    IonChip,
     IonText,
   ],
 })
@@ -44,44 +44,23 @@ export class CardComponentComponent {
     private toastController: ToastController,
     private joinConsultationService: JoinConsultationService,
     private authService: AuthService
-  ){
+  ) {
     addIcons({
-      videocamOutline, 
-      starOutline, 
+      videocamOutline,
+      starOutline,
       calendarOutline,
       checkmarkCircle
     });
   }
-    @Input() activeConsultations: Consultation[] = [];
-    @Input() completedConsultations: Consultation[] = [];
-    @Input() upcomingConsultations: Consultation[] = [];
+  @Input() activeConsultations: Consultation[] = [];
+  @Input() completedConsultations: Consultation[] = [];
+  @Input() upcomingConsultations: Consultation[] = [];
 
 
-    async joinConsultation(consultationId: number) {
-      
-      const user = this.authService.getCurrentUser();
-      const userId = user?.id; 
-      
-      if (!userId) {
-        this.presentToast('Please log in to join consultation.');
-        return;
-      }
+  goToJoinPage(consultationId: number) {
+    this.router.navigate(['/join-consultation', consultationId]);
+  }
 
-      this.joinConsultationService.joinConsultation(consultationId, userId)
-      .subscribe({
-        next: (response: any) => {
-          if (response?.sessionUrl) {
-            this.router.navigate([response.sessionUrl]);
-          } else {
-            this.presentToast('Joined consultation, but no session URL provided.');
-          }
-        },
-        error: (err) => {
-          this.presentToast('Failed to join consultation.');
-          console.error('Join error:', err);
-        }
-      });
-    }
 
   // we have to provide it after consultation ends
 
