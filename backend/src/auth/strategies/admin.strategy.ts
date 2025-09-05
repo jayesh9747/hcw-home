@@ -18,8 +18,21 @@ export class AdminStrategy extends PassportStrategy(OpenIDConnectStrategy, 'open
     private readonly configService: ConfigService
   ) {
     const data = configService.getAdminOidcConfig();
+
+    // Provide default fallback configuration if OIDC is not configured
+    const strategyConfig = data || {
+      issuer: 'https://default-issuer.com',
+      authorizationURL: 'https://default-issuer.com/auth',
+      tokenURL: 'https://default-issuer.com/token',
+      userInfoURL: 'https://default-issuer.com/userinfo',
+      clientID: 'default-client-id',
+      clientSecret: 'default-client-secret',
+      callbackURL: `${configService.backendApiBaseUrl}/api/v1/auth/callback/openidconnect_admin?role=admin`,
+      scope: 'openid profile email',
+    };
+
     super({
-      ...data,
+      ...strategyConfig,
       passReqToCallback: true,
     });
   }

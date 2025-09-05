@@ -1,9 +1,3 @@
-// @ts-check
-import eslint from '@eslint/js';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
-
 export default tseslint.config(
   {
     ignores: ['eslint.config.mjs'],
@@ -14,10 +8,10 @@ export default tseslint.config(
   {
     languageOptions: {
       globals: {
-        ...globals.node,
-        ...globals.jest,
+        ...global.node,
+        ...global.jest,
       },
-      ecmaVersion: 5,
+      ecmaVersion: 'latest',
       sourceType: 'module',
       parserOptions: {
         projectService: true,

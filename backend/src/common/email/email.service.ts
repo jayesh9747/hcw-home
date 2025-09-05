@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as sgMail from '@sendgrid/mail';
+import sgMail from '@sendgrid/mail';
 import { ConfigService } from 'src/config/config.service';
 import { UserRole } from '@prisma/client';
 
@@ -20,14 +20,14 @@ export class EmailService {
     if (!hasValidApiKey || !hasValidSenderEmail) {
       this.logger.warn('⚠️  EmailService starting in DISABLED mode');
       this.logger.warn('Email functionality will not work until proper configuration is provided:');
-      
+
       if (!hasValidApiKey) {
         this.logger.warn('- Set EMAIL_SENDGRID_API_KEY to a valid SendGrid API key');
       }
       if (!hasValidSenderEmail) {
         this.logger.warn('- Set EMAIL_SENDER_ADDRESS to a valid email address');
       }
-      
+
       this.logger.warn('Application will continue to run, but email features will be mocked');
       this.isConfigured = false;
       return;
@@ -181,16 +181,15 @@ export class EmailService {
                 </div>
               </div>
 
-              ${
-                notes
-                  ? `
+              ${notes
+          ? `
                 <div class="notes">
                   <div class="notes-title">📝 Note from ${inviterName}:</div>
                   <div class="notes-content">${notes}</div>
                 </div>
               `
-                  : ''
-              }
+          : ''
+        }
 
               <!-- Call to Action -->
               <div class="cta-section">
@@ -214,19 +213,18 @@ export class EmailService {
               <div style="font-size: 14px; color: #6b7280; line-height: 1.5;">
                 <p style="margin-bottom: 8px;"><strong>What to expect:</strong></p>
                 <ul style="margin-left: 20px; margin-bottom: 16px;">
-                  ${
-                    role === UserRole.PATIENT
-                      ? `
+                  ${role === UserRole.PATIENT
+          ? `
                     <li>You'll be placed in a secure waiting room initially</li>
                     <li>The practitioner will admit you when ready</li>
                     <li>You can chat, make voice calls, and video calls during the consultation</li>
                   `
-                      : `
+          : `
                     <li>You'll join the consultation room directly</li>
                     <li>Chat, voice, and video capabilities are available</li>
                     <li>You can contribute as an ${roleDisplay.toLowerCase()} participant</li>
                   `
-                  }
+        }
                 </ul>
                 
                 <p style="margin-bottom: 8px;"><strong>Technical requirements:</strong></p>

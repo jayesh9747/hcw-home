@@ -643,6 +643,7 @@ model MediaPermissionStatus {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([consultationId, userId])
+  @@map("media_permission_status")
 }
 
 
@@ -664,6 +665,7 @@ model MediaEvent {
 
   @@index([consultationId])
   @@index([userId])
+  @@map("media_events")
 }
 
 enum MediaEventType {

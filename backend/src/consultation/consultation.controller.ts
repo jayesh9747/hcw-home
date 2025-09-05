@@ -244,6 +244,54 @@ export class ConsultationController {
     };
   }
 
+  @Post(':id/join/patient/smart')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({
+    summary:
+      'Smart patient join - automatically determines if patient should go to waiting room or consultation room',
+    description:
+      'Handles patient rejoining logic: first-time via magic link goes to waiting room, dashboard rejoin goes directly to consultation if already admitted',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        userId: { type: 'number' },
+        joinType: {
+          type: 'string',
+          enum: ['magic-link', 'dashboard', 'readmission'],
+          description:
+            'Type of join: magic-link (first time), dashboard (returning), readmission (after disconnection)',
+        },
+      },
+      required: ['userId', 'joinType'],
+    },
+  })
+  @ApiOkResponse({
+    description: 'Patient joined consultation with appropriate state',
+    type: ApiResponseDto<JoinConsultationResponseDto>,
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async smartPatientJoin(
+    @Param('id') id: number,
+    @Body()
+    body: {
+      userId: number;
+      joinType: 'magic-link' | 'dashboard' | 'readmission';
+    },
+  ): Promise<any> {
+    const result = await this.consultationService.smartPatientJoin(
+      id,
+      body.userId,
+      body.joinType,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Post(':id/join/practitioner')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Practitioner joins a consultation' })

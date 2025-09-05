@@ -5,14 +5,14 @@ import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
-import { ConsultationModule } from './consultation/consultation.module';
 import { UserModule } from './user/user.module';
 import { OrganizationModule } from './organization/organization.module';
 import { GroupModule } from './group/group.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { MediasoupModule } from './mediasoup/mediasoup.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
-import { APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { SmsProviderModule } from './sms_provider/sms_provider.module';
@@ -27,30 +27,44 @@ import { ReminderModule } from './reminder/reminder.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationModule } from './notification/notification.module';
 import { CoreModule } from './core/core.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
-    CoreModule,
     ConfigModule,
     LoggerModule,
     DatabaseModule,
     HealthModule,
-    AuthModule,
-    ConsultationModule,
+
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
+
+    ScheduleModule.forRoot(),
+
     UserModule,
+    AuthModule,
     OrganizationModule,
     GroupModule,
-    MediasoupModule,
+    AvailabilityModule,
+    ReminderModule,
+    NotificationModule,
+
     SmsProviderModule,
     WhatsappTemplateModule,
+    ChatModule,
+
     LanguageModule,
     SpecialityModule,
     ExportModule,
     TermModule,
-    AvailabilityModule,
-    ScheduleModule.forRoot(),
-    ReminderModule,
-    NotificationModule,
+
+    CoreModule,
+
+    MediasoupModule,
   ],
   controllers: [AppController],
   providers: [
@@ -62,6 +76,10 @@ import { CoreModule } from './core/core.module';
     {
       provide: APP_FILTER,
       useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

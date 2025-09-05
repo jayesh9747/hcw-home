@@ -36,6 +36,7 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   private readonly serverLoad: Map<string, number> = new Map();
 
   private readonly sessionTimeoutMs = 5 * 60 * 1000;
+  private readonly consultationRouterLocks: Map<number, Promise<any>> = new Map();
   scalingThresholdLow: number;
   scalingThresholdHigh: number;
 
@@ -44,25 +45,43 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
     private readonly configService: ConfigService,
   ) {
     this.serverId = this.configService.serverId;
+
+    // Environment-aware scaling thresholds
+    const isDevelopment = this.configService.isDevelopment;
+    this.scalingThresholdLow = isDevelopment ? 1 : 2;
+    this.scalingThresholdHigh = isDevelopment ? 4 : 8;
   }
 
   async onModuleInit(): Promise<void> {
+    const isDevelopment = this.configService.isDevelopment;
+
+    this.logger.log(`🚀 Starting MediaSoup Session Service in ${isDevelopment ? 'DEVELOPMENT' : 'PRODUCTION'} mode`);
+
     await this.initializeWorkers();
 
     // Try to initialize Redis, but don't fail if it's not available
     try {
       await this.initRedis();
     } catch (error) {
-      this.logger.warn(
-        '⚠️  Redis initialization failed - MediaSoup will work in standalone mode',
-      );
-      this.logger.warn('Multi-server load balancing will be disabled');
+      if (isDevelopment) {
+        this.logger.warn('⚠️  Redis initialization failed - MediaSoup will work in standalone mode');
+        this.logger.warn('💻 Perfect for development! Multi-server load balancing disabled');
+      } else {
+        this.logger.error('❌ Redis initialization failed in production environment');
+        this.logger.error('🔧 Multi-server load balancing disabled - this may impact performance');
+      }
       this.logger.debug('Redis error details:', error);
     }
 
-    setInterval(() => this.cleanupInactiveSessions(), 60 * 1000);
+    // Environment-aware monitoring intervals
+    const cleanupInterval = isDevelopment ? 120 * 1000 : 60 * 1000; // 2 min dev, 1 min prod
+    const monitoringInterval = isDevelopment ? 60 * 1000 : 30 * 1000; // 1 min dev, 30s prod
 
-    setInterval(() => this.monitorAndScaleWorkers(), 30 * 1000);
+    setInterval(() => this.cleanupInactiveSessions(), cleanupInterval);
+    setInterval(() => this.monitorAndScaleWorkers(), monitoringInterval);
+
+    this.logger.log(`✅ MediaSoup Session Service initialized successfully`);
+    this.logger.log(`📊 Cleanup interval: ${cleanupInterval / 1000}s, Monitoring interval: ${monitoringInterval / 1000}s`);
   }
 
   private logStructured(
@@ -94,24 +113,32 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
 
   private async initRedis() {
     const redisUrl = this.configService.redisUrl;
+    const isDevelopment = this.configService.isDevelopment;
 
-    // Check if Redis URL is properly configured
-    if (
-      !redisUrl ||
-      redisUrl.includes('your-redis-url') ||
-      redisUrl === 'redis://localhost:6379'
-    ) {
-      this.logger.warn(
-        '⚠️  Redis URL not configured or using placeholder value',
-      );
-      this.logger.warn(
-        'Set REDIS_URL environment variable for multi-server support',
-      );
+    // In development, Redis is optional for single-server operation
+    if (isDevelopment && (!redisUrl || redisUrl.trim() === '')) {
+      this.logger.log('🔧 Development mode: Running without Redis (single-server mode)');
+      this.logger.log('✅ Multi-server load balancing disabled - perfect for development');
       this.isRedisConfigured = false;
       return;
     }
 
-    this.logger.log('Initializing Redis connections...');
+    // Check if Redis URL is properly configured for production
+    if (!redisUrl || redisUrl.includes('your-redis-url')) {
+      const message = isDevelopment
+        ? '⚠️  Redis URL not configured - running in single-server mode'
+        : '❌ Redis URL not configured - required for production multi-server setup';
+
+      this.logger.warn(message);
+      this.isRedisConfigured = false;
+
+      if (!isDevelopment) {
+        throw new Error('Redis URL is required for production multi-server deployment');
+      }
+      return;
+    }
+
+    this.logger.log(`🔄 Initializing Redis connections for ${isDevelopment ? 'development' : 'production'} environment...`);
 
     this.redisPublisher = createClient({ url: redisUrl });
     this.redisSubscriber = createClient({ url: redisUrl });
@@ -162,6 +189,43 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
             });
           } catch (err) {
             this.logger.error('Failed to parse Redis load update message', err);
+          }
+        },
+      );
+
+      // Subscribe to router lifecycle events for cross-server coordination
+      await this.redisSubscriber.subscribe(
+        'mediasoup:router:created',
+        (message) => {
+          try {
+            const parsed = JSON.parse(message);
+            if (parsed.serverId !== this.serverId) {
+              this.logStructured('verbose', 'Router created on another server', {
+                consultationId: parsed.consultationId,
+                routerId: parsed.routerId,
+                remoteServerId: parsed.serverId,
+              });
+            }
+          } catch (err) {
+            this.logger.error('Failed to parse Redis router created message', err);
+          }
+        },
+      );
+
+      await this.redisSubscriber.subscribe(
+        'mediasoup:router:closed',
+        (message) => {
+          try {
+            const parsed = JSON.parse(message);
+            if (parsed.serverId !== this.serverId) {
+              this.logStructured('verbose', 'Router closed on another server', {
+                consultationId: parsed.consultationId,
+                routerId: parsed.routerId,
+                remoteServerId: parsed.serverId,
+              });
+            }
+          } catch (err) {
+            this.logger.error('Failed to parse Redis router closed message', err);
           }
         },
       );
@@ -244,16 +308,25 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   }
 
   private async initializeWorkers() {
-    const numWorkers = 3;
+    // Environment-aware worker configuration
+    const isDevelopment = this.configService.isDevelopment;
+    const numWorkers = isDevelopment ? 2 : 4; // Fewer workers for development
+
+    this.logger.log(`🚀 Initializing ${numWorkers} MediaSoup workers for ${isDevelopment ? 'development' : 'production'} environment`);
+
     for (let i = 0; i < numWorkers; i++) {
       await this.addWorker();
     }
+
+    this.logger.log(`✅ Successfully initialized ${this.workers.length} MediaSoup workers`);
   }
 
   private async addWorker() {
     try {
+      const isDevelopment = this.configService.isDevelopment;
+
       const worker = await mediasoup.createWorker({
-        logLevel: 'warn',
+        logLevel: isDevelopment ? 'debug' : 'warn',
         rtcMinPort: 40000,
         rtcMaxPort: 49999,
       });
@@ -261,6 +334,7 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
       worker.on('died', () => {
         this.logStructured('error', `Worker died, will restart`, {
           pid: worker.pid,
+          environment: isDevelopment ? 'development' : 'production'
         });
         this.removeWorker(worker.pid);
         this.addWorker().catch((e) => {
@@ -274,7 +348,11 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
 
       this.workers.push(worker);
       this.workerRouterCount.set(worker.pid, 0);
-      this.logStructured('log', 'Worker added', { pid: worker.pid });
+      this.logStructured('log', 'Worker added', {
+        pid: worker.pid,
+        totalWorkers: this.workers.length,
+        environment: isDevelopment ? 'development' : 'production'
+      });
     } catch (error) {
       this.logStructured('error', 'Failed to add mediasoup worker', {
         error: error.message,
@@ -367,24 +445,101 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   }
 
   async createRouterForConsultation(consultationId: number) {
+    // Prevent concurrent router creation for the same consultation
+    const existingLock = this.consultationRouterLocks.get(consultationId);
+    if (existingLock) {
+      this.logger.warn(`Router creation already in progress for consultation ${consultationId}, waiting...`);
+      return await existingLock;
+    }
+
+    const creationPromise = this._createRouterForConsultationInternal(consultationId);
+    this.consultationRouterLocks.set(consultationId, creationPromise);
+
+    try {
+      const router = await creationPromise;
+      return router;
+    } finally {
+      this.consultationRouterLocks.delete(consultationId);
+    }
+  }
+
+  private async _createRouterForConsultationInternal(consultationId: number) {
     const correlationId = uuidv4();
-    this.logStructured('log', 'Creating router', {
+    this.logStructured('log', 'Creating router for consultation', {
       consultationId,
       correlationId,
+      serverId: this.serverId,
     });
 
     const worker = this.getLeastLoadedWorker();
-    if (!worker) throw new Error('No available mediasoup worker found');
+    if (!worker) {
+      const error = 'No available mediasoup worker found';
+      this.logStructured('error', error, { consultationId, correlationId });
+      throw new Error(error);
+    }
 
-    const preferredServerId = await this.getLeastLoadedServer();
+    // Environment-aware server selection
+    let preferredServerId = this.serverId;
 
-    const server = await this.databaseService.mediasoupServer.findUnique({
+    // Only use Redis load balancing in production or when Redis is configured
+    if (this.isRedisConfigured) {
+      try {
+        preferredServerId = await this.getLeastLoadedServer();
+        this.logStructured('log', 'Using load-balanced server selection', {
+          consultationId,
+          selectedServerId: preferredServerId,
+          currentServerId: this.serverId,
+        });
+      } catch (error) {
+        this.logStructured('warn', 'Load balancing failed, using current server', {
+          consultationId,
+          error: error.message,
+          fallbackServerId: this.serverId,
+        });
+      }
+    }
+
+    // Check/create server record in database
+    let server = await this.databaseService.mediasoupServer.findUnique({
       where: { id: preferredServerId },
     });
 
-    if (!server || !server.active)
-      throw new Error('No available mediasoup server found');
+    if (!server) {
+      // Create server record if it doesn't exist (common in development)
+      try {
+        server = await this.databaseService.mediasoupServer.create({
+          data: {
+            id: preferredServerId,
+            url: this.configService.isDevelopment
+              ? 'http://localhost:3000'
+              : `http://${preferredServerId}:3000`,
+            username: this.configService.isDevelopment ? 'dev_user' : 'mediasoup_user',
+            password: this.configService.isDevelopment ? 'dev_password' : 'secure_password',
+            active: true,
+          },
+        });
+        this.logStructured('log', 'Created new server record', {
+          consultationId,
+          serverId: preferredServerId,
+          environment: this.configService.isDevelopment ? 'development' : 'production',
+        });
+      } catch (dbError) {
+        this.logStructured('error', 'Failed to create server record', {
+          consultationId,
+          serverId: preferredServerId,
+          error: dbError.message,
+        });
+        throw new Error('Unable to initialize server record for MediaSoup routing');
+      }
+    }
 
+    if (!server.active) {
+      const error = `MediaSoup server ${preferredServerId} is not active`;
+      this.logStructured('error', error, { consultationId, correlationId });
+      throw new Error(error);
+    }
+
+    // Create MediaSoup router with environment-aware configuration
     const router = await worker.createRouter({
       mediaCodecs: [
         {
@@ -397,7 +552,18 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
           kind: 'video',
           mimeType: 'video/VP8',
           clockRate: 90000,
-          parameters: { 'x-google-start-bitrate': 1000 },
+          parameters: { 'x-google-start-bitrate': this.configService.isDevelopment ? 500 : 1000 },
+        },
+        {
+          kind: 'video',
+          mimeType: 'video/H264',
+          clockRate: 90000,
+          parameters: {
+            'packetization-mode': 1,
+            'profile-level-id': '42e01f',
+            'level-asymmetry-allowed': 1,
+            'x-google-start-bitrate': this.configService.isDevelopment ? 500 : 1000,
+          },
         },
       ],
     });
@@ -406,32 +572,74 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
       this.logStructured('log', 'Router closed', {
         consultationId,
         correlationId,
+        routerId: router.id,
       });
     });
 
-    await this.databaseService.mediasoupRouter.create({
-      data: {
-        consultationId,
-        routerId: router.id,
-        serverId: server.id,
-      },
-    });
+    // Store router in database with proper consultation mapping
+    try {
+      await this.databaseService.mediasoupRouter.create({
+        data: {
+          consultationId,
+          routerId: router.id,
+          serverId: server.id,
+        },
+      });
+    } catch (dbError) {
+      // If database insertion fails, clean up the router
+      try {
+        await router.close();
+      } catch (closeError) {
+        this.logStructured('error', 'Failed to close router after DB error', {
+          consultationId,
+          error: closeError.message,
+        });
+      }
 
+      this.logStructured('error', 'Failed to store router in database', {
+        consultationId,
+        error: dbError.message,
+      });
+      throw dbError;
+    }
+
+    // Store router in memory
     this.routers.set(consultationId, {
       router,
       workerPid: worker.pid,
       correlationId,
     });
+
     this.workerRouterCount.set(
       worker.pid,
       (this.workerRouterCount.get(worker.pid) ?? 0) + 1,
     );
-    this.logStructured('log', 'Router created for consultation', {
+
+    this.logStructured('log', 'Router created successfully for consultation', {
       consultationId,
       workerPid: worker.pid,
       routerId: router.id,
+      serverId: server.id,
       correlationId,
+      environment: this.configService.isDevelopment ? 'development' : 'production',
     });
+
+    // Broadcast router creation to other servers via Redis (if configured)
+    if (this.isRedisConfigured && this.redisPublisher) {
+      try {
+        await this.redisPublisher.publish('mediasoup:router:created', JSON.stringify({
+          consultationId,
+          routerId: router.id,
+          serverId: this.serverId,
+          timestamp: new Date().toISOString(),
+        }));
+      } catch (redisError) {
+        this.logStructured('warn', 'Failed to broadcast router creation', {
+          consultationId,
+          error: redisError.message,
+        });
+      }
+    }
 
     return router;
   }
@@ -446,28 +654,83 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
           consultationId,
         },
       );
+
+      // Check if router exists in database but not in memory and clean it up
+      try {
+        const dbRouter = await this.databaseService.mediasoupRouter.findUnique({
+          where: { consultationId },
+        });
+
+        if (dbRouter) {
+          await this.databaseService.mediasoupRouter.delete({
+            where: { consultationId },
+          });
+          this.logStructured('log', 'Cleaned up orphaned router record from database', {
+            consultationId,
+            routerId: dbRouter.routerId,
+          });
+        }
+      } catch (dbError) {
+        this.logStructured('warn', 'Failed to clean up orphaned router record', {
+          consultationId,
+          error: dbError.message,
+        });
+      }
+
       return;
     }
 
     const { router, workerPid, correlationId } = entry;
 
     try {
+      // Close router and update worker count
       await router.close();
       this.routers.delete(consultationId);
       this.workerRouterCount.set(
         workerPid,
         Math.max(0, (this.workerRouterCount.get(workerPid) ?? 1) - 1),
       );
-      await this.databaseService.mediasoupRouter.delete({
-        where: { consultationId },
-      });
-      this.logStructured('log', 'Router cleaned up for consultation', {
+
+      // Remove from database
+      try {
+        await this.databaseService.mediasoupRouter.delete({
+          where: { consultationId },
+        });
+      } catch (dbError) {
+        this.logStructured('warn', 'Failed to remove router from database', {
+          consultationId,
+          error: dbError.message,
+        });
+      }
+
+      // Broadcast router cleanup to other servers via Redis (if configured)
+      if (this.isRedisConfigured && this.redisPublisher) {
+        try {
+          await this.redisPublisher.publish('mediasoup:router:closed', JSON.stringify({
+            consultationId,
+            routerId: router.id,
+            serverId: this.serverId,
+            timestamp: new Date().toISOString(),
+          }));
+        } catch (redisError) {
+          this.logStructured('warn', 'Failed to broadcast router cleanup', {
+            consultationId,
+            error: redisError.message,
+          });
+        }
+      }
+
+      this.logStructured('log', 'Router cleaned up successfully for consultation', {
         consultationId,
+        routerId: router.id,
+        workerPid,
+        correlationId,
       });
     } catch (error) {
       this.logStructured('error', 'Failed to cleanup router', {
         consultationId,
         error: error.message,
+        correlationId,
       });
     }
   }
@@ -1179,18 +1442,87 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
   }
 
   async getHealthMetrics() {
+    const isDevelopment = this.configService.isDevelopment;
+    const totalRouters = Array.from(this.workerRouterCount.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+
+    // Calculate per-worker load distribution
+    const workerLoadDistribution = this.workers.map(worker => ({
+      pid: worker.pid,
+      routerCount: this.workerRouterCount.get(worker.pid) || 0,
+      status: worker.closed ? 'closed' : 'active',
+    }));
+
+    // Get consultation routing status
+    const consultationRouterMap = Array.from(this.routers.entries()).map(([consultationId, entry]) => ({
+      consultationId,
+      routerId: entry.router.id,
+      workerPid: entry.workerPid,
+      correlationId: entry.correlationId,
+      closed: entry.router.closed,
+    }));
+
+    // Redis cluster status
+    const redisStatus = {
+      configured: this.isRedisConfigured,
+      url: isDevelopment ? this.configService.redisUrl || 'not-configured' : '[REDACTED]',
+      publisher: this.redisPublisher ? 'connected' : 'disconnected',
+      subscriber: this.redisSubscriber ? 'connected' : 'disconnected',
+      serverCount: this.serverLoad.size,
+      clusterServers: Array.from(this.serverLoad.entries()).map(([serverId, load]) => ({
+        serverId,
+        load,
+        isCurrent: serverId === this.serverId,
+      })),
+    };
+
     return {
-      workerCount: this.workers.length,
-      activeRouters: this.routers.size,
-      activeTransports: this.transports.size,
-      activeProducers: this.producers.size,
-      activeConsumers: this.consumers.size,
-      serverLoad: Array.from(this.workerRouterCount.entries()).map(
-        ([pid, count]) => ({
-          pid,
-          routerCount: count,
-        }),
-      ),
+      timestamp: new Date().toISOString(),
+      environment: isDevelopment ? 'development' : 'production',
+      serverId: this.serverId,
+      redis: redisStatus,
+      workers: {
+        count: this.workers.length,
+        recommended: isDevelopment ? 2 : 4,
+        pids: this.workers.map(w => w.pid),
+        distribution: workerLoadDistribution,
+      },
+      sessions: {
+        activeRouters: this.routers.size,
+        activeTransports: this.transports.size,
+        activeProducers: this.producers.size,
+        activeConsumers: this.consumers.size,
+        consultationMappings: consultationRouterMap.length,
+      },
+      load: {
+        totalActiveRouters: totalRouters,
+        averagePerWorker: this.workers.length > 0 ? totalRouters / this.workers.length : 0,
+        scalingThresholds: {
+          low: this.scalingThresholdLow,
+          high: this.scalingThresholdHigh,
+        },
+        perWorker: workerLoadDistribution,
+        ...(this.isRedisConfigured && {
+          clusterLoad: Object.fromEntries(this.serverLoad.entries())
+        })
+      },
+      configuration: {
+        sessionTimeoutMs: this.sessionTimeoutMs,
+        announcedIp: this.configService.mediasoupAnnouncedIp,
+        isDevelopment,
+        isProduction: this.configService.isProduction,
+      },
+      transitions: {
+        pendingRouterCreations: this.consultationRouterLocks.size,
+        routerTransitions: Array.from(this.consultationRouterLocks.keys()),
+      },
+      routing: {
+        consultationRouters: consultationRouterMap,
+      },
+      uptime: process.uptime(),
+      memory: process.memoryUsage()
     };
   }
 
@@ -1233,7 +1565,6 @@ export class MediasoupSessionService implements OnModuleDestroy, OnModuleInit {
       this.logger.warn(
         `Failed to release router assignment lock for consultation ${consultationId}: ${error.message}`,
       );
-      // Continue without throwing as lock release failure is not critical
     }
   }
 
