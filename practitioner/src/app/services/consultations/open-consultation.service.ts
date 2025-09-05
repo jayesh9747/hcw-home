@@ -18,7 +18,7 @@ import { monthNames } from '../../constants/month.enum';
 export class OpenConsultationService {
   private apiUrl = 'http://localhost:3000/api/v1/consultation';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   getOpenConsultations(
     practitionerId: number,
@@ -78,27 +78,22 @@ export class OpenConsultationService {
     consultationId: number,
     practitionerId: number
   ): Observable<JoinConsultationResponse> {
-    const params = new HttpParams().set(
-      'practitionerId',
-      practitionerId.toString()
-    );
-
-    const body = { consultationId };
+    // Use the correct backend API endpoint for practitioner join
+    const body = { userId: practitionerId };
 
     return this.http
       .post<ApiResponse<JoinConsultationResponse>>(
-        `${this.apiUrl}/open/join`,
-        body,
-        { params }
+        `${this.apiUrl}/${consultationId}/join/practitioner`,
+        body
       )
       .pipe(
         map((response) => {
           return {
-            success: response.data.success,
-            statusCode: response.data.statusCode,
-            message: response.data.message,
-            consultationId: response.data.consultationId,
-            sessionUrl: response.data.sessionUrl, 
+            success: response.data?.success || true,
+            statusCode: response.data?.statusCode || 200,
+            message: response.data?.message || 'Successfully joined consultation',
+            consultationId: response.data?.consultationId || consultationId,
+            sessionUrl: response.data?.sessionUrl || undefined,
           };
         }),
         catchError((error) => {

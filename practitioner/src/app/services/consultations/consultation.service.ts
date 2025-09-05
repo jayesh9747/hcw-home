@@ -70,7 +70,7 @@ export class ConsultationService {
   constructor(
     private http: HttpClient,
     private userService: UserService
-  ) {}
+  ) { }
 
   createPatientAndConsultation(
     formData: CreatePatientConsultationRequest
@@ -78,10 +78,10 @@ export class ConsultationService {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
         const params = new HttpParams().set('practitionerId', user.id.toString());
-        
+
         console.log('Creating patient and consultation with data:', formData);
         console.log('Practitioner ID:', user.id);
-        
+
         return this.http.post<CreatePatientConsultationResponse>(
           `${this.baseUrl}/create-patient-consultation`,
           formData,
@@ -95,7 +95,7 @@ export class ConsultationService {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
         const params = new HttpParams().set('userId', user.id.toString());
-        
+
         return this.http
           .get<any>(`${this.baseUrl}/waiting-room`, { params })
           .pipe(
@@ -108,6 +108,25 @@ export class ConsultationService {
           );
       })
     );
+  }
+
+  getWaitingRoomConsultations(practitionerId: number, page: number = 1, limit: number = 10): Observable<any> {
+    const params = new HttpParams()
+      .set('userId', practitionerId.toString())
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<any>(`${this.baseUrl}/waiting-room`, { params })
+      .pipe(
+        map((response) => {
+          return response?.data || {
+            success: true,
+            waitingRooms: [],
+            totalCount: 0,
+            totalPages: 0
+          };
+        })
+      );
   }
 
   getOpenConsultations(): Observable<ConsultationWithPatient[]> {
@@ -164,10 +183,10 @@ export class ConsultationService {
     item: any,
     practitionerId: number
   ): ConsultationWithPatient {
-    const startedAtDate = typeof item.startedAt === 'string' 
-      ? new Date(item.startedAt) 
+    const startedAtDate = typeof item.startedAt === 'string'
+      ? new Date(item.startedAt)
       : (item.startedAt instanceof Date ? item.startedAt : new Date());
-    
+
     let status: ConsultationStatus;
     switch (item.status) {
       case 'ACTIVE':
@@ -182,7 +201,7 @@ export class ConsultationService {
       default:
         status = ConsultationStatus.WAITING;
     }
-    
+
     return {
       patient: {
         id: item.patient?.id || 0,
