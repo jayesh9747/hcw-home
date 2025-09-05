@@ -10,6 +10,7 @@ import { ConsultationHistoryComponent } from './consultation-history/consultatio
 import { ProfileComponent } from './pages/profile/profile.component';
 import { LoginComponent } from './login/login.component';
 import { AuthGuard } from './auth/guard/auth.guard';
+import { PractitionerConsultationRoomComponent } from './consultation-room/practitioner-consultation-room.component';
 
 import { AvailabilityComponent } from './pages/availability/availability.component';
 import { Component } from '@angular/core';
@@ -27,7 +28,7 @@ export const routes: Routes = [
   },
   {
     path: '',
-    canActivate: [AuthGuard,TermGuard],
+    canActivate: [AuthGuard, TermGuard],
     children: [
       {
         path: RoutePaths.Dashboard,
@@ -57,9 +58,13 @@ export const routes: Routes = [
         path: RoutePaths.Profile,
         component: ProfileComponent,
       },
-      { 
+      {
         path: RoutePaths.Availability,
-        component: AvailabilityComponent 
+        component: AvailabilityComponent
+      },
+      {
+        path: `${RoutePaths.ConsultationRoom}/:id`,
+        component: PractitionerConsultationRoomComponent
       },
 
 
@@ -71,12 +76,12 @@ export const routes: Routes = [
     component: LoginComponent,
   },
   {
-    path:RoutePaths.FogetPassword,
-    component:ForgotPasswordComponent
+    path: RoutePaths.FogetPassword,
+    component: ForgotPasswordComponent
   },
   {
-    path:RoutePaths.AcceptTerm,
-    component:TermComponent
+    path: RoutePaths.AcceptTerm,
+    component: TermComponent
   }
 
 ];
