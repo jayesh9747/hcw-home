@@ -1,5 +1,3 @@
-
-
 import { Injectable, computed, signal } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { map, switchMap, } from "rxjs/operators";
@@ -20,9 +18,6 @@ interface MagicLinkResponse {
   message: string;
   contact: string;
 }
-
-
-
 
 @Injectable({ providedIn: "root" })
 export class AuthService {
