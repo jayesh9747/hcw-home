@@ -1,0 +1,86 @@
+<div class="feedback-container">
+  <!-- Consultation Summary Header -->
+  <div class="consultation-summary">
+    <h2>CONSULTATION SUMMARY</h2>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <label>Patient name</label>
+        <p>{{ consultationSummary.patientName }}</p>
+      </div>
+      <div class="summary-item">
+        <label>Sex</label>
+        <p>{{ consultationSummary.sex }}</p>
+      </div>
+      <div class="summary-item">
+        <label>Start date/time</label>
+        <p>{{ consultationSummary.startDateTime }}</p>
+      </div>
+      <div class="summary-item">
+        <label>End date/time</label>
+        <p>{{ consultationSummary.endDateTime }}</p>
+      </div>
+      <div class="summary-item">
+        <label>Duration</label>
+        <p>{{ consultationSummary.duration }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Section -->
+  <div class="feedback-section">
+    <!-- Satisfaction Question -->
+    <div class="satisfaction-question">
+      <h3>Are you satisfied with the HCW&#64;Home app?</h3>
+      <div class="satisfaction-options">
+        <button 
+          type="button"
+          class="satisfaction-btn"
+          [class.selected]="isSelected('satisfied')"
+          (click)="selectSatisfaction('satisfied')">
+          <span class="emoji satisfied">{{ getSatisfactionIcon('satisfied') }}</span>
+        </button>
+        <button 
+          type="button"
+          class="satisfaction-btn"
+          [class.selected]="isSelected('neutral')"
+          (click)="selectSatisfaction('neutral')">
+          <span class="emoji neutral">{{ getSatisfactionIcon('neutral') }}</span>
+        </button>
+        <button 
+          type="button"
+          class="satisfaction-btn"
+          [class.selected]="isSelected('dissatisfied')"
+          (click)="selectSatisfaction('dissatisfied')">
+          <span class="emoji dissatisfied">{{ getSatisfactionIcon('dissatisfied') }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Comment Section -->
+    <div class="comment-section">
+      <h3>Do you want to leave us a comment?</h3>
+      <textarea 
+        [(ngModel)]="feedback.comment"
+        placeholder="Your comment"
+        rows="4"
+        class="comment-textarea">
+      </textarea>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <button 
+        type="button"
+        (click)="onSubmit()"
+        style="background: #4a90e2; color: white; border: none; padding: 12px 24px; border-radius: 24px; cursor: pointer; font-size: 16px;">
+        Send my feedback
+      </button>
+      <button 
+        type="button"
+        (click)="onClose()"
+        style="background: #dc3545; color: white; border: none; padding: 12px 24px; border-radius: 24px; cursor: pointer; font-size: 16px;">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
