@@ -1,1 +1,191 @@
-<p>waiting-room works!</p>
+<div class="waiting-room-container">
+  <!-- Header -->
+  <div class="main-content">
+    <!-- Main Content Area -->
+    <main class="content">
+      <div class="content-header">
+        <h1 class="page-title">WAITING ROOM</h1>
+        <div class="header-actions">          
+          
+          <button 
+            class="refresh-btn" 
+            (click)="onRefresh()" 
+            [disabled]="isLoading"
+            title="Refresh waiting room"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="content-body">
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading waiting room...</p>
+        </div>
+
+        <!-- Error State -->
+        <div *ngIf="error && !isLoading" class="error-state">
+          <p class="error-message">{{ error }}</p>
+          <button class="retry-btn" (click)="onRefresh()">Try Again</button>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!isLoading && !error && waitingRoomEntries.length === 0" class="no-consultation">
+          <div class="empty-icon">👥</div>
+          <h3>No patients waiting</h3>
+          <p>The waiting room is currently empty. New appointments will appear here.</p>
+        </div>
+        
+        <!-- Waiting Room Entries -->
+        <div *ngIf="!isLoading && !error && waitingRoomEntries.length > 0" class="waiting-room-content">
+          <!-- Enhanced Summary Info -->
+          <div class="summary-bar" *ngIf="waitingRoomData">
+            <div class="summary-item">
+              <span class="summary-label">Total Patients:</span>
+              <span class="summary-value">{{ waitingRoomData.totalCount }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Currently Waiting:</span>
+              <span class="summary-value">
+                {{ getWaitingPatientsCount() }}
+              </span>
+            </div>
+            <div class="summary-item" *ngIf="waitingRoomData.timestamp">
+              <span class="summary-label">Last Updated:</span>
+              <span class="summary-value">
+                {{ waitingRoomData.timestamp | date:'short' }}
+              </span>
+            </div>
+          </div>
+
+
+          <!-- Enhanced Patients Grid -->
+          <div class="patients-grid">
+            <div 
+              *ngFor="let entry of waitingRoomEntries" 
+              class="patient-card"
+              [class.stale]="isConsultationStale(entry.joinTime)"
+              [class]="'status-waiting'"
+            >
+              <div class="patient-header">
+                <div class="patient-avatar">
+                  {{ entry.patientInitials }}
+                </div>
+                <div class="patient-info">
+                  <h3 class="patient-initials">{{ entry.patientInitials }}</h3>
+                  <span class="patient-id">ID: {{ entry.id }}</span>
+                  <!-- Queue position badge -->
+                  <span class="queue-badge" *ngIf="entry.queuePosition">
+                    #{{ entry.queuePosition }}
+                  </span>
+                </div>
+                
+                <!-- Stale indicator -->
+                <div class="status-indicator" *ngIf="isConsultationStale(entry.joinTime)">
+                  <span class="stale-warning" title="This consultation has been waiting for more than 30 minutes">⚠️</span>
+                </div>
+              </div>
+              
+              <div class="patient-details">
+                <div class="detail-row">
+                  <span class="detail-label">Join Time:</span>
+                  <span class="detail-value">{{ getJoinTimeFormatted(entry.joinTime) }}</span>
+                </div>
+                
+                <div class="detail-row">
+                  <span class="detail-label">Waiting:</span>
+                  <span class="detail-value waiting-time" 
+                        [class.stale-time]="isConsultationStale(entry.joinTime)">
+                    {{ getWaitingTime(entry.joinTime) }}
+                  </span>
+                </div>
+                
+                <!-- New: Queue status -->
+                <div class="detail-row">
+                  <span class="detail-label">Status:</span>
+                  <span class="detail-value">{{ getQueueStatus(entry) }}</span>
+                </div>
+                
+                <!-- New: Estimated wait time -->
+                <div class="detail-row" *ngIf="entry.estimatedWaitTime">
+                  <span class="detail-label">Est. Wait:</span>
+                  <span class="detail-value">{{ getEstimatedWaitTime(entry) }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="entry.language">
+                  <span class="detail-label">Language:</span>
+                  <span class="detail-value">{{ entry.language }}</span>
+                </div>
+              </div>
+
+              <div class="patient-actions">
+                <button 
+                  class="action-btn primary"
+                  [disabled]="!entry.joinTime"
+                  (click)="onJoinConsultation(entry)"
+                  [title]="!entry.joinTime ? 'Patient has not joined yet' : 'Start consultation'"
+                >
+                  {{ !entry.joinTime ? 'Waiting for Patient' : 'Join Consultation' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Enhanced Pagination -->
+          <div class="pagination" *ngIf="waitingRoomData && waitingRoomData.totalPages > 1">
+            <div class="pagination-info">
+              <span>
+                Page {{ waitingRoomData.currentPage }} of {{ waitingRoomData.totalPages }}
+                ({{ waitingRoomData.totalCount }} total patients)
+              </span>
+            </div>
+            
+            <div class="pagination-controls">
+              <button 
+                class="page-btn" 
+                [disabled]="waitingRoomData.currentPage === 1"
+                (click)="onPageChange(1)"
+                title="First page"
+              >
+                ⏮️
+              </button>
+              
+              <button 
+                class="page-btn" 
+                [disabled]="waitingRoomData.currentPage === 1"
+                (click)="onPageChange(waitingRoomData.currentPage - 1)"
+                title="Previous page"
+              >
+                ⏪
+              </button>
+              
+              <span class="current-page">
+                {{ waitingRoomData.currentPage }}
+              </span>
+              
+              <button 
+                class="page-btn" 
+                [disabled]="waitingRoomData.currentPage === waitingRoomData.totalPages"
+                (click)="onPageChange(waitingRoomData.currentPage + 1)"
+                title="Next page"
+              >
+                ⏩
+              </button>
+              
+              <button 
+                class="page-btn" 
+                [disabled]="waitingRoomData.currentPage === waitingRoomData.totalPages"
+                (click)="onPageChange(waitingRoomData.totalPages)"
+                title="Last page"
+              >
+                ⏭️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

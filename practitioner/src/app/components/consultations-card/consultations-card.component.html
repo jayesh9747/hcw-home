@@ -2,7 +2,7 @@
   <h2>{{ title() }}</h2>
   <p class="card-description">{{ description() }}</p>
 
-  @if (consultations().length === 0) {
+  @if (!hasItems()) {
   <div class="empty-state">
     <p>No consultations</p>
   </div>
@@ -14,6 +14,7 @@
   </app-button>
   }
 
+  <!-- Display regular consultations -->
   @if (consultations().length > 0) {
   <div class="consultation-list">
     @for (history of consultations(); track trackByConsultationId($index, history)) {
@@ -44,8 +45,35 @@
   </div>
   }
 
+  <!-- Display waiting room items -->
+  @if (waitingData()?.waitingRooms && waitingData()!.waitingRooms.length > 0) {
+  <div class="consultation-list">
+    @for (item of waitingData()!.waitingRooms; track item.id) {
+    <div class="consultation-item">
+      <div class="patient-info">
+        <div class="label">Patient</div>
+        <div class="value">
+          {{ item.patientInitials }}
+        </div>
+      </div>
+
+      <div class="time-info">
+        <div class="label">Queue Position</div>
+        <div class="value">
+          #{{ item.queuePosition }}
+        </div>
+      </div>
+
+      <div class="action">
+        <i class="fas fa-chevron-right"></i>
+      </div>
+    </div>
+    }
+  </div>
+  }
+
   <!-- View all -->
-  @if (consultations().length > 3) {
+  @if (getItemCount() > 3) {
   <app-button [variant]="ButtonVariant.Outline" [routerLink]="routerLink()" [size]="ButtonSize.Medium">
     View all
   </app-button>

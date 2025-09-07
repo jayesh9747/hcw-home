@@ -9,6 +9,7 @@ import type {
   WaitingRoomItem,
 } from '../../dtos/consultations/consultation-dashboard-response.dto';
 import { UserService } from '../user.service';
+import { WaitingRoomResponse } from '../../dtos/consultations/consultation-dashboard-response.dto';
 
 export interface CreatePatientConsultationRequest {
   firstName: string;
@@ -91,24 +92,33 @@ export class ConsultationService {
     );
   }
 
-  getWaitingConsultations(): Observable<ConsultationWithPatient[]> {
+  getWaitingConsultations(page = 1, limit = 10, sortOrder: 'asc' | 'desc' = 'asc'): Observable<WaitingRoomResponse> {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
-        const params = new HttpParams().set('userId', user.id.toString());
-        
+        const params = new HttpParams()
+        .set('userId', user.id.toString())
+        .set('page', page.toString())
+        .set('limit', limit.toString())
+        .set('sortOrder', sortOrder);
+
         return this.http
           .get<any>(`${this.baseUrl}/waiting-room`, { params })
           .pipe(
-            map((response) => {
-              const waitingRooms = response?.data?.data?.waitingRooms || [];
-              return waitingRooms.map((item: WaitingRoomItem) =>
-                this.convertWaitingRoomToConsultationWithPatient(item, user.id)
-              );
-            })
+            map((response) => ({
+              success: response.data.success,           
+              statusCode: response.data.statusCode,     
+              message: response.data.message,      
+              waitingRooms: response.data.waitingRooms || [],
+              totalCount: response.data.totalCount || 0,
+              currentPage: response.data.currentPage || 1,
+              totalPages: response.data.totalPages || 1,
+              timestamp: response.timestamp       
+            }))
           );
       })
     );
   }
+  
 
   getOpenConsultations(): Observable<ConsultationWithPatient[]> {
     return this.userService.getCurrentUser().pipe(
@@ -131,7 +141,7 @@ export class ConsultationService {
       })
     );
   }
-
+  
   private convertWaitingRoomToConsultationWithPatient(
     item: WaitingRoomItem,
     practitionerId: number

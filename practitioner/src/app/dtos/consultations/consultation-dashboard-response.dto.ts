@@ -4,8 +4,10 @@ import { OpenConsultationPatient } from "./open-consultation.dto";
 export interface WaitingRoomItem {
   id: number;
   patientInitials: string;
-  joinTime: string | null;
+  joinTime: Date | null;
   language: string | null;
+  queuePosition: number;
+  estimatedWaitTime: number;
 }
 
 export interface WaitingRoomResponse {
@@ -14,8 +16,10 @@ export interface WaitingRoomResponse {
   message: string;
   waitingRooms: WaitingRoomItem[];
   totalCount: number;
+  currentPage: number;     
+  totalPages: number;  
+  timestamp: string;        
 }
-
 export interface OpenConsultationItem {
   id: number;
   patient: OpenConsultationPatient;
