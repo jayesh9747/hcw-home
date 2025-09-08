@@ -1,0 +1,220 @@
+<div class="chat-container" *ngIf="isVisible" @slideIn>
+  <!-- Chat Header -->
+  <div class="chat-header">
+    <div class="header-left">
+      <h3>Chat</h3>
+      <ion-badge color="danger" *ngIf="unreadCount > 0">{{
+        unreadCount
+      }}</ion-badge>
+    </div>
+    <div class="header-right">
+      <ion-button
+        fill="clear"
+        size="small"
+        (click)="markAllAsRead()"
+        *ngIf="unreadCount > 0"
+      >
+        <ion-icon name="checkmark-done-outline"></ion-icon>
+      </ion-button>
+      <ion-button fill="clear" size="small" (click)="close()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Messages Container -->
+  <div #messagesContainer class="messages-container" (scroll)="onScroll()">
+    <!-- Messages List -->
+    <div class="messages-list">
+      <div
+        *ngFor="let message of messages"
+        class="message-wrapper"
+        [ngClass]="{
+          'own-message': message.isFromPatient,
+          'other-message':
+            !message.isFromPatient && message.messageType !== 'system',
+          'system-message': message.messageType === 'system'
+        }"
+      >
+        <!-- Message Bubble -->
+        <div class="message-bubble">
+          <!-- Message Header -->
+          <div class="message-header" *ngIf="message.messageType !== 'system'">
+            <ion-avatar size="small">
+              <div class="avatar-text">{{ getMessageInitials(message) }}</div>
+            </ion-avatar>
+            <div class="message-info">
+              <span class="sender-name">{{
+                message.userName ||
+                  (message.isFromPatient ? patientName : "Doctor")
+              }}</span>
+              <span class="message-time">{{
+                formatMessageTime(message.createdAt)
+              }}</span>
+            </div>
+          </div>
+
+          <!-- Message Content -->
+          <div class="message-content">
+            <!-- Text Content -->
+            <p *ngIf="message.content" class="text-content">
+              {{ message.content }}
+            </p>
+
+            <!-- Image Content -->
+            <div
+              *ngIf="message.messageType === 'image' && message.mediaUrl"
+              class="image-content"
+            >
+              <img
+                [src]="message.mediaUrl"
+                [alt]="message.fileName || 'Image'"
+              />
+              <div class="image-info" *ngIf="message.fileName">
+                <small
+                  >{{ message.fileName }} •
+                  {{ formatFileSize(message.fileSize) }}</small
+                >
+              </div>
+            </div>
+
+            <!-- File Content -->
+            <div
+              *ngIf="message.messageType === 'file' && message.mediaUrl"
+              class="file-content"
+            >
+              <div class="file-info">
+                <ion-icon name="document-outline" class="file-icon"></ion-icon>
+                <div class="file-details">
+                  <div class="file-name">{{ message.fileName || "File" }}</div>
+                  <div class="file-size">
+                    {{ formatFileSize(message.fileSize) }}
+                  </div>
+                </div>
+                <ion-button
+                  fill="clear"
+                  size="small"
+                  (click)="downloadFile(message)"
+                >
+                  <ion-icon name="download-outline"></ion-icon>
+                </ion-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Read Receipts -->
+          <div
+            class="read-receipts"
+            *ngIf="
+              message.readReceipts &&
+              message.readReceipts.length > 0 &&
+              message.isFromPatient
+            "
+          >
+            <div class="receipt-info">
+              <ion-icon
+                name="checkmark-done-outline"
+                color="primary"
+              ></ion-icon>
+              <small
+                >Read by {{ message.readReceipts.length }} participant(s)</small
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator" *ngIf="typingUsers.length > 0">
+        <div class="typing-bubble">
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <small class="typing-text">{{ getTypingText() }}</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scroll to Bottom Button -->
+    <ion-fab
+      vertical="bottom"
+      horizontal="end"
+      slot="fixed"
+      *ngIf="showScrollToBottom"
+      class="scroll-to-bottom"
+    >
+      <ion-fab-button size="small" (click)="scrollToBottom()">
+        <ion-icon name="chevron-down"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  </div>
+
+  <!-- File Upload Progress -->
+  <div class="upload-progress" *ngIf="isUploading">
+    <ion-progress-bar [value]="uploadProgress / 100"></ion-progress-bar>
+    <small>Uploading... {{ uploadProgress }}%</small>
+  </div>
+
+  <!-- Selected File Preview -->
+  <div class="selected-file-preview" *ngIf="selectedFile">
+    <div class="file-preview">
+      <ion-icon name="document-outline"></ion-icon>
+      <div class="file-info">
+        <span class="file-name">{{ selectedFile.name }}</span>
+        <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+      </div>
+      <ion-button fill="clear" size="small" (click)="removeSelectedFile()">
+        <ion-icon name="close" color="danger"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Chat Input -->
+  <div class="chat-input">
+    <div class="input-container">
+      <!-- File Upload Button -->
+      <ion-button
+        fill="clear"
+        size="small"
+        (click)="openFileDialog()"
+        [disabled]="isUploading"
+      >
+        <ion-icon name="attach"></ion-icon>
+      </ion-button>
+
+      <!-- Hidden File Input -->
+      <input
+        #fileInput
+        type="file"
+        accept="image/*,.pdf,.doc,.docx,.txt"
+        (change)="onFileSelected($event)"
+        style="display: none"
+      />
+
+      <!-- Text Input -->
+      <ion-textarea
+        [(ngModel)]="newMessage"
+        (ionInput)="onInputChange()"
+        (keydown.enter)="$event.shiftKey ? null : ($event.preventDefault(), onSendMessage())"
+        placeholder="Type a message..."
+        autoGrow="true"
+        rows="1"
+        maxlength="1000"
+        class="message-input"
+      ></ion-textarea>
+
+      <!-- Send Button -->
+      <ion-button
+        (click)="onSendMessage()"
+        [disabled]="(!newMessage.trim() && !selectedFile) || isUploading"
+        fill="solid"
+        size="small"
+        shape="round"
+      >
+        <ion-icon name="send"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</div>

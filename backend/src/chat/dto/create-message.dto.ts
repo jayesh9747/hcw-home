@@ -1,4 +1,11 @@
-import { IsInt, IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsInt, IsString, IsOptional, IsUUID, IsEnum } from 'class-validator';
+
+export enum MessageType {
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  FILE = 'FILE',
+  SYSTEM = 'SYSTEM',
+}
 
 export class CreateMessageDto {
   @IsInt()
@@ -17,6 +24,18 @@ export class CreateMessageDto {
   @IsString()
   @IsOptional()
   mediaType?: string;
+
+  @IsEnum(MessageType)
+  @IsOptional()
+  messageType?: MessageType = MessageType.TEXT;
+
+  @IsString()
+  @IsOptional()
+  fileName?: string;
+
+  @IsInt()
+  @IsOptional()
+  fileSize?: number;
 
   @IsUUID()
   clientUuid: string;

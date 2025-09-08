@@ -491,6 +491,9 @@ model Message {
   clientUuid     String 
   mediaUrl      String?   @db.VarChar(2048) 
   mediaType     String?
+  messageType   MessageType @default(TEXT)
+  fileName      String?
+  fileSize      Int?
 
   readReceipts  MessageReadReceipt[]
   user          User      @relation(fields: [userId], references: [id])
@@ -500,6 +503,13 @@ model Message {
   @@unique([clientUuid, consultationId, userId])  
   @@map("message")
   User User[] @relation("MessageReadBy")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
 }
 
 enum Category {

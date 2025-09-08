@@ -30,12 +30,16 @@ import { BulkMarkReadDto } from './dto/bulk-mark-read.dto';
 import { MessageHistoryDto } from './dto/message-history.dto';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { UserIdParamPipe } from 'src/consultation/validation/user-id-param.pipe';
+import { ConfigService } from 'src/config/config.service';
 
 @ApiTags('chat')
 @Controller('chat')
 @UseGuards(AuthGuard)
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly configService: ConfigService,
+  ) { }
 
   @Post('messages')
   @ApiOperation({ summary: 'Send a message in a consultation' })
@@ -49,16 +53,23 @@ export class ChatController {
         consultationId: { type: 'number' },
         content: { type: 'string' },
         clientUuid: { type: 'string' },
+        messageType: { type: 'string', enum: ['text', 'image', 'file'] },
+        fileName: { type: 'string' },
+        fileSize: { type: 'number' },
         file: {
           type: 'string',
           format: 'binary',
-          description: 'Optional file attachment',
+          description: 'Optional file attachment (images, documents, etc.)',
         },
       },
       required: ['userId', 'consultationId', 'content', 'clientUuid'],
     },
   })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 50 * 1024 * 1024, 
+    },
+  }))
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async sendMessage(
     @Body() createMessageDto: CreateMessageDto,

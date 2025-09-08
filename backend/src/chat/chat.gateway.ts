@@ -12,7 +12,9 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { ReadMessageDto } from './dto/read-message.dto';
+import { TypingIndicatorDto } from './dto/typing-indicator.dto';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '../config/config.service';
 
 @WebSocketGateway({
   namespace: '/chat',
@@ -29,7 +31,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     { userId: number; consultationId: number; timeout: NodeJS.Timeout }
   >();
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly configService: ConfigService,
+  ) { }
 
   async handleConnection(client: Socket) {
     try {
@@ -223,7 +228,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const timeout = setTimeout(() => {
         this.stopTyping(client);
-      }, 3000);
+      }, this.configService.chatTypingTimeoutMs);
 
       this.typingUsers.set(client.id, { userId, consultationId, timeout });
 
@@ -252,7 +257,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     payload: { consultationId: number; limit?: number; offset?: number },
   ) {
     try {
-      const { consultationId, userId } = client.data;
+      const { consultationId } = client.data;
 
       if (payload.consultationId !== consultationId) {
         throw new WsException('Invalid consultation for message history');
@@ -260,19 +265,103 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const messages = await this.chatService.getMessages(
         consultationId,
-        payload.limit || 50,
+        payload.limit || this.configService.chatMessageHistoryLimit,
         payload.offset || 0,
       );
 
       client.emit('message_history', {
         messages,
         consultationId,
-        hasMore: messages.length === (payload.limit || 50),
+        hasMore: messages.length === (payload.limit || this.configService.chatMessageHistoryLimit),
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       this.logger.error('Request message history error:', error);
       client.emit('message_history_error', {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('mark_all_read')
+  async handleMarkAllRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { consultationId: number },
+  ) {
+    try {
+      const { consultationId, userId } = client.data;
+
+      if (payload.consultationId !== consultationId) {
+        throw new WsException('Invalid consultation for mark all read');
+      }
+
+      await this.chatService.markAllMessagesAsReadForUser(userId, consultationId);
+
+      // Emit read status update to all participants
+      const consultationRoom = `consultation:${consultationId}`;
+      this.server.to(consultationRoom).emit('all_messages_read', {
+        userId,
+        consultationId,
+        readAt: new Date().toISOString(),
+      });
+
+      this.logger.log(`All messages marked as read for user ${userId} in consultation ${consultationId}`);
+    } catch (error) {
+      this.logger.error('Mark all read error:', error);
+      client.emit('mark_all_read_error', {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('get_typing_users')
+  handleGetTypingUsers(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { consultationId: number },
+  ) {
+    try {
+      const { consultationId } = client.data;
+
+      if (payload.consultationId !== consultationId) {
+        throw new WsException('Invalid consultation for typing users');
+      }
+
+      const typingUsers = this.chatService.getTypingUsers(consultationId);
+
+      client.emit('typing_users', {
+        consultationId,
+        typingUsers,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error('Get typing users error:', error);
+    }
+  }
+
+  @SubscribeMessage('request_participants')
+  async handleRequestParticipants(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { consultationId: number },
+  ) {
+    try {
+      const { consultationId } = client.data;
+
+      if (payload.consultationId !== consultationId) {
+        throw new WsException('Invalid consultation for participants');
+      }
+
+      const participants = await this.chatService.getConsultationParticipants(consultationId);
+
+      client.emit('participants_list', {
+        consultationId,
+        participants,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error('Request participants error:', error);
+      client.emit('participants_error', {
         error: error.message,
         timestamp: new Date().toISOString(),
       });

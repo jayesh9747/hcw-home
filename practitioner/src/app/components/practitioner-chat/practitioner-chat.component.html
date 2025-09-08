@@ -1,0 +1,230 @@
+<div class="chat-container" *ngIf="isVisible">
+  <!-- Chat Header -->
+  <div class="chat-header">
+    <div class="header-left">
+      <h3>💬 Chat</h3>
+      <span class="participant-count" *ngIf="participants.length > 0">
+        ({{ participants.length }} participants)
+      </span>
+      <div class="unread-badge" *ngIf="unreadCount > 0">{{ unreadCount }}</div>
+    </div>
+    <div class="header-right">
+      <button
+        class="btn btn-small btn-ghost"
+        (click)="markAllAsRead()"
+        *ngIf="unreadCount > 0"
+        title="Mark all as read"
+      >
+        ✅
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages Container -->
+  <div #messagesContainer class="messages-container" (scroll)="onScroll()">
+    <!-- Messages List -->
+    <div class="messages-list">
+      <div
+        *ngFor="let message of messages; trackBy: trackByMessageId"
+        class="message-wrapper"
+        [ngClass]="{
+          'own-message': message.isFromPractitioner,
+          'other-message':
+            !message.isFromPractitioner && message.messageType !== 'system',
+          'system-message': message.messageType === 'system'
+        }"
+      >
+        <!-- Message Bubble -->
+        <div class="message-bubble">
+          <!-- Message Header -->
+          <div class="message-header" *ngIf="message.messageType !== 'system'">
+            <div class="avatar">{{ getMessageInitials(message) }}</div>
+            <div class="message-info">
+              <span class="sender-name">{{
+                message.userName ||
+                  (message.isFromPractitioner ? practitionerName : "Patient")
+              }}</span>
+              <span class="message-time">{{
+                formatMessageTime(message.createdAt)
+              }}</span>
+            </div>
+          </div>
+
+          <!-- Message Content -->
+          <div class="message-content">
+            <!-- Text Content -->
+            <p *ngIf="message.content" class="text-content">
+              {{ message.content }}
+            </p>
+
+            <!-- Image Content -->
+            <div
+              *ngIf="message.messageType === 'image' && message.mediaUrl"
+              class="image-content"
+            >
+              <img
+                [src]="message.mediaUrl"
+                [alt]="message.fileName || 'Image'"
+                (click)="openImagePreview(message.mediaUrl)"
+              />
+              <div class="image-info" *ngIf="message.fileName">
+                <small
+                  >{{ message.fileName }} •
+                  {{ formatFileSize(message.fileSize) }}</small
+                >
+              </div>
+            </div>
+
+            <!-- File Content -->
+            <div
+              *ngIf="message.messageType === 'file' && message.mediaUrl"
+              class="file-content"
+            >
+              <div class="file-info">
+                <div class="file-icon">📎</div>
+                <div class="file-details">
+                  <div class="file-name">{{ message.fileName || "File" }}</div>
+                  <div class="file-size">
+                    {{ formatFileSize(message.fileSize) }}
+                  </div>
+                </div>
+                <button
+                  class="btn btn-small btn-primary"
+                  (click)="downloadFile(message)"
+                >
+                  ⬇️ Download
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Read Receipts -->
+          <div
+            class="read-receipts"
+            *ngIf="message.readReceipts && message.isFromPractitioner"
+          >
+            <div class="receipt-info">
+              <span
+                class="receipt-icon"
+                [ngClass]="{
+                  'all-read':
+                    message.readReceipts.length >= participants.length - 1
+                }"
+              >
+                {{
+                  message.readReceipts.length >= participants.length - 1
+                    ? "✓✓"
+                    : "✓"
+                }}
+              </span>
+              <small class="receipt-text">{{
+                getReadReceiptSummary(message)
+              }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator" *ngIf="typingUsers.length > 0">
+        <div class="typing-bubble">
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <small class="typing-text">{{ getTypingText() }}</small>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="messages.length === 0">
+        <div class="empty-icon">💬</div>
+        <h4>No messages yet</h4>
+        <p>Start the conversation with your patient</p>
+      </div>
+    </div>
+
+    <!-- Scroll to Bottom Button -->
+    <button
+      *ngIf="showScrollToBottom"
+      class="scroll-to-bottom-btn"
+      (click)="scrollToBottom()"
+      title="Scroll to bottom"
+    >
+      ⬇️
+    </button>
+  </div>
+
+  <!-- File Upload Progress -->
+  <div class="upload-progress" *ngIf="isUploading">
+    <div class="progress-bar">
+      <div class="progress-fill" [style.width]="uploadProgress + '%'"></div>
+    </div>
+    <small>Uploading file... {{ uploadProgress }}%</small>
+  </div>
+
+  <!-- Selected File Preview -->
+  <div class="selected-file-preview" *ngIf="selectedFile">
+    <div class="file-preview">
+      <div class="file-icon">📎</div>
+      <div class="file-info">
+        <span class="file-name">{{ selectedFile.name }}</span>
+        <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+      </div>
+      <button class="btn btn-small btn-danger" (click)="removeSelectedFile()">
+        ❌
+      </button>
+    </div>
+  </div>
+
+  <!-- Chat Input -->
+  <div class="chat-input">
+    <div class="input-container">
+      <!-- File Upload Button -->
+      <button
+        class="btn btn-small btn-ghost attach-btn"
+        (click)="openFileDialog()"
+        [disabled]="isUploading"
+        title="Attach file"
+      >
+        📎
+      </button>
+
+      <!-- Hidden File Input -->
+      <input
+        #fileInput
+        type="file"
+        accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+        (change)="onFileSelected($event)"
+        style="display: none"
+      />
+
+      <!-- Text Input -->
+      <textarea
+        [(ngModel)]="newMessage"
+        (input)="onInputChange()"
+        (keydown)="onKeyDown($event)"
+        placeholder="Type a message..."
+        class="message-input"
+        rows="1"
+        maxlength="2000"
+      ></textarea>
+
+      <!-- Send Button -->
+      <button
+        class="btn btn-primary send-btn"
+        (click)="onSendMessage()"
+        [disabled]="(!newMessage.trim() && !selectedFile) || isUploading"
+        title="Send message"
+      >
+        🚀
+      </button>
+    </div>
+
+    <!-- Character Counter -->
+    <div class="char-counter" *ngIf="newMessage.length > 1800">
+      {{ newMessage.length }}/2000
+    </div>
+  </div>
+</div>
