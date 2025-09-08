@@ -11,9 +11,7 @@ import { ProfileComponent } from './pages/profile/profile.component';
 import { LoginComponent } from './login/login.component';
 import { AuthGuard } from './auth/guard/auth.guard';
 import { PractitionerConsultationRoomComponent } from './consultation-room/practitioner-consultation-room.component';
-
 import { AvailabilityComponent } from './pages/availability/availability.component';
-import { Component } from '@angular/core';
 import { TermComponent } from './pages/term/term.component';
 import { TermGuard } from './auth/guard/terms.guard';
 import { ForgotPasswordComponent } from './components/forget-password/forget-password.component';
@@ -66,7 +64,6 @@ export const routes: Routes = [
         path: `${RoutePaths.ConsultationRoom}/:id`,
         component: PractitionerConsultationRoomComponent
       },
-
 
     ],
   },

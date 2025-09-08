@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, Observable, timer, EMPTY, throwError } from 'rxjs';
-import { catchError, retry, timeout, switchMap, tap, finalize } from 'rxjs/operators';
+import { catchError, retry, timeout, switchMap, tap } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 
 export interface ConnectionStatus {

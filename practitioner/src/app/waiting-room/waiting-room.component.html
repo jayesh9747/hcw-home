@@ -1,1 +1,187 @@
-<p>waiting-room works!</p>
+<div class="waiting-room-container">
+  <!-- Header -->
+  <div class="main-content">
+    <!-- Main Content Area -->
+    <main class="content">
+      <div class="content-header">
+        <h1 class="page-title">WAITING ROOM</h1>
+        <div class="header-actions">
+          <!-- Connection Status Indicator -->
+          <div class="connection-status" [class.connected]="isRealTimeActive()" [class.offline]="!isRealTimeActive()">
+            <span class="status-dot"></span>
+            <span class="status-text">{{ getConnectionStatus() }}</span>
+          </div>
+          
+          <!-- Reconnect Button (show only when disconnected) -->
+          <button 
+            *ngIf="!isRealTimeActive()"
+            class="reconnect-btn" 
+            (click)="reconnectWebSocket()" 
+            [disabled]="isLoading"
+            title="Reconnect real-time updates"
+          >
+            Reconnect
+          </button>
+          
+          <button 
+            class="refresh-btn" 
+            (click)="onRefresh()" 
+            [disabled]="isLoading"
+            title="Refresh waiting room"
+          >
+            <span *ngIf="!isLoading">Refresh</span>
+            <span *ngIf="isLoading" class="loading-text">Refreshing...</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="content-body">
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>Loading waiting room...</p>
+        </div>
+
+        <!-- Error State -->
+        <div *ngIf="error && !isLoading" class="error-state">
+          <div class="error-icon">⚠️</div>
+          <p class="error-message">{{ error }}</p>
+          <div class="error-actions">
+            <button class="retry-btn" (click)="onRefresh()">Try Again</button>
+            <button *ngIf="!isRealTimeActive()" class="reconnect-btn" (click)="reconnectWebSocket()">
+              Reconnect WebSocket
+            </button>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!isLoading && !error && waitingRoomItems.length === 0" class="no-consultation">
+          <div class="empty-icon">👥</div>
+          <h3>No patients waiting</h3>
+          <p>The waiting room is currently empty. New appointments will appear here.</p>
+          <div class="empty-status">
+            <p class="status-message">{{ getStatusMessage() }}</p>
+          </div>
+        </div>
+        
+        <!-- Waiting Room Entries -->
+        <div *ngIf="!isLoading && !error && waitingRoomItems.length > 0" class="waiting-room-content">
+          <!-- Enhanced Summary Info -->
+          <div class="summary-bar">
+            <div class="summary-item">
+              <span class="summary-label">Total Patients:</span>
+              <span class="summary-value">{{ totalCount }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Currently Waiting:</span>
+              <span class="summary-value">{{ getWaitingPatientsCount() }}</span>
+            </div>
+          </div>
+
+          <!-- Enhanced Patients Grid -->
+          <div class="patients-grid">
+            <div 
+              *ngFor="let entry of waitingRoomItems; trackBy: trackByPatientId" 
+              class="patient-card"
+              [class.stale]="isConsultationStale(entry.joinTime)"
+              [class.priority-high]="getPriorityClass(entry.joinTime) === 'priority-high'"
+              [class.priority-medium]="getPriorityClass(entry.joinTime) === 'priority-medium'"
+              [class.priority-normal]="getPriorityClass(entry.joinTime) === 'priority-normal'"
+              [class.not-joined]="!entry.joinTime"
+            >
+              <div class="patient-header">
+                <div class="patient-avatar" [class.waiting]="entry.joinTime" [class.pending]="!entry.joinTime">
+                  {{ entry.patientInitials }}
+                </div>
+                <div class="patient-info">
+                  <h3 class="patient-initials">{{ entry.patientInitials }}</h3>
+                  <span class="patient-id">ID: {{ entry.id }}</span>
+                  <!-- Queue position badge -->
+                  <span class="queue-badge" *ngIf="entry.queuePosition && entry.joinTime">
+                    #{{ entry.queuePosition }}
+                  </span>
+                </div>
+                
+                <!-- Status indicators -->
+                <div class="status-indicators">
+                  <div class="status-indicator" *ngIf="isConsultationStale(entry.joinTime)" title="Patient has been waiting for more than 30 minutes">
+                    <span class="stale-warning">⚠️</span>
+                  </div>
+                  <div class="status-indicator" *ngIf="!entry.joinTime" title="Patient hasn't joined the waiting room yet">
+                    <span class="pending-indicator">⏳</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="patient-details">
+                <div class="detail-row">
+                  <span class="detail-label">Join Time:</span>
+                  <span class="detail-value">{{ getJoinTimeFormatted(entry.joinTime) }}</span>
+                </div>
+                
+                <div class="detail-row">
+                  <span class="detail-label">Waiting:</span>
+                  <span class="detail-value waiting-time" 
+                        [class.stale-time]="isConsultationStale(entry.joinTime)"
+                        [class.relative-time]="entry.joinTime">
+                    {{ getRelativeTime(entry.joinTime) }}
+                  </span>
+                </div>
+                
+                <!-- Queue status -->
+                <div class="detail-row">
+                  <span class="detail-label">Status:</span>
+                  <span class="detail-value queue-status" [class.waiting]="entry.joinTime" [class.pending]="!entry.joinTime">
+                    {{ getQueueStatus(entry) }}
+                  </span>
+                </div>
+                
+                <!-- Estimated wait time -->
+                <div class="detail-row" *ngIf="entry.joinTime && entry.estimatedWaitTime">
+                  <span class="detail-label">Est. Wait:</span>
+                  <span class="detail-value estimated-time">{{ getEstimatedWaitTime(entry) }}</span>
+                </div>
+                
+                <div class="detail-row" *ngIf="entry.language">
+                  <span class="detail-label">Language:</span>
+                  <span class="detail-value language-tag">{{ entry.language | uppercase }}</span>
+                </div>
+              </div>
+
+              <div class="patient-actions">
+                <button 
+                  class="action-btn primary"
+                  [disabled]="!entry.joinTime"
+                  (click)="enterConsultation(practitionerId)"
+                  [title]="!entry.joinTime ? 'Patient has not joined yet' : 'Start consultation with ' + entry.patientInitials"
+                >
+                  <span *ngIf="!entry.joinTime" class="btn-text">Waiting for Patient</span>
+                  <span *ngIf="entry.joinTime" class="btn-text">Join Consultation</span>
+                </button>
+                <button 
+                  class="action-btn primary"
+                  [disabled]="!entry.joinTime"
+                  (click)="onJoinConsultation(entry)"
+                  [title]="!entry.joinTime ? 'Patient has not joined yet' : 'Start consultation with ' + entry.patientInitials"
+                >
+                  <span *ngIf="!entry.joinTime" class="btn-text">Join Consultation</span>
+                  <span *ngIf="entry.joinTime" class="btn-text">Admit</span>
+                </button>
+                <!-- Additional action button for stale consultations -->
+                <button 
+                  *ngIf="isConsultationStale(entry.joinTime)" 
+                  class="action-btn secondary"
+                  (click)="onRefresh()"
+                  title="Refresh to check if patient is still waiting"
+                >
+                  Check Status
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+</div>

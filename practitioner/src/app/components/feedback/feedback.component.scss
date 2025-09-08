@@ -1,0 +1,184 @@
+.feedback-container {
+  width: 100%;
+  min-height: 100vh;
+  background: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.consultation-summary {
+  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: white;
+  padding: 24px 32px;
+
+  h2 {
+    margin: 0 0 20px 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .summary-item {
+    label {
+      display: block;
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 4px;
+      font-weight: 400;
+    }
+
+    p {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+  }
+}
+
+.feedback-section {
+  padding: 32px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.satisfaction-question,
+.comment-section {
+  margin-bottom: 32px;
+
+  h3 {
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #333;
+  }
+}
+
+.satisfaction-options {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-start;
+}
+
+.satisfaction-btn {
+  background: white;
+  border: 2px solid #e1e5e9;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+
+  &:hover {
+    border-color: #4a90e2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
+  }
+
+  &.selected {
+    border-color: #4a90e2;
+    background: #f8fbff;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  }
+
+  .emoji {
+    font-size: 32px;
+    line-height: 1;
+
+    &.satisfied {
+      color: #4caf50;
+    }
+
+    &.neutral {
+      color: #ff9800;
+    }
+
+    &.dissatisfied {
+      color: #f44336;
+    }
+  }
+}
+
+.comment-textarea {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: border-color 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+  }
+
+  &::placeholder {
+    color: #999;
+  }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: auto;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .feedback-container {
+    margin: 16px;
+  }
+
+  .consultation-summary {
+    padding: 20px;
+
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .feedback-section {
+    padding: 24px;
+  }
+
+  .satisfaction-options {
+    justify-content: center;
+  }
+
+  .satisfaction-btn {
+    width: 70px;
+    height: 70px;
+
+    .emoji {
+      font-size: 28px;
+    }
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 12px;
+
+    app-button {
+      width: 100%;
+    }
+  }
+}

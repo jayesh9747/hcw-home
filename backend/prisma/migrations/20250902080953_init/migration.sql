@@ -2,6 +2,15 @@
 CREATE TYPE "public"."ConsultationStatus" AS ENUM ('DRAFT', 'SCHEDULED', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED', 'TERMINATED_OPEN');
 
 -- CreateEnum
+CREATE TYPE "public"."PaymentStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED', 'REFUNDED', 'PARTIALLY_REFUNDED');
+
+-- CreateEnum
+CREATE TYPE "public"."PaymentMethod" AS ENUM ('CARD', 'BANK_TRANSFER', 'DIGITAL_WALLET');
+
+-- CreateEnum
+CREATE TYPE "public"."RefundStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED');
+
+-- CreateEnum
 CREATE TYPE "public"."InvitationStatus" AS ENUM ('PENDING', 'USED', 'EXPIRED', 'REVOKED');
 
 -- CreateEnum
@@ -20,6 +29,12 @@ CREATE TYPE "public"."OrgMemberRole" AS ENUM ('ADMIN', 'MEMBER');
 CREATE TYPE "public"."MessageService" AS ENUM ('SMS', 'EMAIL', 'WHATSAPP', 'MANUALLY');
 
 -- CreateEnum
+CREATE TYPE "public"."Category" AS ENUM ('UTILITY', 'MARKETING', 'AUTHENTICATION');
+
+-- CreateEnum
+CREATE TYPE "public"."ApprovalStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'DRAFT', 'UNKNOWN', 'RECEIVED');
+
+-- CreateEnum
 CREATE TYPE "public"."TimeSlotStatus" AS ENUM ('AVAILABLE', 'BOOKED', 'BLOCKED');
 
 -- CreateEnum
@@ -27,6 +42,9 @@ CREATE TYPE "public"."MediaEventType" AS ENUM ('USER_JOINED', 'USER_LEFT', 'CAM_
 
 -- CreateEnum
 CREATE TYPE "public"."TokenType" AS ENUM ('invite', 'login', 'password_reset');
+
+-- CreateEnum
+CREATE TYPE "public"."ReminderStatus" AS ENUM ('PENDING', 'SENT', 'FAILED', 'CANCELLED');
 
 -- CreateTable
 CREATE TABLE "public"."users" (
@@ -46,8 +64,21 @@ CREATE TABLE "public"."users" (
     "acceptedAt" TIMESTAMP(3),
     "termId" INTEGER,
     "termVersion" DOUBLE PRECISION NOT NULL DEFAULT 0.00,
+    "stripeCustomerId" TEXT,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."user_notification_settings" (
+    "id" SERIAL NOT NULL,
+    "userId" INTEGER NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "phone" VARCHAR(20),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "user_notification_settings_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -163,6 +194,9 @@ CREATE TABLE "public"."consultation" (
     "deletionScheduledAt" TIMESTAMP(3),
     "version" INTEGER NOT NULL DEFAULT 1,
     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+    "requiresPayment" BOOLEAN NOT NULL DEFAULT true,
+    "reminderEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "remindersSent" JSONB DEFAULT '{}',
 
     CONSTRAINT "consultation_pkey" PRIMARY KEY ("id")
 );
@@ -185,6 +219,57 @@ CREATE TABLE "public"."consultation_invitations" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "consultation_invitations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."payment_config" (
+    "id" SERIAL NOT NULL,
+    "organizationId" INTEGER NOT NULL,
+    "stripePublishableKey" TEXT,
+    "stripeSecretKey" TEXT,
+    "consultationFee" DECIMAL(10,2) NOT NULL,
+    "currency" VARCHAR(3) NOT NULL DEFAULT 'USD',
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "payment_config_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."payments" (
+    "id" SERIAL NOT NULL,
+    "consultationId" INTEGER NOT NULL,
+    "patientId" INTEGER NOT NULL,
+    "stripePaymentId" TEXT,
+    "stripeIntentId" TEXT,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "currency" VARCHAR(3) NOT NULL DEFAULT 'USD',
+    "status" "public"."PaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentMethod" "public"."PaymentMethod",
+    "failureReason" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "paidAt" TIMESTAMP(3),
+
+    CONSTRAINT "payments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."payment_refunds" (
+    "id" SERIAL NOT NULL,
+    "paymentId" INTEGER NOT NULL,
+    "stripeRefundId" TEXT NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "reason" TEXT,
+    "status" "public"."RefundStatus" NOT NULL DEFAULT 'PENDING',
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "processedAt" TIMESTAMP(3),
+
+    CONSTRAINT "payment_refunds_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -283,6 +368,28 @@ CREATE TABLE "public"."message" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."whatsapp_templates" (
+    "id" SERIAL NOT NULL,
+    "sid" TEXT,
+    "friendlyName" TEXT NOT NULL,
+    "language" TEXT NOT NULL,
+    "key" TEXT,
+    "category" "public"."Category",
+    "contentType" TEXT,
+    "variables" JSONB DEFAULT '{}',
+    "types" JSONB,
+    "url" TEXT,
+    "actions" JSONB,
+    "approvalStatus" "public"."ApprovalStatus" NOT NULL DEFAULT 'DRAFT',
+    "rejectionReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 1,
+
+    CONSTRAINT "whatsapp_templates_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."message_read_receipt" (
     "id" SERIAL NOT NULL,
     "messageId" INTEGER NOT NULL,
@@ -290,28 +397,6 @@ CREATE TABLE "public"."message_read_receipt" (
     "readAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "message_read_receipt_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "public"."whatsapp_template" (
-    "id" TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    "friendlyName" TEXT NOT NULL,
-    "body" TEXT NOT NULL,
-    "language" TEXT NOT NULL,
-    "category" TEXT NOT NULL,
-    "contentType" TEXT NOT NULL,
-    "variables" JSONB NOT NULL,
-    "actions" JSONB NOT NULL,
-    "approvalStatus" TEXT NOT NULL,
-    "createdAt" BIGINT NOT NULL,
-    "updatedAt" BIGINT NOT NULL,
-    "sid" TEXT NOT NULL,
-    "types" JSONB NOT NULL,
-    "url" TEXT NOT NULL,
-    "rejectionReason" TEXT NOT NULL,
-
-    CONSTRAINT "whatsapp_template_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -406,6 +491,23 @@ CREATE TABLE "public"."MediaEvent" (
 );
 
 -- CreateTable
+CREATE TABLE "public"."consultation_reminder" (
+    "id" SERIAL NOT NULL,
+    "consultationId" INTEGER NOT NULL,
+    "type" TEXT NOT NULL,
+    "scheduledFor" TIMESTAMP(3) NOT NULL,
+    "status" "public"."ReminderStatus" NOT NULL DEFAULT 'PENDING',
+    "sentAt" TIMESTAMP(3),
+    "templateKey" VARCHAR(255),
+    "templateSid" VARCHAR(255),
+    "sendStatus" VARCHAR(100),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "consultation_reminder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "public"."_MessageReadBy" (
     "A" INTEGER NOT NULL,
     "B" INTEGER NOT NULL,
@@ -415,6 +517,12 @@ CREATE TABLE "public"."_MessageReadBy" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "public"."users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_stripeCustomerId_key" ON "public"."users"("stripeCustomerId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_notification_settings_userId_key" ON "public"."user_notification_settings"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "organizations_name_key" ON "public"."organizations"("name");
@@ -457,6 +565,30 @@ CREATE INDEX "consultation_invitations_consultationId_idx" ON "public"."consulta
 
 -- CreateIndex
 CREATE INDEX "consultation_invitations_inviteEmail_idx" ON "public"."consultation_invitations"("inviteEmail");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payment_config_organizationId_key" ON "public"."payment_config"("organizationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_consultationId_key" ON "public"."payments"("consultationId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_stripePaymentId_key" ON "public"."payments"("stripePaymentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_stripeIntentId_key" ON "public"."payments"("stripeIntentId");
+
+-- CreateIndex
+CREATE INDEX "payments_patientId_idx" ON "public"."payments"("patientId");
+
+-- CreateIndex
+CREATE INDEX "payments_status_idx" ON "public"."payments"("status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payment_refunds_stripeRefundId_key" ON "public"."payment_refunds"("stripeRefundId");
+
+-- CreateIndex
+CREATE INDEX "payment_refunds_paymentId_idx" ON "public"."payment_refunds"("paymentId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "mediasoup_servers_url_key" ON "public"."mediasoup_servers"("url");
@@ -522,10 +654,22 @@ CREATE INDEX "MediaEvent_consultationId_idx" ON "public"."MediaEvent"("consultat
 CREATE INDEX "MediaEvent_userId_idx" ON "public"."MediaEvent"("userId");
 
 -- CreateIndex
+CREATE INDEX "consultation_reminder_consultationId_idx" ON "public"."consultation_reminder"("consultationId");
+
+-- CreateIndex
+CREATE INDEX "consultation_reminder_status_idx" ON "public"."consultation_reminder"("status");
+
+-- CreateIndex
+CREATE INDEX "consultation_reminder_scheduledFor_idx" ON "public"."consultation_reminder"("scheduledFor");
+
+-- CreateIndex
 CREATE INDEX "_MessageReadBy_B_index" ON "public"."_MessageReadBy"("B");
 
 -- AddForeignKey
 ALTER TABLE "public"."users" ADD CONSTRAINT "users_termId_fkey" FOREIGN KEY ("termId") REFERENCES "public"."terms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."user_notification_settings" ADD CONSTRAINT "user_notification_settings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."organization_members" ADD CONSTRAINT "organization_members_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "public"."organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -577,6 +721,18 @@ ALTER TABLE "public"."consultation_invitations" ADD CONSTRAINT "consultation_inv
 
 -- AddForeignKey
 ALTER TABLE "public"."consultation_invitations" ADD CONSTRAINT "consultation_invitations_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "public"."users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."payment_config" ADD CONSTRAINT "payment_config_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "public"."organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."payments" ADD CONSTRAINT "payments_consultationId_fkey" FOREIGN KEY ("consultationId") REFERENCES "public"."consultation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."payments" ADD CONSTRAINT "payments_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."payment_refunds" ADD CONSTRAINT "payment_refunds_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "public"."payments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."mediasoup_routers" ADD CONSTRAINT "mediasoup_routers_consultationId_fkey" FOREIGN KEY ("consultationId") REFERENCES "public"."consultation"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -631,6 +787,9 @@ ALTER TABLE "public"."MediaEvent" ADD CONSTRAINT "MediaEvent_consultationId_fkey
 
 -- AddForeignKey
 ALTER TABLE "public"."MediaEvent" ADD CONSTRAINT "MediaEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "public"."consultation_reminder" ADD CONSTRAINT "consultation_reminder_consultationId_fkey" FOREIGN KEY ("consultationId") REFERENCES "public"."consultation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."_MessageReadBy" ADD CONSTRAINT "_MessageReadBy_A_fkey" FOREIGN KEY ("A") REFERENCES "public"."message"("id") ON DELETE CASCADE ON UPDATE CASCADE;

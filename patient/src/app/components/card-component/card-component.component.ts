@@ -4,7 +4,11 @@ import { CommonModule } from '@angular/common';
 import {
   IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonList, IonItem, IonLabel, IonButton, IonIcon,
+<<<<<<< HEAD
   IonChip, IonText, ToastController, LoadingController,
+=======
+  IonChip, IonText, ToastController,
+>>>>>>> 99b93b9c5104f0e269a236d00d6399ab1f2411e2
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
@@ -59,6 +63,7 @@ export class CardComponentComponent {
   @Input() upcomingConsultations: Consultation[] = [];
 
 
+<<<<<<< HEAD
   /**
    * Enhanced join consultation with comprehensive error handling and state management
    */
@@ -70,6 +75,12 @@ export class CardComponentComponent {
       await this.presentErrorToast('Please log in to join consultation.');
       return;
     }
+=======
+  goToJoinPage(consultationId: number) {
+    this.router.navigate(['/join-consultation', consultationId]);
+  }
+
+>>>>>>> 99b93b9c5104f0e269a236d00d6399ab1f2411e2
 
     // Check if already joining to prevent duplicate requests
     if (this.joinConsultationService.isCurrentlyJoining()) {

@@ -1,6 +1,5 @@
 import {
   Component,
-  Input,
   Output,
   EventEmitter,
   OnChanges,
@@ -14,11 +13,14 @@ import { ButtonComponent } from '../../components/ui/button/button.component';
 import { ButtonVariant, ButtonSize } from '../../constants/button.enums';
 import { SvgIconComponent } from '../../shared/components/svg-icon.component';
 import { UserService } from '../../services/user.service';
+import { FeedbackModalComponent } from '../feedback-modal/feedback-modal.component';
+import { ConsultationSummary, FeedbackData } from '../feedback/feedback.component';
+import { ConsultationService, SubmitFeedbackRequest } from '../../services/consultations/consultation.service';
 
 @Component({
   selector: 'app-consultation-detail-panel',
   standalone: true,
-  imports: [CommonModule, ButtonComponent, SvgIconComponent],
+  imports: [CommonModule, ButtonComponent, SvgIconComponent, FeedbackModalComponent],
   templateUrl: './consultation-detail-panel.component.html',
   styleUrls: ['./consultation-detail-panel.component.scss'],
 })
@@ -35,13 +37,16 @@ export class ConsultationDetailPanelComponent implements OnChanges {
 
   downloadingPdf = false;
   downloadError: string | null = null;
+  
+  showFeedbackModal = false;
 
   readonly ButtonVariant = ButtonVariant;
   readonly ButtonSize = ButtonSize;
 
   constructor(
-    private consultationService: ConsultationHistoryService,
-    private userService: UserService
+    private consultationHistoryService: ConsultationHistoryService,
+    private userService: UserService,
+    private consultationService: ConsultationService
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -61,7 +66,7 @@ export class ConsultationDetailPanelComponent implements OnChanges {
     this.error = null;
     this.clearDownloadError();
 
-    this.consultationService
+    this.consultationHistoryService
       .getConsultationDetail(this.consultationId()!)
       .subscribe({
         next: (detail) => {
@@ -90,7 +95,7 @@ export class ConsultationDetailPanelComponent implements OnChanges {
       next: (user) => {
         const requesterId = user.id;
         
-        this.consultationService
+        this.consultationHistoryService
           .downloadAndSavePDF(this.consultationId()!, requesterId)
           .subscribe({
             next: () => {
@@ -169,5 +174,62 @@ export class ConsultationDetailPanelComponent implements OnChanges {
     const firstName = this.consultationDetail.patient.firstName || '';
     const lastName = this.consultationDetail.patient.lastName || '';
     return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase() || '??';
+  }
+
+  onShowFeedback(): void {
+    this.showFeedbackModal = true;
+  }
+
+  onFeedbackModalClose(): void {
+    this.showFeedbackModal = false;
+  }
+
+  onFeedbackSubmit(feedbackData: FeedbackData): void {
+    if (!this.consultationDetail) {
+      console.error('No consultation detail available');
+      return;
+    }
+
+    // Map frontend satisfaction values to backend format
+    let backendSatisfaction: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED' | undefined;
+    if (feedbackData.satisfaction === 'satisfied') {
+      backendSatisfaction = 'SATISFIED';
+    } else if (feedbackData.satisfaction === 'neutral') {
+      backendSatisfaction = 'NEUTRAL';
+    } else if (feedbackData.satisfaction === 'dissatisfied') {
+      backendSatisfaction = 'DISSATISFIED';
+    }
+
+    const submitRequest: SubmitFeedbackRequest = {
+      consultationId: this.consultationDetail.consultation.id,
+      satisfaction: backendSatisfaction,
+      comment: feedbackData.comment || undefined
+    };
+
+    this.consultationService.submitFeedback(submitRequest).subscribe({
+      next: (response) => {
+        console.log('Feedback submitted successfully:', response);
+        this.showFeedbackModal = false;
+        // You could show a success message here
+      },
+      error: (error) => {
+        console.error('Failed to submit feedback:', error);
+        // You could show an error message here
+        // For now, we'll still close the modal
+        this.showFeedbackModal = false;
+      }
+    });
+  }
+
+  getConsultationSummary(): ConsultationSummary | null {
+    if (!this.consultationDetail) return null;
+    
+    return {
+      patientName: `${this.consultationDetail.patient.firstName} ${this.consultationDetail.patient.lastName}`,
+      sex: this.consultationDetail.patient.sex || 'Not specified',
+      startDateTime: this.consultationDetail.consultation.startedAt ? this.formatDate(this.consultationDetail.consultation.startedAt) : 'Not started',
+      endDateTime: this.consultationDetail.consultation.closedAt ? this.formatDate(this.consultationDetail.consultation.closedAt) : 'Not ended',
+      duration: this.consultationDetail.duration || '0 minutes'
+    };
   }
 }

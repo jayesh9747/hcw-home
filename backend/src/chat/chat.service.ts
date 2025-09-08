@@ -563,8 +563,17 @@ export class ChatService {
   }
 
   private validateFile(file: Express.Multer.File) {
-    const maxSize = this.configService.chatMaxFileSize;
-    const allowedTypes = this.configService.chatAllowedFileTypes;
+    const maxSize = this.configService.maxFileUploadSizeBytes;
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
 
     if (file.size > maxSize) {
       const maxSizeMB = Math.round(maxSize / (1024 * 1024));

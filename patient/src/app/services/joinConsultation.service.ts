@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject } from 'rxjs';
-import { timeout, map, catchError } from 'rxjs/operators';
+import { timeout } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
 
 // Enhanced DTOs for production-grade join consultation - matching backend structure

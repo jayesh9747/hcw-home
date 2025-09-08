@@ -8,6 +8,7 @@ import { ConsultationWithPatient } from '../dtos';
 import { DashboardWebSocketService } from '../services/dashboard-websocket.service';
 import { Subject, takeUntil } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { WaitingRoomResponse } from '../dtos';
 
 @Component({
   selector: 'app-dashboard',
@@ -20,7 +21,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   readonly RoutePaths = RoutePaths;
 
-  waitingConsultations = signal<ConsultationWithPatient[]>([]);
+  waitingConsultations = signal<WaitingRoomResponse | null>(null);
   openConsultations = signal<ConsultationWithPatient[]>([]);
   isInviting = signal(false);
   isLoading = signal(false);
@@ -112,13 +113,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
       {
         title: 'WAITING ROOM',
         description: 'Consultations waiting to be attended',
-        consultations: this.waitingConsultations(),
+        type: 'waiting' as const,
+        waitingData: this.waitingConsultations(),
+        consultations: [] as ConsultationWithPatient[],
         routerLink: RoutePaths.WaitingRoom,
         showInvite: true,
       },
       {
         title: 'OPEN CONSULTATIONS',
         description: 'Consultations in progress',
+        type: 'open' as const,
+        waitingData: null,
         consultations: this.openConsultations(),
         routerLink: RoutePaths.OpenConsultations,
         showInvite: false,
