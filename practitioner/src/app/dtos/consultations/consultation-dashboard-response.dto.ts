@@ -7,7 +7,7 @@ export interface WaitingRoomItem {
   joinTime: Date | null;
   language: string | null;
   queuePosition: number;
-  estimatedWaitTime: number;
+  estimatedWaitTime: string;
 }
 
 export interface WaitingRoomResponse {
