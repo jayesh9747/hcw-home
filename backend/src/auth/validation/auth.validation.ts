@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { UserRole, UserSex, UserStatus } from '@prisma/client';
 
 export const registerUserSchema = z.object({
   firstName: z

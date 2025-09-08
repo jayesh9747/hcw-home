@@ -11,7 +11,7 @@ export class MagicLinkStrategy extends PassportStrategy(Strategy, 'magic-link') 
     private readonly logger: CustomLoggerService,
     private readonly authService: AuthService
   ) {
-    super(); // ✅ no options needed
+    super(); 
   }
 
   async validate(req: Request): Promise<any> {

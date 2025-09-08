@@ -7,14 +7,10 @@ import {
   HttpStatus,
   Get,
   Body,
-  Query,
   Res,
-  Logger,
-  Next,
   Param,
   HttpException,
   ValidationPipe,
-  Patch
 } from '@nestjs/common';
 import passport from 'passport';
 import { AuthService } from './auth.service';
@@ -39,7 +35,6 @@ import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
 import { TokenType } from '@prisma/client';
 import { MagicLinkGuard } from './guards/magic-link.guard';
-import { log } from 'console';
 import { updateUserSchema } from 'src/user/validation/user.validation';
 import { UpdateUserDto } from 'src/user/dto/update-user.dto';
 import { MagicLinkLoginDto } from './dto/magic-link-login.dto';

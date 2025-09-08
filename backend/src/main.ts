@@ -13,8 +13,6 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import connectRedis from 'connect-redis';
-import { connect } from 'socket.io-client';
 import session from 'express-session';
 import { RedisStore } from 'connect-redis';  
 import { createClient } from 'redis';

@@ -5,7 +5,6 @@ import { Request } from 'express';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { OidcUserDto } from '../dto/oidc-user.dto';
 import { AuthService } from '../auth.service';
-import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { Role } from '../enums/role.enum';
 import { ConfigService } from 'src/config/config.service';
 
