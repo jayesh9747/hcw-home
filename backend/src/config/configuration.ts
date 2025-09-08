@@ -25,6 +25,7 @@ export default () => ({
   },
   frontendConfig: {
     loginMethod: process.env.LOGIN_METHOD || 'password',
+    allowMixedAuth: process.env.ALLOW_MIXED_AUTH === 'true', // Allow both password and OIDC
     branding: process.env.BRANDING || '@HOME',
     logo: process.env.LOGO || '',
   },
@@ -50,6 +51,7 @@ export default () => ({
     clientSecret: process.env.OPENID_CLIENT_SECRET,
     callbackBaseURL: process.env.OPENID_CALLBACK_BASE_URL,
     scope: (process.env.OPENID_SCOPE || 'openid,profile,email').split(','),
+    failoverEnabled: process.env.OIDC_FAILOVER_ENABLED === 'true', // Enable password fallback
   },
   cloudinary: {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

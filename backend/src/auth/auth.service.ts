@@ -29,7 +29,7 @@ export class AuthService {
     private readonly JwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly databaseService: DatabaseService,
-  ) {}
+  ) { }
 
   async loginWithMagicLink(token: string): Promise<TokenDto> {
     const invitation =
@@ -70,18 +70,32 @@ export class AuthService {
     email: string;
     role: string;
   }): Promise<boolean> {
-    if (process.env.LOGIN_METHOD === 'password') {
+    const loginMethod = process.env.LOGIN_METHOD || 'password'; // Default to password for safety
+    const allowMixedAuth = process.env.ALLOW_MIXED_AUTH === 'true'; // New env variable for flexibility
+
+    if (loginMethod === 'password' || loginMethod === 'mixed') {
       return true;
     }
-    if (user && user.role === Role.PRACTITIONER) {
+
+    // For OPENID-only mode, allow mixed authentication if explicitly enabled
+    if (loginMethod === 'openid' && allowMixedAuth) {
+      this.logger.log(`Mixed authentication allowed for role: ${user.role}`);
+      return true;
+    }
+
+    if (loginMethod === 'openid' && user.role === Role.PRACTITIONER && !allowMixedAuth) {
+      this.logger.warn(`Password login blocked for practitioner ${user.email} in OPENID-only mode`);
       return false;
-    } else if (user.email) {
+    }
+
+    if (user.email) {
       const isPractitioner = await this.findByEmailRole(
         user.email,
         UserRole.PRACTITIONER,
       );
       return !isPractitioner;
     }
+
     return false;
   }
 
@@ -94,9 +108,17 @@ export class AuthService {
       this.logger.warn(`No valid user found for email ${loginUserDto.email}`);
       throw HttpExceptionHelper.notFound('user not found/user not valid');
     }
+
+    // Enhanced user status validation with detailed error messages
     if (user.status !== UserStatus.APPROVED) {
-      this.logger.warn(`LocalStrategy: User ${user.id} is not approved`);
-      throw HttpExceptionHelper.badRequest('user is not approved');
+      this.logger.warn(`LocalStrategy: User ${user.id} is not approved - Status: ${user.status}`);
+
+      const statusMessages = {
+        [UserStatus.NOT_APPROVED]: 'Your account is pending approval by an administrator. Please contact support for assistance.',
+      };
+
+      const errorMessage = statusMessages[user.status] || 'Your account status does not permit login. Please contact support.';
+      throw HttpExceptionHelper.unauthorized(errorMessage);
     }
     if (!user.password.startsWith('$2b$')) {
       const hashed = await this.encryptPassword(user.password);
@@ -118,9 +140,21 @@ export class AuthService {
       this.logger.warn(
         `Role mismatch: User has ${userRole}, tried to access ${loginUserDto.role}`,
       );
-      throw HttpExceptionHelper.unauthorized(
-        `Can't login as ${userRole.toLowerCase()}`,
-      );
+
+      // Enhanced role validation with conflict detection and detailed messages
+      let roleErrorMessage = `Can't login as ${userRole.toLowerCase()}`;
+
+      if (userRole === 'PATIENT' && loginUserDto.role === 'PRACTITIONER') {
+        roleErrorMessage = 'Your account is registered as a patient. Please use the patient portal to access your account, or contact support if you need practitioner access.';
+      } else if (userRole === 'ADMIN' && loginUserDto.role === 'PRACTITIONER') {
+        roleErrorMessage = 'Your account has administrative privileges. Please use the admin portal to access your account.';
+      } else if (userRole === 'PRACTITIONER' && loginUserDto.role !== 'PRACTITIONER') {
+        roleErrorMessage = 'Your practitioner account cannot access this portal. Please use the practitioner portal.';
+      } else {
+        roleErrorMessage = `Your account role (${userRole}) does not have access to the ${loginUserDto.role.toLowerCase()} portal. Please contact support for role clarification.`;
+      }
+
+      throw HttpExceptionHelper.forbidden(roleErrorMessage);
     }
     this.logger.log(`validateUser: ${user.email} validate successfully`);
     return {
@@ -234,7 +268,7 @@ export class AuthService {
     }
   }
 
-  // register pateint
+  // register patient
   async registerUser(registerDto: RegisterUserDto): Promise<UserResponseDto> {
     this.logger.log('Registering new user');
 
