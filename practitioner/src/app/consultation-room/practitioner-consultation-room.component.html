@@ -412,49 +412,21 @@
           </div>
         </div>
 
-        <!-- Chat Panel -->
-        <div class="sidebar-panel chat-panel">
-          <h3>Chat</h3>
-
-          <!-- Chat Messages -->
-          <div #chatContainer class="chat-messages">
-            <div
-              class="message"
-              *ngFor="let message of chatMessages"
-              [class.own-message]="message.isFromPractitioner"
-            >
-              <div class="message-header">
-                <span class="message-author">{{ message.userName }}</span>
-                <span class="message-time">{{
-                  formatMessageTime(message.createdAt)
-                }}</span>
-              </div>
-              <div class="message-content">{{ message.content }}</div>
-            </div>
-
-            <div *ngIf="chatMessages.length === 0" class="no-messages">
-              No messages yet. Start the conversation!
-            </div>
-          </div>
-
-          <!-- Chat Input -->
-          <div class="chat-input" *ngIf="isConsultationActive()">
-            <input
-              type="text"
-              [(ngModel)]="newMessage"
-              (keyup.enter)="sendMessage()"
-              placeholder="Type a message..."
-              class="message-input"
-            />
-            <button
-              class="send-btn"
-              (click)="sendMessage()"
-              [disabled]="!newMessage.trim()"
-            >
-              Send
-            </button>
-          </div>
-        </div>
+        <!-- Enhanced Chat Component -->
+        <app-practitioner-chat
+          [messages]="chatMessages"
+          [consultationId]="consultationId"
+          [practitionerId]="practitionerId"
+          [practitionerName]="'Practitioner'"
+          [isVisible]="true"
+          [unreadCount]="unreadMessageCount"
+          [typingUsers]="typingUsers"
+          (sendMessage)="sendChatMessage($event)"
+          (sendFile)="sendFileMessage($event)"
+          (markAllRead)="markAllMessagesAsRead()"
+          (startTyping)="startTypingIndicator()"
+          (stopTyping)="stopTypingIndicator()"
+        ></app-practitioner-chat>
       </div>
     </div>
 

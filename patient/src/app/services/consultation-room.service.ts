@@ -31,8 +31,28 @@ export interface ChatMessage {
  userId: number;
  content: string;
  createdAt: string;
- messageType: 'user' | 'system';
+ messageType: 'text' | 'image' | 'file' | 'system';
  userName?: string;
+ isFromPatient?: boolean;
+ mediaUrl?: string;
+ fileName?: string;
+ fileSize?: number;
+ readReceipts?: Array<{
+  id: number;
+  userId: number;
+  readAt: string;
+  user: {
+   id: number;
+   firstName: string;
+   lastName: string;
+  };
+ }>;
+}
+
+export interface TypingIndicator {
+ userId: number;
+ userName: string;
+ typing: boolean;
 }
 
 export interface ConsultationParticipant {
@@ -54,6 +74,12 @@ export class ConsultationRoomService {
  private consultationSocket: Socket | null = null;
  private mediasoupSocket: Socket | null = null;
  private chatSocket: Socket | null = null;
+
+ // Chat-related properties
+ public isChatVisible: boolean = false;
+ public unreadMessageCount: number = 0;
+ public currentPatientId: number = 0;
+ private typingUsers: TypingIndicator[] = [];
 
  // State management with BehaviorSubjects
  private consultationStateSubject = new BehaviorSubject<ConsultationRoomState>({
@@ -262,6 +288,30 @@ export class ConsultationRoomService {
    console.log(`[ConsultationRoomService] Session status update:`, data);
    this.updateConsultationStateFromBackend(data);
   });
+
+  // Enhanced consultation activation event
+  this.consultationSocket.on('consultation_activated', (data) => {
+   console.log(`[ConsultationRoomService] Consultation activated by practitioner:`, data);
+   this.updateConsultationState({
+    sessionStatus: 'active',
+    practitionerPresent: true,
+    practitionerName: data.practitionerName || 'Practitioner'
+   });
+
+   // Notify patient that consultation is now active
+   console.log(`[ConsultationRoomService] Consultation is now active - practitioner joined`);
+  });
+
+  // Connection events
+  this.consultationSocket.on('connect', () => {
+   console.log(`[ConsultationRoomService] Consultation WebSocket connected`);
+   this.updateConnectionStatus('consultation', true);
+  });
+
+  this.consultationSocket.on('disconnect', () => {
+   console.log(`[ConsultationRoomService] Consultation WebSocket disconnected`);
+   this.updateConnectionStatus('consultation', false);
+  });
  }
 
  /**
@@ -376,12 +426,30 @@ export class ConsultationRoomService {
   this.chatSocket.on('new_message', (data) => {
    console.log(`[ConsultationRoomService] New message received:`, data);
    this.addChatMessage(data.message);
+
+   // Update unread count if chat is not visible
+   if (!this.isChatVisible) {
+    this.unreadMessageCount++;
+   }
   });
 
   // Message history
   this.chatSocket.on('message_history', (data) => {
    console.log(`[ConsultationRoomService] Message history received:`, data);
-   this.chatMessagesSubject.next(data.messages || []);
+   const messages = data.messages?.map((msg: any) => ({
+    id: msg.id,
+    userId: msg.userId,
+    content: msg.content,
+    createdAt: msg.createdAt,
+    messageType: msg.messageType || 'text',
+    userName: msg.userName || this.getUserDisplayName(msg.userId, msg.user),
+    isFromPatient: msg.userId === this.currentPatientId,
+    mediaUrl: msg.mediaUrl,
+    fileName: msg.fileName,
+    fileSize: msg.fileSize,
+    readReceipts: msg.readReceipts || []
+   })) || [];
+   this.chatMessagesSubject.next(messages);
   });
 
   // System messages
@@ -392,19 +460,47 @@ export class ConsultationRoomService {
     userId: 0,
     content: data.content,
     createdAt: data.timestamp,
-    messageType: 'system'
+    messageType: 'system',
+    userName: 'System'
    });
   });
 
   // Typing indicators
   this.chatSocket.on('user_typing', (data) => {
    console.log(`[ConsultationRoomService] User typing:`, data);
-   // Handle typing indicator UI
+   if (data.userId !== this.currentPatientId) {
+    this.updateTypingIndicator(data);
+   }
   });
 
-  this.chatSocket.on('user_stopped_typing', (data) => {
-   console.log(`[ConsultationRoomService] User stopped typing:`, data);
-   // Handle typing indicator UI
+  // Message read receipts
+  this.chatSocket.on('message_read', (data) => {
+   console.log(`[ConsultationRoomService] Message read:`, data);
+   this.updateMessageReadReceipt(data);
+  });
+
+  // All messages read
+  this.chatSocket.on('all_messages_read', (data) => {
+   console.log(`[ConsultationRoomService] All messages read:`, data);
+   if (data.userId !== this.currentPatientId) {
+    this.markAllMessagesAsRead(data.userId);
+   }
+  });
+
+  // Connection events
+  this.chatSocket.on('connect', () => {
+   console.log(`[ConsultationRoomService] Chat WebSocket connected`);
+   this.updateConnectionStatus('chat', true);
+  });
+
+  this.chatSocket.on('disconnect', () => {
+   console.log(`[ConsultationRoomService] Chat WebSocket disconnected`);
+   this.updateConnectionStatus('chat', false);
+  });
+
+  this.chatSocket.on('connect_error', (error) => {
+   console.error(`[ConsultationRoomService] Chat connection error:`, error);
+   this.updateConnectionStatus('chat', false);
   });
  }
 
@@ -581,6 +677,152 @@ export class ConsultationRoomService {
   const currentMessages = this.chatMessagesSubject.value;
   const updatedMessages = [...currentMessages, message];
   this.chatMessagesSubject.next(updatedMessages);
+ }
+
+ private getUserDisplayName(userId: number, user?: any): string {
+  if (user) {
+   return `${user.firstName} ${user.lastName}`.trim();
+  }
+  return userId === this.currentPatientId ? 'You' : 'Practitioner';
+ }
+
+ private updateTypingIndicator(data: any): void {
+  const existingIndex = this.typingUsers.findIndex(u => u.userId === data.userId);
+
+  if (data.typing) {
+   const typingUser: TypingIndicator = {
+    userId: data.userId,
+    userName: data.userName,
+    typing: true
+   };
+
+   if (existingIndex >= 0) {
+    this.typingUsers[existingIndex] = typingUser;
+   } else {
+    this.typingUsers.push(typingUser);
+   }
+  } else {
+   if (existingIndex >= 0) {
+    this.typingUsers.splice(existingIndex, 1);
+   }
+  }
+ }
+
+ private updateMessageReadReceipt(data: any): void {
+  const currentMessages = this.chatMessagesSubject.value;
+  const messageIndex = currentMessages.findIndex(m => m.id === data.messageId);
+
+  if (messageIndex >= 0) {
+   const message = { ...currentMessages[messageIndex] };
+   if (!message.readReceipts) {
+    message.readReceipts = [];
+   }
+
+   const existingReceiptIndex = message.readReceipts.findIndex(r => r.userId === data.userId);
+   if (existingReceiptIndex === -1) {
+    message.readReceipts.push({
+     id: Date.now(),
+     userId: data.userId,
+     readAt: data.readAt,
+     user: {
+      id: data.userId,
+      firstName: 'User',
+      lastName: ''
+     }
+    });
+   }
+
+   const updatedMessages = [...currentMessages];
+   updatedMessages[messageIndex] = message;
+   this.chatMessagesSubject.next(updatedMessages);
+  }
+ }
+
+ private markAllMessagesAsRead(userId: number): void {
+  const currentMessages = this.chatMessagesSubject.value;
+  const updatedMessages = currentMessages.map(message => {
+   if (message.userId !== this.currentPatientId && message.readReceipts) {
+    const hasUserRead = message.readReceipts.some(r => r.userId === userId);
+    if (!hasUserRead) {
+     message.readReceipts.push({
+      id: Date.now(),
+      userId: userId,
+      readAt: new Date().toISOString(),
+      user: {
+       id: userId,
+       firstName: 'User',
+       lastName: ''
+      }
+     });
+    }
+   }
+   return message;
+  });
+  this.chatMessagesSubject.next(updatedMessages);
+ }
+
+ private updateConnectionStatus(service: string, connected: boolean): void {
+  console.log(`[ConsultationRoomService] ${service} connection status: ${connected}`);
+  // Update connection status indicators
+ }
+
+ /**
+  * Send typing indicator
+  */
+ sendTypingIndicator(consultationId: number): void {
+  if (this.chatSocket) {
+   this.chatSocket.emit('start_typing', { consultationId });
+  }
+ }
+
+ /**
+  * Stop typing indicator
+  */
+ stopTypingIndicator(): void {
+  if (this.chatSocket) {
+   this.chatSocket.emit('stop_typing');
+  }
+ }
+
+ /**
+  * Mark all messages as read
+  */
+ markAllChatMessagesAsRead(consultationId: number): void {
+  if (this.chatSocket) {
+   this.chatSocket.emit('mark_all_read', { consultationId });
+   this.unreadMessageCount = 0;
+  }
+ }
+
+ /**
+  * Send file message
+  */
+ async sendFileMessage(consultationId: number, patientId: number, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append('userId', patientId.toString());
+  formData.append('consultationId', consultationId.toString());
+  formData.append('content', file.name);
+  formData.append('clientUuid', this.generateClientUUID());
+  formData.append('file', file);
+
+  try {
+   const response = await this.http.post(`${environment.apiUrl}/chat/messages`, formData).toPromise();
+   console.log(`[ConsultationRoomService] File message sent:`, response);
+  } catch (error) {
+   console.error(`[ConsultationRoomService] Failed to send file message:`, error);
+   throw error;
+  }
+ }
+
+ /**
+  * Get typing users
+  */
+ getTypingUsers(): TypingIndicator[] {
+  return this.typingUsers.filter(user => user.userId !== this.currentPatientId);
+ }
+
+ private generateClientUUID(): string {
+  return 'client-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
  }
 
  private getCurrentPatientId(): number {

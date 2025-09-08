@@ -18,6 +18,7 @@ import { MediasoupSessionService } from 'src/mediasoup/mediasoup-session.service
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { EndConsultationDto } from './dto/end-consultation.dto';
 import { RateConsultationDto } from './dto/rate-consultation.dto';
+import { ActivateConsultationDto } from './dto/activate-consultation.dto';
 import { ConsultationInvitationService } from './consultation-invitation.service';
 import { IConsultationGateway } from './interfaces/consultation-gateway.interface';
 import { ConfigService } from '../config/config.service';
@@ -1497,6 +1498,84 @@ export class ConsultationGateway
     } catch (error) {
       this.logger.error('Failed to transition consultation state:', error);
       client.emit('consultation_state_transition_failed', {
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  @SubscribeMessage('activate_consultation')
+  async handleActivateConsultation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: ActivateConsultationDto,
+  ) {
+    try {
+      const { consultationId, practitionerId } = data;
+      const { userId, role } = client.data;
+
+      // Verify the user has permission to activate consultation
+      if (role !== UserRole.PRACTITIONER && userId !== practitionerId) {
+        throw new WsException('Unauthorized to activate consultation');
+      }
+
+      // Update consultation status to ACTIVE
+      const consultation = await this.databaseService.consultation.update({
+        where: { id: consultationId },
+        data: {
+          status: ConsultationStatus.ACTIVE,
+          startedAt: new Date()
+        },
+        include: {
+          owner: {
+            select: { firstName: true, lastName: true }
+          }
+        }
+      });
+
+      // Mark practitioner as active participant
+      await this.databaseService.participant.upsert({
+        where: { consultationId_userId: { consultationId, userId: practitionerId } },
+        create: {
+          consultationId,
+          userId: practitionerId,
+          role: UserRole.PRACTITIONER,
+          isActive: true,
+          joinedAt: new Date(),
+          lastActiveAt: new Date(),
+        },
+        update: {
+          isActive: true,
+          joinedAt: new Date(),
+          lastActiveAt: new Date(),
+        },
+      });
+
+      // Emit consultation activated event to all participants
+      this.server.to(`consultation:${consultationId}`).emit('consultation_activated', {
+        consultationId,
+        practitionerId,
+        practitionerName: consultation.owner
+          ? `${consultation.owner.firstName} ${consultation.owner.lastName}`
+          : 'Practitioner',
+        status: ConsultationStatus.ACTIVE,
+        timestamp: new Date().toISOString(),
+        message: 'Consultation is now active'
+      });
+
+      // Send success response to practitioner
+      client.emit('consultation_activated_response', {
+        success: true,
+        consultationId,
+        status: ConsultationStatus.ACTIVE,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(`Consultation ${consultationId} activated by practitioner ${practitionerId}`);
+
+    } catch (error) {
+      this.logger.error('Failed to activate consultation:', error);
+      client.emit('consultation_activated_response', {
+        success: false,
         error: error.message,
         timestamp: new Date().toISOString(),
       });

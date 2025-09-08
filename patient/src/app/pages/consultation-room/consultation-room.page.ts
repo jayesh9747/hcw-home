@@ -23,9 +23,11 @@ import {
  ConsultationRoomState,
  MediaSessionState,
  ChatMessage,
- ConsultationParticipant
+ ConsultationParticipant,
+ TypingIndicator
 } from 'src/app/services/consultation-room.service';
 import { RoutePaths } from 'src/app/constants/route-path.enum';
+import { PatientChatComponent } from '../../components/patient-chat/patient-chat.component';
 
 @Component({
  selector: 'app-consultation-room',
@@ -37,7 +39,8 @@ import { RoutePaths } from 'src/app/constants/route-path.enum';
   IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
   IonCardHeader, IonCardTitle, IonCardContent, IonButton,
   IonIcon, IonText, IonFab, IonFabButton, IonGrid, IonRow, IonCol,
-  IonList, IonItem, IonLabel, IonBadge, IonToast
+  IonList, IonItem, IonLabel, IonBadge, IonToast,
+  PatientChatComponent
  ],
 })
 export class ConsultationRoomPage implements OnInit, OnDestroy {
@@ -71,6 +74,7 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
  participants: ConsultationParticipant[] = [];
  showChat = false;
  unreadMessageCount = 0;
+ typingUsers: TypingIndicator[] = [];
 
  // Subscriptions for cleanup
  private subscriptions: Subscription[] = [];
@@ -116,10 +120,7 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
  }
 
  ngOnDestroy() {
-  // Clean up subscriptions
   this.subscriptions.forEach(sub => sub.unsubscribe());
-
-  // Leave consultation room
   this.consultationRoomService.leaveConsultation();
  }
 
@@ -127,7 +128,6 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
   * Setup subscriptions to consultation room service observables
   */
  private setupServiceSubscriptions(): void {
-  // Consultation state updates
   this.subscriptions.push(
    this.consultationRoomService.consultationState$.subscribe(state => {
     this.consultationState = state;
@@ -234,7 +234,6 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
     localVideo.srcObject = stream;
    }
 
-   // Update media status
    this.consultationState.mediaStatus.videoEnabled = true;
    this.consultationState.mediaStatus.audioEnabled = true;
 
@@ -276,7 +275,6 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
   try {
    await this.consultationRoomService.toggleAudio(newAudioState);
 
-   // Update local audio stream
    const localVideo = document.getElementById('localVideo') as HTMLVideoElement;
    if (localVideo && localVideo.srcObject) {
     const stream = localVideo.srcObject as MediaStream;
@@ -294,13 +292,9 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
   }
  }
 
- toggleChat() {
-  this.showChat = !this.showChat;
-  if (this.showChat) {
-   this.unreadMessageCount = 0;
-  }
- }
-
+ /**
+  * Send chat message
+  */
  async sendChatMessage(content: string) {
   if (!content.trim()) return;
 
@@ -314,6 +308,73 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
    console.error('Failed to send chat message:', error);
    this.showToast('Failed to send message', 'danger');
   }
+ }
+
+ /**
+  * Send file message
+  */
+ async sendFileMessage(file: File) {
+  try {
+   await this.consultationRoomService.sendFileMessage(
+    this.consultationId,
+    this.patientId,
+    file
+   );
+  } catch (error) {
+   console.error('Failed to send file:', error);
+   this.showToast('Failed to send file', 'danger');
+  }
+ }
+
+ /**
+  * Mark all messages as read
+  */
+ markAllMessagesAsRead() {
+  this.consultationRoomService.markAllChatMessagesAsRead(this.consultationId);
+  this.unreadMessageCount = 0;
+  this.consultationRoomService.unreadMessageCount = 0;
+ }
+
+ /**
+  * Start typing indicator
+  */
+ startTypingIndicator() {
+  this.consultationRoomService.sendTypingIndicator(this.consultationId);
+ }
+
+ /**
+  * Stop typing indicator
+  */
+ stopTypingIndicator() {
+  this.consultationRoomService.stopTypingIndicator();
+ }
+
+ /**
+  * Toggle chat visibility
+  */
+ toggleChat() {
+  this.showChat = !this.showChat;
+  this.consultationRoomService.isChatVisible = this.showChat;
+  if (this.showChat) {
+   this.markAllMessagesAsRead();
+  }
+ }
+
+ /**
+  * Open chat
+  */
+ openChat() {
+  this.showChat = true;
+  this.consultationRoomService.isChatVisible = true;
+  this.markAllMessagesAsRead();
+ }
+
+ /**
+  * Close chat
+  */
+ closeChat() {
+  this.showChat = false;
+  this.consultationRoomService.isChatVisible = false;
  }
 
  async endConsultation() {
@@ -403,17 +464,7 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
   return this.consultationState.practitionerName || 'Doctor';
  }
 
- // Chat functionality
  newMessage = '';
-
- openChat() {
-  this.showChat = true;
-  this.unreadMessageCount = 0;
- }
-
- closeChat() {
-  this.showChat = false;
- }
 
  formatMessageTime(timestamp: string): string {
   const date = new Date(timestamp);
