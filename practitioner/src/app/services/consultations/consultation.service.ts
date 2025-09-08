@@ -10,6 +10,30 @@ import type {
 } from '../../dtos/consultations/consultation-dashboard-response.dto';
 import { UserService } from '../user.service';
 
+export interface SubmitFeedbackRequest {
+  consultationId: number;
+  satisfaction?: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED';
+  comment?: string;
+}
+
+export interface FeedbackResponse {
+  id: number;
+  consultationId: number;
+  userId: number;
+  satisfaction: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED' | null;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeedbackApiResponse {
+  success: boolean;
+  data: FeedbackResponse | null;
+  message: string;
+  statusCode: number;
+  timestamp: string;
+}
+
 export interface CreatePatientConsultationRequest {
   firstName: string;
   lastName: string;
@@ -209,5 +233,50 @@ export class ConsultationService {
 
   formatTime(date: Date): string {
     return formatConsultationTime(date);
+  }
+
+  submitFeedback(feedbackData: SubmitFeedbackRequest): Observable<FeedbackApiResponse> {
+    return this.userService.getCurrentUser().pipe(
+      switchMap(user => {
+        const params = new HttpParams().set('userId', user.id.toString());
+        
+        // Map frontend satisfaction values to backend enum values
+        let mappedSatisfaction: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED' | undefined;
+        if (feedbackData.satisfaction === 'SATISFIED') {
+          mappedSatisfaction = 'SATISFIED';
+        } else if (feedbackData.satisfaction === 'NEUTRAL') {
+          mappedSatisfaction = 'NEUTRAL';
+        } else if (feedbackData.satisfaction === 'DISSATISFIED') {
+          mappedSatisfaction = 'DISSATISFIED';
+        } else {
+          mappedSatisfaction = feedbackData.satisfaction;
+        }
+
+        const payload = {
+          consultationId: feedbackData.consultationId,
+          satisfaction: mappedSatisfaction,
+          comment: feedbackData.comment
+        };
+
+        return this.http.post<FeedbackApiResponse>(
+          `${this.baseUrl}/feedback`,
+          payload,
+          { params }
+        );
+      })
+    );
+  }
+
+  getFeedback(consultationId: number): Observable<FeedbackApiResponse> {
+    return this.userService.getCurrentUser().pipe(
+      switchMap(user => {
+        const params = new HttpParams().set('userId', user.id.toString());
+        
+        return this.http.get<FeedbackApiResponse>(
+          `${this.baseUrl}/${consultationId}/feedback`,
+          { params }
+        );
+      })
+    );
   }
 }

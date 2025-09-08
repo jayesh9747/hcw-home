@@ -1,0 +1,17 @@
+<div class="feedback-overlay" (click)="onClose()">
+  <div class="feedback-modal" (click)="$event.stopPropagation()">
+    
+    <header class="feedback-modal__header">
+      <button (click)="onClose()" class="feedback-modal__close">×</button>
+    </header>
+
+    <div class="feedback-modal__body">
+      <app-feedback 
+        [consultationSummary]="consultationSummary"
+        (feedbackSubmit)="onFeedbackSubmit($event)"
+        (feedbackClose)="onClose()">
+      </app-feedback>
+    </div>
+
+  </div>
+</div>

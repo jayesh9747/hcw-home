@@ -65,6 +65,7 @@ import { ResponseStatus } from 'src/common/helpers/response/response-status.enum
 import { CreatePatientConsultationResponseDto } from './dto/invite-form.dto';
 import { CreatePatientConsultationDto } from './dto/invite-form.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
+import { SubmitFeedbackDto, FeedbackResponseDto } from './dto/submit-feedback.dto';
 
 @ApiTags('consultation')
 @Controller('consultation')
@@ -960,5 +961,51 @@ export class ConsultationController {
       sessionStatus,
       'Session status retrieved successfully',
     );
+  }
+
+  @Post('/feedback')
+  @ApiOperation({ summary: 'Submit feedback for a consultation' })
+  @ApiBody({ type: SubmitFeedbackDto })
+  @ApiOkResponse({
+    description: 'Feedback submitted successfully',
+    type: ApiResponseDto<FeedbackResponseDto>,
+  })
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
+  async submitFeedback(
+    @Body() dto: SubmitFeedbackDto,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<any> {
+    const result = await this.consultationService.submitFeedback(dto, userId);
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get(':id/feedback')
+  @ApiOperation({ summary: 'Get feedback for a consultation' })
+  @ApiParam({ name: 'id', type: Number, description: 'Consultation ID' })
+  @ApiOkResponse({
+    description: 'Feedback retrieved successfully',
+    type: ApiResponseDto<FeedbackResponseDto>,
+  })
+  async getFeedback(
+    @Param('id', ConsultationIdParamPipe) consultationId: number,
+    @Query('userId', UserIdParamPipe) userId: number,
+  ): Promise<any> {
+    const result = await this.consultationService.getFeedback(
+      consultationId,
+      userId,
+    );
+    return {
+      ...result,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
