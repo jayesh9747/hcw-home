@@ -1,6 +1,8 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ButtonComponent } from '../ui/button/button.component';
+import { ButtonVariant, ButtonSize, ButtonType } from '../../constants/button.enums';
 
 export interface ConsultationSummary {
   patientName: string;
@@ -18,7 +20,7 @@ export interface FeedbackData {
 @Component({
   selector: 'app-feedback',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ButtonComponent],
   templateUrl: './feedback.component.html',
   styleUrls: ['./feedback.component.scss']
 })
@@ -38,6 +40,10 @@ export class FeedbackComponent {
     satisfaction: null,
     comment: ''
   };
+
+  readonly ButtonVariant = ButtonVariant;
+  readonly ButtonSize = ButtonSize;
+  readonly ButtonType = ButtonType;
 
   selectSatisfaction(satisfaction: 'satisfied' | 'neutral' | 'dissatisfied') {
     this.feedback.satisfaction = satisfaction;
