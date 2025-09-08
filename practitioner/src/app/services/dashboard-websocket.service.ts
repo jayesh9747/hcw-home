@@ -426,4 +426,4 @@ export class DashboardWebSocketService {
    volume: this.audioAlertService.getConfig().volume
   };
  }
-}
+

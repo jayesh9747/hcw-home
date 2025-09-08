@@ -5,6 +5,7 @@ import { RoutePaths } from '../../constants/route-paths.enum';
 import { ButtonComponent } from '../ui/button/button.component';
 import { ButtonSize, ButtonVariant } from '../../constants/button.enums';
 import { ConsultationWithPatient } from '../../dtos';
+import { WaitingRoomResponse } from '../../dtos';
 
 @Component({
   selector: 'app-consultation-card',
@@ -17,12 +18,24 @@ export class ConsultationCardComponent {
   title = input('CONSULTATIONS');
   description = input('List of consultations');
   consultations = input<ConsultationWithPatient[]>([]); 
+  waitingData = input<WaitingRoomResponse | null>(null);
   routerLink = input(RoutePaths.OpenConsultations);
   showInvite = input(true);
   @Output() invite = new EventEmitter<void>();
 
   readonly ButtonSize = ButtonSize;
   readonly ButtonVariant = ButtonVariant;
+
+  hasItems(): boolean {
+    return this.consultations().length > 0 || (this.waitingData()?.waitingRooms?.length ?? 0) > 0;
+  }
+
+  getItemCount(): number {
+    if (this.waitingData()?.waitingRooms) {
+      return this.waitingData()!.waitingRooms.length;
+    }
+    return this.consultations().length;
+  }
 
   formatTime(date: Date): string {
     return new Date(date).toLocaleTimeString([], {

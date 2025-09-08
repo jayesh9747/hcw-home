@@ -1,46 +1,71 @@
-<app-header [title]="'Thank you for your consultation!'"></app-header>
-
 <ion-content class="feedback-page" fullscreen>
   <div class="feedback-container">
-    <ion-card class="feedback-card">
-      <ion-card-header class="feedback-header">
-        <div class="header-row">
-          <div>
-            <h2 class="title">Send us your feedback!</h2>
-          </div>
-        </div>
-      </ion-card-header>
+    <div class="feedback-card">
+      <!-- Header Section -->
+      <div class="feedback-header">
+        <h1 class="main-title">The teleconsultation is now over</h1>
+        <p class="sub-title">Thank you for using the teleconsultation application HCW@Home.</p>
+      </div>
 
-      <ion-card-content>
-        <form [formGroup]="feedbackForm" (ngSubmit)="submit()">
-          <div class="section">
-            <label class="label">Rate your consultation</label>
-            <div class="star-rating">
-              <ion-icon
-                *ngFor="let star of stars; let i = index"
-                name="star"
-                (click)="selectRating(i + 1)"
-                [class.filled]="i < rating"
-                class="star-icon"
-              ></ion-icon>
+      <!-- Feedback Form -->
+      <form [formGroup]="feedbackForm" (ngSubmit)="submit()" class="feedback-form">
+        <!-- Satisfaction Question -->
+        <div class="satisfaction-section">
+          <h2 class="question">Are you satisfied with the HCW@Home application?</h2>
+          
+          <div class="satisfaction-options">
+            <div 
+              class="satisfaction-option"
+              [class.selected]="selectedSatisfaction === 'satisfied'"
+              (click)="selectSatisfaction('satisfied')">
+              <div class="emoji-container satisfied">
+                <div class="emoji">😊</div>
+              </div>
+            </div>
+            
+            <div 
+              class="satisfaction-option"
+              [class.selected]="selectedSatisfaction === 'neutral'"
+              (click)="selectSatisfaction('neutral')">
+              <div class="emoji-container neutral">
+                <div class="emoji">😐</div>
+              </div>
+            </div>
+            
+            <div 
+              class="satisfaction-option"
+              [class.selected]="selectedSatisfaction === 'dissatisfied'"
+              (click)="selectSatisfaction('dissatisfied')">
+              <div class="emoji-container dissatisfied">
+                <div class="emoji">☹️</div>
+              </div>
             </div>
           </div>
+        </div>
 
+        <!-- Comment Section -->
+        <div class="comment-section">
+          <h3 class="comment-question">Do you want to leave a comment?</h3>
           <ion-textarea
             formControlName="comment"
-            class="textarea large-textarea"
-            placeholder="Describe your experience here..."
+            class="comment-textarea"
+            placeholder="Your comment"
             autoGrow="true"
-          ></ion-textarea>
+            rows="4">
+          </ion-textarea>
+        </div>
 
-          <ion-button color="success" expand="block" type="submit" class="submit-button">
-            Send Feedback
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <ion-button 
+            type="submit" 
+            class="submit-button"
+            [disabled]="isSubmitting">
+            <span *ngIf="!isSubmitting">Send my feedback</span>
+            <span *ngIf="isSubmitting">Sending...</span>
           </ion-button>
-          <ion-button expand="block" fill="clear" color="medium" class="skip-button" (click)="skipFeedback()">
-            Skip
-          </ion-button>
-        </form>
-      </ion-card-content>
-    </ion-card>
+        </div>
+      </form>
+    </div>
   </div>
 </ion-content>

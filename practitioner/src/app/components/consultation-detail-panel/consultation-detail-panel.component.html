@@ -69,6 +69,17 @@
                 <strong>Total Duration: {{ consultationDetail.duration }}</strong>
             </div>
         </section>
+
+        <section class="detail-section">
+            <div class="action-buttons">
+                <app-button 
+                    [variant]="ButtonVariant.Primary" 
+                    [size]="ButtonSize.Medium"
+                    (click)="onShowFeedback()">
+                    Give Feedback
+                </app-button>
+            </div>
+        </section>
     </div>
     }
 
@@ -92,5 +103,14 @@
             </app-button>
         </div>
     </div>
+    }
+
+    <!-- Feedback Modal -->
+    @if (showFeedbackModal && getConsultationSummary()) {
+        <app-feedback-modal
+            [consultationSummary]="getConsultationSummary()!"
+            (feedbackSubmit)="onFeedbackSubmit($event)"
+            (close)="onFeedbackModalClose()">
+        </app-feedback-modal>
     }
 </div>

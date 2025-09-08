@@ -122,7 +122,7 @@ export class TermController {
         )
     }
 
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN,Role.PATIENT,Role.PRACTITIONER)
     @Get('latest')
     @ApiOperation({ summary: 'Get latest terms for language and country in org' })
     @ApiQuery({ name: 'language', required: true })
