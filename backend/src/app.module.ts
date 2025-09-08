@@ -44,7 +44,6 @@ import { ChatModule } from './chat/chat.module';
     ]),
 
     ScheduleModule.forRoot(),
-
     UserModule,
     AuthModule,
     OrganizationModule,
@@ -52,18 +51,14 @@ import { ChatModule } from './chat/chat.module';
     AvailabilityModule,
     ReminderModule,
     NotificationModule,
-
     SmsProviderModule,
     WhatsappTemplateModule,
     ChatModule,
-
     LanguageModule,
     SpecialityModule,
     ExportModule,
     TermModule,
-
     CoreModule,
-
     MediasoupModule,
   ],
   controllers: [AppController],

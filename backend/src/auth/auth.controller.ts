@@ -241,23 +241,22 @@ export class AuthController {
           return res.redirect(
             `${redirectTo}/login?error=${encodeURIComponent(err.message || 'OIDCError')}`,
           );
-        }
-        const data = user as ApiResponseDto<LoginResponseDto>;
-        if (!data || !data.data || !data.data.tokens) {
+        }        
+        const data = user as LoginResponseDto;
+        if (!data || !data.user || !data.tokens) {
           this.logger.warn('User data or tokens not found in OIDC callback');
           return res.redirect(`${redirectTo}/login?error=UserDataNotFound`);
         }
-        const { accessToken, refreshToken } = data.data.tokens;
-
+        const { accessToken, refreshToken } = data.tokens; 
         if (
-          data.data.user.password &&
-          data.data.user.password.startsWith('temp') &&
+          data.user.password &&
+          data.user.password.startsWith('temp') &&
           ReqRole === Role.PRACTITIONER
         ) {
-          this.logger.log(`Redirecting to set-password for user ${data.data.user.email}`);
+          this.logger.log(`Redirecting to set-password for user ${data.user.email}`);
 
           const finalRedirect = `${redirectTo}/login?mode=set-password&email=${encodeURIComponent(
-            data.data.user.email
+            data.user.email
           )}&aT=${accessToken}&rT=${refreshToken}`;
           return res.redirect(finalRedirect);
         }

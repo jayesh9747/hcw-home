@@ -6,7 +6,6 @@ import { ConfigService } from './config/config.service';
 import { CustomLoggerService } from './logger/logger.service';
 import { Environment } from './config/environment.enum';
 import passport from 'passport';
-import session from 'express-session';
 import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
@@ -14,7 +13,12 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import connectRedis from 'connect-redis';
+import { connect } from 'socket.io-client';
+import session from 'express-session';
+import { RedisStore } from 'connect-redis';  
 import { createClient } from 'redis';
+
 
 
 class ApplicationBootstrap {
@@ -355,12 +359,13 @@ class ApplicationBootstrap {
     redisClient.on('error', (err) => this.logger.errorServerAction('Redis Client Error', err));
     await redisClient.connect();
 
-    const RedisStore = require('connect-redis')(session);
-    const store = new RedisStore({
-      client: redisClient,
-      prefix: 'sess:',
-    });
 
+
+    // const RedisStore = require('connect-redis')(session);
+  const store = new RedisStore({
+    client: redisClient,
+    prefix: 'sess:',
+  });
     app.use(
       session({
         store,

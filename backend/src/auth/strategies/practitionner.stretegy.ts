@@ -58,8 +58,8 @@ export class PractitionerStrategy extends PassportStrategy(OpenIDConnectStrategy
       const data = await this.authService.loginUserValidate(user);
       this.logger.log('User validated:');
 
-      const response = ApiResponseDto.success(data, "user-registration successful", 200);
-      return done(null, response);
+      // const response = ApiResponseDto.success(data, "user-registration successful", 200);
+      return done(null, data);
     } catch (err) {
       return done(err, null);
     }

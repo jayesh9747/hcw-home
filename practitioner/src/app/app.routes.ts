@@ -67,14 +67,11 @@ export const routes: Routes = [
         path: RoutePaths.SetPassword,
         component:SetPasswordComponent
 
-      }
-
+      },
       { 
         path: RoutePaths.ConsultationRoom,
         component: ConsultationRoomComponent 
       },
-
-
     ],
   },
   // Public routes
