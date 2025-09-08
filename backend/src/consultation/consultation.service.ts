@@ -60,6 +60,11 @@ import {
   CreatePatientConsultationDto,
   CreatePatientConsultationResponseDto,
 } from './dto/invite-form.dto';
+import { 
+  SubmitFeedbackDto, 
+  FeedbackResponseDto,
+  FeedbackSatisfaction
+} from './dto/submit-feedback.dto';
 
 @Injectable()
 export class ConsultationService {
@@ -3133,5 +3138,266 @@ export class ConsultationService {
     });
 
     return updatedConsultation;
+  }
+
+
+  async getSessionStatus(consultationId: number) {
+    try {
+      const consultation = await this.db.consultation.findUnique({
+        where: { id: consultationId },
+        include: {
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  role: true
+                }
+              }
+            },
+            where: {
+              isActive: true
+            }
+          },
+          owner: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              role: true
+            }
+          }
+        }
+      });
+
+      if (!consultation) {
+        throw new NotFoundException(`Consultation with ID ${consultationId} not found`);
+      }
+
+      let currentStage: 'waiting_room' | 'consultation_room' | 'completed';
+      let redirectTo: 'waiting-room' | 'consultation-room' | undefined;
+      let status: 'waiting' | 'active' | 'completed' | 'cancelled';
+
+      // Map consultation status to frontend status
+      switch (consultation.status) {
+        case ConsultationStatus.DRAFT:
+        case ConsultationStatus.SCHEDULED:
+        case ConsultationStatus.WAITING:
+          status = 'waiting';
+          currentStage = 'waiting_room';
+          redirectTo = 'waiting-room';
+          break;
+        case ConsultationStatus.ACTIVE:
+          status = 'active';
+          currentStage = 'consultation_room';
+          redirectTo = 'consultation-room';
+          break;
+        case ConsultationStatus.COMPLETED:
+          status = 'completed';
+          currentStage = 'completed';
+          break;
+        case ConsultationStatus.CANCELLED:
+        case ConsultationStatus.TERMINATED_OPEN:
+          status = 'cancelled';
+          currentStage = 'completed';
+          break;
+        default:
+          status = 'waiting';
+          currentStage = 'waiting_room';
+          redirectTo = 'waiting-room';
+      }
+
+      const practitionerPresent = consultation.participants.some(
+        p => p.user.role === UserRole.PRACTITIONER && p.isActive
+      ) || (consultation.owner && consultation.owner.role === UserRole.PRACTITIONER);
+
+      const estimatedWaitTime = status === 'waiting' ? 10 : 0; // 10 minutes default
+
+      const waitingRoomUrl = status === 'waiting' ? `/waiting-room/${consultationId}` : undefined;
+      const consultationRoomUrl = status === 'active' ? `/consultation-room/${consultationId}` : undefined;
+
+      return {
+        consultationId,
+        status,
+        currentStage,
+        redirectTo,
+        waitingRoomUrl,
+        consultationRoomUrl,
+        estimatedWaitTime,
+        isActive: status === 'active' || status === 'waiting',
+        lastUpdated: new Date().toISOString(),
+        practitionerPresent,
+        queuePosition: 1
+      };
+
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(`Failed to get session status for consultation ${consultationId}:`, error);
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to retrieve session status'
+      );
+    }
+  }
+
+  async submitFeedback(
+    dto: SubmitFeedbackDto,
+    userId: number,
+  ): Promise<ApiResponseDto<FeedbackResponseDto>> {
+    try {
+      // Verify consultation exists and user has access to it
+      const consultation = await this.db.consultation.findUnique({
+        where: { id: dto.consultationId },
+        include: { 
+          participants: true,
+          owner: true,
+        },
+      });
+
+      if (!consultation) {
+        throw HttpExceptionHelper.notFound('Consultation not found');
+      }
+
+      // Check if user is a participant in the consultation
+      const isParticipant = consultation.participants.some(
+        (participant) => participant.userId === userId,
+      );
+      const isOwner = consultation.ownerId === userId;
+
+      if (!isParticipant && !isOwner) {
+        throw HttpExceptionHelper.forbidden(
+          'You can only provide feedback for consultations you participated in',
+        );
+      }
+
+      // Check if consultation is completed
+      if (consultation.status !== ConsultationStatus.COMPLETED) {
+        throw HttpExceptionHelper.badRequest(
+          'Feedback can only be provided for completed consultations',
+        );
+      }
+
+      // Check if feedback already exists for this consultation
+      const existingFeedback = await this.db.consultationFeedback.findUnique({
+        where: { consultationId: dto.consultationId },
+      });
+
+      let feedback;
+      if (existingFeedback) {
+        // Update existing feedback
+        feedback = await this.db.consultationFeedback.update({
+          where: { consultationId: dto.consultationId },
+          data: {
+            satisfaction: dto.satisfaction || null,
+            comment: dto.comment || null,
+          },
+        });
+      } else {
+        // Create new feedback
+        feedback = await this.db.consultationFeedback.create({
+          data: {
+            consultationId: dto.consultationId,
+            userId: userId,
+            satisfaction: dto.satisfaction || null,
+            comment: dto.comment || null,
+          },
+        });
+      }
+
+      const responseData: FeedbackResponseDto = {
+        id: feedback.id,
+        consultationId: feedback.consultationId,
+        userId: feedback.userId,
+        satisfaction: feedback.satisfaction as FeedbackSatisfaction | null,
+        comment: feedback.comment,
+        createdAt: feedback.createdAt,
+        updatedAt: feedback.updatedAt,
+      };
+
+      return ApiResponseDto.success(
+        responseData,
+        'Feedback submitted successfully',
+        HttpStatus.CREATED,
+      );
+    } catch (error) {
+      this.logger.error('Error submitting feedback:', error);
+      if (error.status) {
+        throw error;
+      }
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to submit feedback',
+      );
+    }
+  }
+
+  async getFeedback(
+    consultationId: number,
+    userId: number,
+  ): Promise<ApiResponseDto<FeedbackResponseDto | null>> {
+    try {
+      // Verify consultation exists and user has access to it
+      const consultation = await this.db.consultation.findUnique({
+        where: { id: consultationId },
+        include: { 
+          participants: true,
+          owner: true,
+        },
+      });
+
+      if (!consultation) {
+        throw HttpExceptionHelper.notFound('Consultation not found');
+      }
+
+      // Check if user is a participant in the consultation
+      const isParticipant = consultation.participants.some(
+        (participant) => participant.userId === userId,
+      );
+      const isOwner = consultation.ownerId === userId;
+
+      if (!isParticipant && !isOwner) {
+        throw HttpExceptionHelper.forbidden(
+          'You can only view feedback for consultations you participated in',
+        );
+      }
+
+      const feedback = await this.db.consultationFeedback.findUnique({
+        where: { consultationId },
+      });
+
+      if (!feedback) {
+        return ApiResponseDto.success(
+          null,
+          'No feedback found for this consultation',
+          HttpStatus.OK,
+        );
+      }
+
+      const responseData: FeedbackResponseDto = {
+        id: feedback.id,
+        consultationId: feedback.consultationId,
+        userId: feedback.userId,
+        satisfaction: feedback.satisfaction as FeedbackSatisfaction | null,
+        comment: feedback.comment,
+        createdAt: feedback.createdAt,
+        updatedAt: feedback.updatedAt,
+      };
+
+      return ApiResponseDto.success(
+        responseData,
+        'Feedback retrieved successfully',
+        HttpStatus.OK,
+      );
+    } catch (error) {
+      this.logger.error('Error getting feedback:', error);
+      if (error.status) {
+        throw error;
+      }
+      throw HttpExceptionHelper.internalServerError(
+        'Failed to retrieve feedback',
+      );
+    }
   }
 }

@@ -10,7 +10,7 @@ import { ConsultationHistoryComponent } from './consultation-history/consultatio
 import { ProfileComponent } from './pages/profile/profile.component';
 import { LoginComponent } from './login/login.component';
 import { AuthGuard } from './auth/guard/auth.guard';
-
+import { ConsultationRoomComponent } from './consultation-room/consultation-room.component';
 import { AvailabilityComponent } from './pages/availability/availability.component';
 import { Component } from '@angular/core';
 import { TermComponent } from './pages/term/term.component';
@@ -62,11 +62,17 @@ export const routes: Routes = [
         path: RoutePaths.Availability,
         component: AvailabilityComponent 
       },
+
       {
         path: RoutePaths.SetPassword,
         component:SetPasswordComponent
 
       }
+
+      { 
+        path: RoutePaths.ConsultationRoom,
+        component: ConsultationRoomComponent 
+      },
 
 
     ],

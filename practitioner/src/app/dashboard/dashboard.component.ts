@@ -5,6 +5,7 @@ import { InviteFormComponent } from '../components/invite-form/invite-form.compo
 import { RoutePaths } from '../constants/route-paths.enum';
 import { ConsultationService, CreatePatientConsultationRequest } from '../services/consultations/consultation.service';
 import { ConsultationWithPatient } from '../dtos';
+import { WaitingRoomResponse } from '../dtos';
 
 @Component({
   selector: 'app-dashboard',
@@ -16,7 +17,7 @@ import { ConsultationWithPatient } from '../dtos';
 export class DashboardComponent implements OnInit {
   readonly RoutePaths = RoutePaths;
 
-  waitingConsultations = signal<ConsultationWithPatient[]>([]);
+  waitingConsultations = signal<WaitingRoomResponse | null>(null);
   openConsultations = signal<ConsultationWithPatient[]>([]);
   isInviting = signal(false);
   isLoading = signal(false); 
@@ -59,13 +60,17 @@ export class DashboardComponent implements OnInit {
       {
         title: 'WAITING ROOM',
         description: 'Consultations waiting to be attended',
-        consultations: this.waitingConsultations(),
+        type: 'waiting' as const,
+        waitingData: this.waitingConsultations(),
+        consultations: [] as ConsultationWithPatient[],
         routerLink: RoutePaths.WaitingRoom,
         showInvite: true,
       },
       {
         title: 'OPEN CONSULTATIONS',
         description: 'Consultations in progress',
+        type: 'open' as const,
+        waitingData: null,
         consultations: this.openConsultations(),
         routerLink: RoutePaths.OpenConsultations,
         showInvite: false,
@@ -98,7 +103,7 @@ onInviteSubmit(formData: CreatePatientConsultationRequest) {
             }
             
             this.closeInvite();
-            
+
             this.loadConsultations();
             
           } else {

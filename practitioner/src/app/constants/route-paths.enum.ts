@@ -3,6 +3,7 @@ export enum RoutePaths {
   Dashboard = 'dashboard',
   WaitingRoom = 'waiting-room',
   OpenConsultations = 'open-consultations',
+  ConsultationRoom = 'consultation-room',
   ClosedConsultations = 'closed-consultations',
   Invitations = 'invites',
   Test = 'test',

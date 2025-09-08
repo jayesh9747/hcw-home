@@ -23,7 +23,7 @@ import { MatProgressSpinner, MatProgressSpinnerModule } from '@angular/material/
 })
 export class AppComponent implements OnInit {
   title = 'practitioner';
-  pendingConsultations: number | undefined = 5;
+  pendingConsultations: number | undefined = 0;
   activeConsultations: number | undefined = 0;
   loginChecked = computed(() => this.authService.loginChecked());
   isLoggedIn = computed(() => this.authService.isLoggedIn());

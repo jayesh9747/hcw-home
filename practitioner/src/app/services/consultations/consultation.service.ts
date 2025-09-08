@@ -9,6 +9,31 @@ import type {
   WaitingRoomItem,
 } from '../../dtos/consultations/consultation-dashboard-response.dto';
 import { UserService } from '../user.service';
+import { WaitingRoomResponse } from '../../dtos/consultations/consultation-dashboard-response.dto';
+
+export interface SubmitFeedbackRequest {
+  consultationId: number;
+  satisfaction?: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED';
+  comment?: string;
+}
+
+export interface FeedbackResponse {
+  id: number;
+  consultationId: number;
+  userId: number;
+  satisfaction: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED' | null;
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeedbackApiResponse {
+  success: boolean;
+  data: FeedbackResponse | null;
+  message: string;
+  statusCode: number;
+  timestamp: string;
+}
 
 export interface CreatePatientConsultationRequest {
   firstName: string;
@@ -91,24 +116,33 @@ export class ConsultationService {
     );
   }
 
-  getWaitingConsultations(): Observable<ConsultationWithPatient[]> {
+  getWaitingConsultations(page = 1, limit = 10, sortOrder: 'asc' | 'desc' = 'asc'): Observable<WaitingRoomResponse> {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
-        const params = new HttpParams().set('userId', user.id.toString());
-        
+        const params = new HttpParams()
+        .set('userId', user.id.toString())
+        .set('page', page.toString())
+        .set('limit', limit.toString())
+        .set('sortOrder', sortOrder);
+
         return this.http
           .get<any>(`${this.baseUrl}/waiting-room`, { params })
           .pipe(
-            map((response) => {
-              const waitingRooms = response?.data?.data?.waitingRooms || [];
-              return waitingRooms.map((item: WaitingRoomItem) =>
-                this.convertWaitingRoomToConsultationWithPatient(item, user.id)
-              );
-            })
+            map((response) => ({
+              success: response.data.success,           
+              statusCode: response.data.statusCode,     
+              message: response.data.message,      
+              waitingRooms: response.data.waitingRooms || [],
+              totalCount: response.data.totalCount || 0,
+              currentPage: response.data.currentPage || 1,
+              totalPages: response.data.totalPages || 1,
+              timestamp: response.timestamp       
+            }))
           );
       })
     );
   }
+  
 
   getOpenConsultations(): Observable<ConsultationWithPatient[]> {
     return this.userService.getCurrentUser().pipe(
@@ -131,7 +165,7 @@ export class ConsultationService {
       })
     );
   }
-
+  
   private convertWaitingRoomToConsultationWithPatient(
     item: WaitingRoomItem,
     practitionerId: number
@@ -209,5 +243,50 @@ export class ConsultationService {
 
   formatTime(date: Date): string {
     return formatConsultationTime(date);
+  }
+
+  submitFeedback(feedbackData: SubmitFeedbackRequest): Observable<FeedbackApiResponse> {
+    return this.userService.getCurrentUser().pipe(
+      switchMap(user => {
+        const params = new HttpParams().set('userId', user.id.toString());
+        
+        // Map frontend satisfaction values to backend enum values
+        let mappedSatisfaction: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED' | undefined;
+        if (feedbackData.satisfaction === 'SATISFIED') {
+          mappedSatisfaction = 'SATISFIED';
+        } else if (feedbackData.satisfaction === 'NEUTRAL') {
+          mappedSatisfaction = 'NEUTRAL';
+        } else if (feedbackData.satisfaction === 'DISSATISFIED') {
+          mappedSatisfaction = 'DISSATISFIED';
+        } else {
+          mappedSatisfaction = feedbackData.satisfaction;
+        }
+
+        const payload = {
+          consultationId: feedbackData.consultationId,
+          satisfaction: mappedSatisfaction,
+          comment: feedbackData.comment
+        };
+
+        return this.http.post<FeedbackApiResponse>(
+          `${this.baseUrl}/feedback`,
+          payload,
+          { params }
+        );
+      })
+    );
+  }
+
+  getFeedback(consultationId: number): Observable<FeedbackApiResponse> {
+    return this.userService.getCurrentUser().pipe(
+      switchMap(user => {
+        const params = new HttpParams().set('userId', user.id.toString());
+        
+        return this.http.get<FeedbackApiResponse>(
+          `${this.baseUrl}/${consultationId}/feedback`,
+          { params }
+        );
+      })
+    );
   }
 }

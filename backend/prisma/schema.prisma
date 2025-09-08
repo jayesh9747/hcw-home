@@ -87,6 +87,7 @@ model User {
   ConsultationInvitesReceived ConsultationInvitation[] @relation("InvitedUser")
   MediaEvent         MediaEvent[]
   messagesRead       Message[]  @relation("MessageReadBy")
+  feedbacks          ConsultationFeedback[]
 }
 model UserNotificationSetting {
   id          Int      @id @default(autoincrement())
@@ -291,6 +292,7 @@ model Consultation {
   MediasoupTransport     MediasoupTransport[]
   payment                Payment?       
   reminders              ConsultationReminder[]
+  feedback               ConsultationFeedback?
 
   @@index([status])
   @@index([ownerId])
@@ -710,4 +712,27 @@ model ConsultationReminder {
   @@index([status])
   @@index([scheduledFor])
   @@map("consultation_reminder")
+}
+
+enum FeedbackSatisfaction {
+  SATISFIED
+  NEUTRAL
+  DISSATISFIED
+}
+
+model ConsultationFeedback {
+  id             Int                   @id @default(autoincrement())
+  consultationId Int                   @unique
+  userId         Int
+  satisfaction   FeedbackSatisfaction?
+  comment        String?               @db.Text
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  consultation Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([consultationId])
+  @@index([userId])
+  @@map("consultation_feedback")
 }

@@ -1,101 +1,222 @@
 .feedback-page {
-  --background: var(--light-bg);
+  --background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
 
   .feedback-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    padding: 16px;
-  }
-
-  .thank-you-message {
-    min-width: 500px;
-    background-color: var(--primary-color);
-    text-align: center;
-    font-size: 2rem;
-    font-weight: 500;
-    color: white;
-    padding: 10px 16px;
-    border-radius: var(--border-radius);
-    display: inline-block;
-    margin-bottom: 1px;
+    width: 100%;
+    max-width: 800px;
   }
 
   .feedback-card {
     width: 100%;
-    max-width: 500px;
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    background-color: var(--card-bg);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    text-align: center;
   }
 
   .feedback-header {
-    background-color: var(--primary-color);
-    color: white;
+    margin-bottom: 40px;
 
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    .main-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: #333333;
+      margin: 0 0 16px 0;
+      line-height: 1.2;
     }
 
-    .title {
+    .sub-title {
+      font-size: 18px;
+      color: #666666;
       margin: 0;
-      font-size: 1.2rem;
-      font-weight: bold;
+      font-weight: 400;
     }
   }
 
-  .section {
-    margin: 16px 0;
-  }
+  .feedback-form {
+    .satisfaction-section {
+      margin-bottom: 40px;
 
-  .label {
-    font-weight: 500;
-    margin-bottom: 8px;
-    display: block;
-    color: var(--text-color);
-  }
-  .textarea {
-    margin: 12px 0;
-  }
+      .question {
+        font-size: 24px;
+        font-weight: 600;
+        color: #333333;
+        margin: 0 0 32px 0;
+      }
 
-  .large-textarea {
-    min-height: 140px;
-  }
+      .satisfaction-options {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin: 32px 0;
 
-  .submit-button {
-    background-color: var(--success-color);
-    color: white;
-    margin-top: 12px;
-    border-radius: var(--border-radius);
-  }
+        .satisfaction-option {
+          cursor: pointer;
+          transition: transform 0.2s ease;
 
-  .skip-button {
-    margin-top: 8px;
+          &:hover {
+            transform: scale(1.05);
+          }
+
+          &.selected {
+            transform: scale(1.1);
+          }
+
+          .emoji-container {
+            width: 120px;
+            height: 120px;
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+
+            &.satisfied {
+              background: linear-gradient(135deg, #4CAF50, #81C784);
+            }
+
+            &.neutral {
+              background: linear-gradient(135deg, #FFC107, #FFD54F);
+            }
+
+            &.dissatisfied {
+              background: linear-gradient(135deg, #FF5722, #FF8A65);
+            }
+
+            .emoji {
+              font-size: 48px;
+              line-height: 1;
+            }
+          }
+
+          &.selected .emoji-container {
+            border-color: #2196F3;
+            box-shadow: 0 4px 16px rgba(33, 150, 243, 0.3);
+          }
+        }
+      }
+    }
+
+    .comment-section {
+      margin-bottom: 40px;
+      text-align: left;
+
+      .comment-question {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333333;
+        margin: 0 0 16px 0;
+        text-align: center;
+      }
+
+      .comment-textarea {
+        width: 100%;
+        min-height: 120px;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 16px;
+        font-size: 16px;
+        font-family: inherit;
+        resize: vertical;
+        transition: border-color 0.2s ease;
+
+        &:focus {
+          outline: none;
+          border-color: #2196F3;
+        }
+
+        --placeholder-color: #999999;
+      }
+    }
+
+    .action-buttons {
+      display: flex;
+      justify-content: center;
+
+      .submit-button {
+        background: linear-gradient(135deg, #4CAF50, #45a049);
+        color: white;
+        border: none;
+        padding: 16px 32px;
+        border-radius: 24px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 200px;
+
+        &:hover:not([disabled]) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        &[disabled] {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+      }
+    }
   }
 }
 
+// Responsive design
+@media (max-width: 768px) {
+  .feedback-page {
+    padding: 16px;
 
+    .feedback-card {
+      padding: 24px;
+    }
 
-.star-rating {
-  display: flex;
-  gap: 10px;
-  font-size: 30px;
-  justify-content: center;
-  margin: 12px 0;
+    .feedback-header {
+      .main-title {
+        font-size: 24px;
+      }
 
-  .star-icon {
-    color: #ccc;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-  }
+      .sub-title {
+        font-size: 16px;
+      }
+    }
 
-  .star-icon.filled {
-    color: gold;
-    transform: scale(1.2);
+    .satisfaction-section {
+      .question {
+        font-size: 20px;
+      }
+
+      .satisfaction-options {
+        gap: 20px;
+
+        .satisfaction-option .emoji-container {
+          width: 80px;
+          height: 80px;
+
+          .emoji {
+            font-size: 32px;
+          }
+        }
+      }
+    }
+
+    .comment-section .comment-question {
+      font-size: 18px;
+    }
+
+    .action-buttons .submit-button {
+      width: 100%;
+      font-size: 16px;
+      padding: 14px 24px;
+    }
   }
 }

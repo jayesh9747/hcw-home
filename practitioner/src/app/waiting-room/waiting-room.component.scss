@@ -1,0 +1,437 @@
+.waiting-room-container {
+  height: 100vh;
+  background-color: #f8f9fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+  // Main Content Layout
+  .main-content {
+    height: 100vh;
+
+    // Content Area Styles
+    .content {
+      padding: 32px;
+      overflow-y: auto;
+
+      .content-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+
+        .page-title {
+          font-size: 24px;
+          font-weight: 700;
+          color: #1f2937;
+          margin: 0;
+          letter-spacing: 0.5px;
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 1rem;
+
+          .refresh-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+
+            &:hover:not(:disabled) {
+              background: #1d4ed8;
+            }
+
+            &:disabled {
+              opacity: 0.6;
+              cursor: not-allowed;
+            }
+
+            .icon {
+              font-size: 14px;
+              animation: none;
+            }
+
+            &:disabled .icon {
+              animation: spin 1s linear infinite;
+            }
+          }
+        }
+      }
+
+      .content-body {
+        // Loading State
+        .loading-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 0;
+          color: #6b7280;
+
+          .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+          }
+
+          p {
+            font-size: 16px;
+            margin: 0;
+          }
+        }
+
+        // Error State
+        .error-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 0;
+          color: #dc2626;
+
+          .error-message {
+            font-size: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+          }
+
+          .retry-btn {
+            padding: 10px 20px;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+
+            &:hover {
+              background: #b91c1c;
+            }
+          }
+        }
+
+        // Empty State
+        .no-consultation {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: flex-start;
+          padding: 40px 0;
+
+          .empty-icon {
+            font-size: 32px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+          }
+
+          h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+          }
+
+          p {
+            font-size: 16px;
+            color: #6b7280;
+            margin: 0;
+            line-height: 1.5;
+          }
+        }
+
+        // Waiting Room Content
+        .waiting-room-content {
+          .summary-bar {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 32px;
+            padding: 20px 24px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+
+            .summary-item {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+
+              .summary-label {
+                font-size: 14px;
+                color: #6b7280;
+                font-weight: 500;
+              }
+
+              .summary-value {
+                font-size: 24px;
+                font-weight: 700;
+                color: #1f2937;
+              }
+            }
+          }
+
+          // Patients Grid
+          .patients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+
+            .patient-card {
+              background: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 20px;
+              transition: all 0.2s;
+              position: relative;
+
+              &:hover {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                transform: translateY(-2px);
+              }
+
+              .patient-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 16px;
+
+                .patient-avatar {
+                  width: 40px;
+                  height: 40px;
+                  border-radius: 50%;
+                  background: #2563eb;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: 600;
+                  font-size: 16px;
+                }
+
+                .patient-info {
+                  flex: 1;
+
+                  .patient-initials {
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #1f2937;
+                    margin: 0;
+                  }
+
+                  .patient-id {
+                    font-size: 12px;
+                    color: #6b7280;
+                  }
+
+                  .queue-badge {
+                    display: inline-block;
+                    padding: 2px 6px;
+                    background: #e5e7eb;
+                    color: #374151;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    margin-left: 8px;
+                  }
+                }
+
+                .status-indicator {
+                  .stale-warning {
+                    font-size: 18px;
+                    cursor: help;
+                  }
+                }
+              }
+
+              .patient-details {
+                margin-bottom: 16px;
+
+                .detail-row {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  padding: 6px 0;
+                  border-bottom: 1px solid #f3f4f6;
+
+                  &:last-child {
+                    border-bottom: none;
+                  }
+
+                  .detail-label {
+                    font-size: 14px;
+                    color: #6b7280;
+                    font-weight: 500;
+                  }
+
+                  .detail-value {
+                    font-size: 14px;
+                    color: #1f2937;
+                    font-weight: 500;
+
+                    &.waiting-time {
+                      color: #d97706;
+                      font-weight: 600;
+                    }
+
+                    &.stale-time {
+                      color: #dc2626;
+                      font-weight: 700;
+                    }
+                  }
+                }
+              }
+
+              .patient-actions {
+                display: flex;
+                gap: 8px;
+
+                .action-btn {
+                  flex: 1;
+                  padding: 8px 16px;
+                  border-radius: 6px;
+                  font-size: 14px;
+                  font-weight: 500;
+                  cursor: pointer;
+                  transition: all 0.2s;
+                  border: 1px solid transparent;
+
+                  &.primary {
+                    background: #2563eb;
+                    color: white;
+
+                    &:hover:not(:disabled) {
+                      background: #1d4ed8;
+                    }
+
+                    &:disabled {
+                      background: #9ca3af;
+                      cursor: not-allowed;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Pagination
+          .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+
+            .pagination-info {
+              color: #6b7280;
+              font-size: 14px;
+              font-weight: 500;
+              margin-right: 20px;
+            }
+
+            .pagination-controls {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+
+              .page-btn {
+                padding: 8px 12px;
+                background: white;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                color: #374151;
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s;
+
+                &:hover:not(:disabled) {
+                  background: #f9fafb;
+                  border-color: #9ca3af;
+                }
+
+                &:disabled {
+                  opacity: 0.5;
+                  cursor: not-allowed;
+                }
+              }
+
+              .current-page {
+                padding: 8px 12px;
+                background: #2563eb;
+                color: white;
+                border-radius: 6px;
+                font-weight: 600;
+                min-width: 40px;
+                text-align: center;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Animations
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  // Responsive Design
+  @media (max-width: 1024px) {
+    .main-content .content {
+      padding: 24px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .main-content .content {
+      padding: 20px;
+
+      .content-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+
+        .page-title {
+          font-size: 20px;
+        }
+      }
+
+      .content-body {
+        .waiting-room-content {
+          .summary-bar {
+            flex-direction: column;
+            gap: 16px;
+          }
+
+          .patients-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .main-content .content {
+      padding: 16px;
+    }
+  }
+}
