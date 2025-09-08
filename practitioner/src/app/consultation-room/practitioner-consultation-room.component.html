@@ -6,7 +6,6 @@
     <p>Please wait while we set up your consultation room</p>
   </div>
 
-  <!-- Error State -->
   <div *ngIf="error && !isLoading" class="error-container">
     <div class="error-icon">⚠️</div>
     <h3>Connection Error</h3>
@@ -29,9 +28,17 @@
           >
             {{ getSessionStatusText() }}
           </span>
-          <span class="connection-quality">
-            {{ getConnectionQualityIcon() }}
-          </span>
+          <div
+            class="connection-status-indicator"
+            [attr.data-status]="getConnectionStatusDisplay().color"
+          >
+            <span class="connection-icon">{{
+              getConnectionStatusDisplay().icon
+            }}</span>
+            <span class="connection-text">{{
+              getConnectionStatusDisplay().text
+            }}</span>
+          </div>
           <span class="duration" *ngIf="consultationDuration">
             {{ consultationDuration }}
           </span>
@@ -45,6 +52,38 @@
         >
           👥 {{ consultationState.participantCount }}
         </div>
+
+        <!-- Notification Panel Toggle -->
+        <div class="notification-controls">
+          <button
+            class="btn btn-ghost notification-toggle"
+            (click)="toggleNotifications()"
+            [class.active]="showNotifications"
+            title="Show Notifications"
+          >
+            🔔
+            <span
+              class="notification-badge"
+              *ngIf="getUnreadNotificationCount() > 0"
+            >
+              {{ getUnreadNotificationCount() }}
+            </span>
+          </button>
+
+          <!-- Event History Toggle -->
+          <button
+            class="btn btn-ghost events-toggle"
+            (click)="toggleEvents()"
+            [class.active]="showEvents"
+            title="Show Event History"
+          >
+            📊
+            <span class="events-badge" *ngIf="events.length > 0">
+              {{ events.length }}
+            </span>
+          </button>
+        </div>
+
         <button class="btn btn-danger" (click)="endConsultation()">
           End Consultation
         </button>
@@ -53,6 +92,119 @@
         </button>
       </div>
     </header>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" *ngIf="showNotifications">
+      <div class="panel-header">
+        <h3>🔔 Notifications</h3>
+        <div class="panel-actions">
+          <button
+            class="btn btn-small btn-secondary"
+            (click)="clearAllNotifications()"
+            *ngIf="notifications.length > 0"
+          >
+            Clear All
+          </button>
+          <button
+            class="btn btn-ghost close-btn"
+            (click)="toggleNotifications()"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div class="notification-list">
+        <div
+          class="notification-item"
+          *ngFor="let notification of notifications; trackBy: trackNotification"
+          [class]="'notification-' + notification.type"
+        >
+          <div class="notification-content">
+            <div class="notification-header">
+              <span class="notification-icon">{{
+                getNotificationIcon(notification.type)
+              }}</span>
+              <span class="notification-title">{{ notification.title }}</span>
+              <span class="notification-time">{{
+                formatTimestamp(notification.timestamp)
+              }}</span>
+              <button
+                class="btn btn-ghost notification-close"
+                (click)="clearNotification(notification.id)"
+              >
+                ×
+              </button>
+            </div>
+            <div class="notification-message">{{ notification.message }}</div>
+            <div
+              class="notification-actions"
+              *ngIf="notification.actions && notification.actions.length > 0"
+            >
+              <button
+                *ngFor="let action of notification.actions"
+                class="btn btn-small"
+                [class]="'btn-' + (action.style || 'primary')"
+                (click)="
+                  handleNotificationAction(action.action, action.data);
+                  clearNotification(notification.id)
+                "
+              >
+                {{ action.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="notifications.length === 0" class="no-notifications">
+          <div class="empty-state">
+            <span class="empty-icon">🔕</span>
+            <p>No notifications</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event History Panel -->
+    <div class="events-panel" *ngIf="showEvents">
+      <div class="panel-header">
+        <h3>📊 Event History</h3>
+        <div class="panel-actions">
+          <button class="btn btn-ghost close-btn" (click)="toggleEvents()">
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div class="events-list">
+        <div
+          class="event-item"
+          *ngFor="let event of events; trackBy: trackEvent"
+          [class]="'event-' + event.severity"
+        >
+          <div class="event-content">
+            <div class="event-header">
+              <span class="event-icon">{{
+                getEventSeverityIcon(event.severity)
+              }}</span>
+              <span class="event-title">{{ event.title }}</span>
+              <span class="event-time">{{
+                formatTimestamp(event.timestamp)
+              }}</span>
+            </div>
+            <div class="event-description">{{ event.description }}</div>
+            <div class="event-type">{{ event.type }}</div>
+          </div>
+        </div>
+
+        <div *ngIf="events.length === 0" class="no-events">
+          <div class="empty-state">
+            <span class="empty-icon">📈</span>
+            <p>No events recorded</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Waiting Room Alert -->
     <div *ngIf="showWaitingRoomAlert" class="waiting-room-alert">
@@ -184,7 +336,17 @@
       <div class="sidebar">
         <!-- Participants Panel -->
         <div class="sidebar-panel participants-panel">
-          <h3>Participants ({{ participants.length }})</h3>
+          <div class="panel-header">
+            <h3>Participants ({{ participants.length }})</h3>
+            <button
+              class="btn btn-small btn-primary add-participant-btn"
+              (click)="openAddParticipantModal()"
+              [disabled]="!isConsultationActive()"
+              title="Add Expert or Guest"
+            >
+              + Add
+            </button>
+          </div>
           <div class="participants-list">
             <div
               class="participant-item"
@@ -198,7 +360,9 @@
                   {{ getParticipantName(participant) }}
                 </div>
                 <div class="participant-status">
-                  <span class="role">{{ participant.role }}</span>
+                  <span class="role" [class]="participant.role.toLowerCase()">
+                    {{ participant.role }}
+                  </span>
                   <span class="status" [class.active]="participant.isActive">
                     {{ participant.isActive ? "🟢 Active" : "⚫ Inactive" }}
                   </span>
@@ -207,19 +371,42 @@
                   </span>
                 </div>
               </div>
-              <div class="participant-media" *ngIf="participant.mediaStatus">
-                <span
-                  class="media-icon"
-                  [class.disabled]="!participant.mediaStatus.videoEnabled"
+              <div class="participant-actions">
+                <div class="participant-media" *ngIf="participant.mediaStatus">
+                  <span
+                    class="media-icon"
+                    [class.disabled]="!participant.mediaStatus.videoEnabled"
+                  >
+                    📹
+                  </span>
+                  <span
+                    class="media-icon"
+                    [class.disabled]="!participant.mediaStatus.audioEnabled"
+                  >
+                    🎤
+                  </span>
+                </div>
+                <!-- Remove participant button (only for experts/guests, not patient/practitioner) -->
+                <button
+                  *ngIf="
+                    participant.role === 'EXPERT' ||
+                    participant.role === 'GUEST'
+                  "
+                  class="btn btn-small btn-danger remove-participant-btn"
+                  (click)="removeParticipant(participant.id)"
+                  title="Remove participant"
                 >
-                  📹
-                </span>
-                <span
-                  class="media-icon"
-                  [class.disabled]="!participant.mediaStatus.audioEnabled"
+                  ×
+                </button>
+                <!-- Admit from waiting room button -->
+                <button
+                  *ngIf="participant.inWaitingRoom"
+                  class="btn btn-small btn-primary admit-btn"
+                  (click)="admitPatientFromWaitingRoom(participant.id)"
+                  title="Admit from waiting room"
                 >
-                  🎤
-                </span>
+                  Admit
+                </button>
               </div>
             </div>
           </div>
@@ -289,6 +476,112 @@
           Session ID: {{ consultationState.consultationId }}
         </span>
       </div>
+    </div>
+  </div>
+
+  <!-- Add Participant Modal -->
+  <div
+    class="modal-overlay"
+    *ngIf="showAddParticipantModal"
+    (click)="closeAddParticipantModal()"
+  >
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add Participant</h3>
+        <button class="close-btn" (click)="closeAddParticipantModal()">
+          ×
+        </button>
+      </div>
+
+      <form class="modal-body" (ngSubmit)="submitAddParticipant()">
+        <div class="form-group">
+          <label for="participantRole">Role *</label>
+          <select
+            id="participantRole"
+            [(ngModel)]="newParticipant.role"
+            name="role"
+            class="form-control"
+            required
+          >
+            <option value="EXPERT">Expert</option>
+            <option value="GUEST">Guest</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="participantEmail">Email *</label>
+          <input
+            type="email"
+            id="participantEmail"
+            [(ngModel)]="newParticipant.email"
+            name="email"
+            class="form-control"
+            placeholder="participant@example.com"
+            required
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="participantFirstName">First Name *</label>
+            <input
+              type="text"
+              id="participantFirstName"
+              [(ngModel)]="newParticipant.firstName"
+              name="firstName"
+              class="form-control"
+              placeholder="John"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="participantLastName">Last Name *</label>
+            <input
+              type="text"
+              id="participantLastName"
+              [(ngModel)]="newParticipant.lastName"
+              name="lastName"
+              class="form-control"
+              placeholder="Doe"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="participantNotes">Notes</label>
+          <textarea
+            id="participantNotes"
+            [(ngModel)]="newParticipant.notes"
+            name="notes"
+            class="form-control"
+            rows="3"
+            placeholder="Optional notes about this participant..."
+          ></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="closeAddParticipantModal()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="
+              !newParticipant.email ||
+              !newParticipant.firstName ||
+              !newParticipant.lastName
+            "
+          >
+            Add Participant
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
