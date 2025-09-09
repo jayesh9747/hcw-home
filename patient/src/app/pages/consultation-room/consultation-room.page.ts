@@ -200,7 +200,7 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
    if (response?.redirectTo === 'waiting-room') {
     // Patient should be in waiting room, redirect
     this.showToast('Please wait to be admitted by the doctor', 'warning');
-    this.router.navigate([`/${RoutePaths.WaitingRoom.replace(':consultationId', this.consultationId.toString())}`]);
+    this.router.navigate([`/waiting-room/${this.consultationId}`]);
     return;
    }
 

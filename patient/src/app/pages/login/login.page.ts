@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject,effect,EffectRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, effect, EffectRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -27,6 +27,7 @@ import { HeaderComponent } from 'src/app/components/header/header.component';
 import { AuthService } from 'src/app/services/auth.service';
 import { lastValueFrom, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { RoutePaths } from 'src/app/constants/route-path.enum';
 
 
 
@@ -86,14 +87,14 @@ export class LoginPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     if (this.isLoggedIn()) {
-      if (!this.router.url.startsWith('/home')) {
-        void this.router.navigateByUrl('/home', { replaceUrl: true });
+      if (!this.router.url.startsWith(`/${RoutePaths.PatientDashboard}`)) {
+        void this.router.navigateByUrl(`/${RoutePaths.PatientDashboard}`, { replaceUrl: true });
       }
       return;
     }
     const queryParams = this.route.snapshot.queryParams;
     const token = queryParams['token'];
-    this.returnUrl = (queryParams['returnUrl'] as string) || '/home';
+    this.returnUrl = (queryParams['returnUrl'] as string) || `/${RoutePaths.PatientDashboard}`;
     const error = queryParams['error'];
 
     // Auto-login via token in query
@@ -102,7 +103,7 @@ export class LoginPage implements OnInit, OnDestroy {
       (async () => {
         try {
           await lastValueFrom(this.authService.loginMagic(String(token)));
-          if(this.authService.getCurrentUser()?.temporaryAccount){
+          if (this.authService.getCurrentUser()?.temporaryAccount) {
             await this.router.navigate(['/profile']);
           }
           await this.router.navigateByUrl(String(this.returnUrl || '/home'));

@@ -8,6 +8,7 @@ import {
 } from '@ionic/angular/standalone';
 import { ConsultationService, SubmitFeedbackRequest } from 'src/app/services/consultation.service';
 import { UserService } from 'src/app/services/user.service';
+import { RoutePaths } from 'src/app/constants/route-path.enum';
 @Component({
   standalone: true,
   selector: 'app-post-feedback',
@@ -87,7 +88,7 @@ export class PostConsultationFeedbackPage implements OnInit {
       await this.consultationService.submitFeedback(feedbackRequest, user.id).toPromise();
 
       await this.showToast('Thank you for your feedback!', 'success');
-      this.router.navigate(['/patient-dashboard']);
+      this.router.navigate([`/${RoutePaths.PatientDashboard}`]);
 
     } catch (error) {
       console.error('Error submitting feedback:', error);
@@ -98,7 +99,7 @@ export class PostConsultationFeedbackPage implements OnInit {
   }
 
   skipFeedback() {
-    this.router.navigate(['/patient-dashboard']);
+    this.router.navigate([`/${RoutePaths.PatientDashboard}`]);
   }
 
   private async showToast(message: string, color: 'success' | 'danger') {
