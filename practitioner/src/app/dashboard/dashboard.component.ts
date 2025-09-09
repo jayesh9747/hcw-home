@@ -21,7 +21,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   readonly RoutePaths = RoutePaths;
 
-  waitingConsultations = signal<WaitingRoomResponse | null>(null);
+  waitingConsultations = signal<ConsultationWithPatient[]>([]);
   openConsultations = signal<ConsultationWithPatient[]>([]);
   isInviting = signal(false);
   isLoading = signal(false);
@@ -113,17 +113,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
       {
         title: 'WAITING ROOM',
         description: 'Consultations waiting to be attended',
-        type: 'waiting' as const,
-        waitingData: this.waitingConsultations(),
-        consultations: [] as ConsultationWithPatient[],
+        consultations: this.waitingConsultations(),
         routerLink: RoutePaths.WaitingRoom,
         showInvite: true,
       },
       {
         title: 'OPEN CONSULTATIONS',
         description: 'Consultations in progress',
-        type: 'open' as const,
-        waitingData: null,
         consultations: this.openConsultations(),
         routerLink: RoutePaths.OpenConsultations,
         showInvite: false,

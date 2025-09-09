@@ -163,6 +163,25 @@ export class ConsultationService {
       );
   }
 
+  getWaitingRoomConsultations(practitionerId: number, page: number = 1, limit: number = 10): Observable<any> {
+    const params = new HttpParams()
+      .set('userId', practitionerId.toString())
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<any>(`${this.baseUrl}/waiting-room`, { params })
+      .pipe(
+        map((response) => {
+          return response?.data || {
+            success: true,
+            waitingRooms: [],
+            totalCount: 0,
+            totalPages: 0
+          };
+        })
+      );
+  }
+
   getOpenConsultations(): Observable<ConsultationWithPatient[]> {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
@@ -309,3 +328,4 @@ export class ConsultationService {
     );
   }
 }
+

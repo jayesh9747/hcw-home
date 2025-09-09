@@ -466,6 +466,15 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
 
  newMessage = '';
 
+ openChat() {
+  this.showChat = true;
+  this.unreadMessageCount = 0;
+ }
+
+ closeChat() {
+  this.showChat = false;
+ }
+
  formatMessageTime(timestamp: string): string {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

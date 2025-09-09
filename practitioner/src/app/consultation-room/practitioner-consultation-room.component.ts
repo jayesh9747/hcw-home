@@ -20,6 +20,10 @@ import { PractitionerChatComponent } from '../components/practitioner-chat/pract
   selector: 'app-practitioner-consultation-room',
   standalone: true,
   imports: [CommonModule, FormsModule, PractitionerChatComponent],
+=======
+  ConsultationEvent
+} from '../services/practitioner-consultation-room.service';
+
   templateUrl: './practitioner-consultation-room.component.html',
   styleUrls: ['./practitioner-consultation-room.component.scss']
 })
@@ -50,6 +54,7 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
   // UI state for notifications
   showNotifications = false;
   showEvents = false;
+
 
   // Enhanced chat properties
   typingUsers: TypingUser[] = [];
@@ -101,12 +106,18 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
     try {
       this.isLoading = true;
       this.error = null;
+
       this.consultationId = consultationId;
 
       console.log(`[PractitionerConsultationRoomComponent] Initializing consultation room: ${consultationId}`);
 
       // Setup service subscriptions first
       this.setupServiceSubscriptions();
+
+
+
+      console.log(`[PractitionerConsultationRoomComponent] Initializing consultation room: ${consultationId}`);
+
 
       await this.consultationRoomService.initializePractitionerConsultationRoom(consultationId, this.practitionerId);
 
@@ -129,8 +140,6 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
       .subscribe(state => {
         console.log(`[PractitionerConsultationRoomComponent] Consultation state update:`, state);
         this.consultationState = state;
-
-        // Show waiting room alert
         if (state.waitingRoomStatus.hasWaitingPatients) {
           this.showWaitingRoomAlert = true;
         }
@@ -248,6 +257,7 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
       .subscribe(showChat => {
         this.showChat = showChat;
       });
+
   }
 
   /**
@@ -399,6 +409,7 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
   }
 
   /**
+
    * Toggle video
    */
   async toggleVideo(): Promise<void> {

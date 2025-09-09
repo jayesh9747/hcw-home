@@ -55,6 +55,9 @@ export interface TypingUser {
   userId: number;
   userName: string;
   isTyping: boolean;
+  messageType: 'user' | 'system';
+  userName?: string;
+  isFromPractitioner?: boolean;
 }
 
 export interface ConsultationParticipant {
@@ -154,10 +157,12 @@ export class PractitionerConsultationRoomService {
   private chatMessagesSubject = new BehaviorSubject<ChatMessage[]>([]);
   private participantsSubject = new BehaviorSubject<ConsultationParticipant[]>([]);
 
+
   // Enhanced chat features
   private typingUsersSubject = new BehaviorSubject<TypingUser[]>([]);
   private unreadCountSubject = new BehaviorSubject<number>(0);
   private showChatSubject = new BehaviorSubject<boolean>(false);
+
 
   // Event subjects for real-time notifications
   private patientJoinedSubject = new Subject<any>();
@@ -208,6 +213,7 @@ export class PractitionerConsultationRoomService {
   get showChat$(): Observable<boolean> {
     return this.showChatSubject.asObservable();
   }
+
 
   get patientJoined$(): Observable<any> {
     return this.patientJoinedSubject.asObservable();
@@ -304,8 +310,7 @@ export class PractitionerConsultationRoomService {
    */
   private async initializeWebSocketConnections(consultationId: number, practitionerId: number): Promise<void> {
     try {
-      const wsBaseUrl = environment.socketUrl || environment.baseUrl || 'http://localhost:3000';
-
+      const wsBaseUrl = environment.apiUrl.replace('/api', '').replace('3000', '3001');
       // Initialize consultation WebSocket
       this.consultationSocket = io(`${wsBaseUrl}/consultation`, {
         transports: ['websocket'],
@@ -576,7 +581,7 @@ export class PractitionerConsultationRoomService {
       this.patientLeftSubject.next(data);
     });
 
-    // Enhanced consultation activation event
+
     this.consultationSocket.on('consultation_activated', (data) => {
       console.log(`[PractitionerConsultationRoomService] Consultation activated:`, data);
       this.updateConsultationState({
@@ -902,6 +907,7 @@ export class PractitionerConsultationRoomService {
         userName: msg.userName || 'Unknown',
         isFromPractitioner: msg.role === 'PRACTITIONER',
         readBy: msg.readBy || []
+
       })) || [];
 
       this.chatMessagesSubject.next(messages);
@@ -931,6 +937,7 @@ export class PractitionerConsultationRoomService {
         userName: data.userName || 'Unknown',
         isFromPractitioner: data.role === 'PRACTITIONER',
         readBy: data.readBy || []
+
       };
 
       this.chatMessagesSubject.next([...currentMessages, newMessage]);
@@ -994,6 +1001,7 @@ export class PractitionerConsultationRoomService {
         severity: 'warning'
       });
     });
+
 
     // Enhanced chat event listeners
     this.chatSocket.on('typing_indicator', (data) => {
@@ -1294,6 +1302,7 @@ export class PractitionerConsultationRoomService {
   }
 
   /**
+
    * Toggle media (video/audio)
    */
   async toggleMedia(mediaType: 'video' | 'audio', enabled: boolean): Promise<void> {
@@ -1503,17 +1512,13 @@ export class PractitionerConsultationRoomService {
         }
         break;
       case 'retry_connection':
-        // Implement retry logic
         this.reinitializeConnections();
         break;
       case 'navigate_dashboard':
-        // This should be handled by the component
         break;
       case 'show_waiting_room':
-        // This should be handled by the component
         break;
       case 'open_chat':
-        // This should be handled by the component
         break;
     }
   }

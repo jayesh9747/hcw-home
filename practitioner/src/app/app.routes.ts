@@ -65,6 +65,7 @@ export const routes: Routes = [
         component: PractitionerConsultationRoomComponent
       },
 
+
     ],
   },
   // Public routes
