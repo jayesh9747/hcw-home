@@ -568,4 +568,56 @@ export class ConfigService {
       return null;
     }
   }
+
+  // ===================================================================
+  // CHAT MODULE CONFIGURATION
+  // ===================================================================
+
+  get chatMaxFileSize(): number {
+    return this.getNumber('CHAT_MAX_FILE_SIZE_MB', 10) * 1024 * 1024; 
+  }
+
+  get chatMessageHistoryLimit(): number {
+    return this.getNumber('CHAT_MESSAGE_HISTORY_LIMIT', 50);
+  }
+
+  get chatTypingTimeoutMs(): number {
+    return this.getNumber('CHAT_TYPING_TIMEOUT_MS', 3000);
+  }
+
+  get chatTypingInactivityMs(): number {
+    return this.getNumber('CHAT_TYPING_INACTIVITY_MS', 5000);
+  }
+
+  get chatMessageEditTimeoutMinutes(): number {
+    return this.getNumber('CHAT_MESSAGE_EDIT_TIMEOUT_MINUTES', 5);
+  }
+
+  get chatAllowedFileTypes(): string[] {
+    const defaultTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    const envTypes = this.configService.get<string>('CHAT_ALLOWED_FILE_TYPES');
+    if (envTypes) {
+      return envTypes.split(',').map(type => type.trim());
+    }
+
+    return defaultTypes;
+  }
+
+  get chatFileUploadEnabled(): boolean {
+    return this.configService.get<boolean>('CHAT_FILE_UPLOAD_ENABLED', true);
+  }
+
+  get chatImageUploadEnabled(): boolean {
+    return this.configService.get<boolean>('CHAT_IMAGE_UPLOAD_ENABLED', true);
+  }
 }

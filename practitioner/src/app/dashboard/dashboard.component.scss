@@ -1,68 +1,462 @@
-.dashboard-content {
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f8f9fa;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.dashboard-status {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+  }
+
+  &.connected {
+    color: #28a745;
+    .status-dot {
+      background-color: #28a745;
+      animation: pulse 2s infinite;
+    }
+  }
+
+  &.disconnected {
+    color: #dc3545;
+    .status-dot {
+      background-color: #dc3545;
+    }
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.waiting-patients-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: #f8f9fa;
+  transition: all 0.3s ease;
+
+  &.has-patients {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+  }
+
+  .patient-count {
+    font-weight: 600;
+    font-size: 14px;
+  }
+}
+
+.notification-badge {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: bounce 0.5s ease-in-out;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #c82333;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes bounce {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audio-toggle-btn,
+.settings-btn,
+.test-audio-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #f8f9fa;
+  }
+}
+
+.audio-toggle-btn {
+  &.enabled {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+
+    &:hover {
+      background: #218838;
+      border-color: #1e7e34;
+    }
+  }
+
+  &.disabled {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+
+    &:hover {
+      background: #c82333;
+      border-color: #bd2130;
+    }
+  }
+}
+
+.settings-btn {
+  &.active {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+  }
+}
+
+.test-audio-btn {
+  padding: 6px 8px;
+
+  &:not(:disabled):hover {
+    background: #e3f2fd;
+    border-color: #2196f3;
+    color: #1976d2;
+  }
+}
+
+// AUDIO SETTINGS PANEL
+
+.audio-settings-panel {
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-top: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e9ecef;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 40px;
-    height: 100vh;
-    box-sizing: border-box;
     align-items: center;
     justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #f8f9fa;
+      color: #495057;
+    }
+  }
+}
+
+.settings-content {
+  padding: 20px 24px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0;
+  }
+
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    margin: 0 12px;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .volume-indicator {
+    font-size: 14px;
+    color: #6c757d;
+    min-width: 40px;
+    text-align: right;
+  }
+}
+
+.setting-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+
+  .test-btn {
+    padding: 8px 24px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+      background: #0056b3;
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.dashboard-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  flex: 1;
+  padding: 24px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+
+  app-consultation-card {
+    flex: 0 0 45%;
+    height: 50vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: center;
 
     app-consultation-card {
-        flex: 0 0 45%;
-        height: 50vh;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
+      width: 90%;
+      height: auto;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .dashboard-status {
+    gap: 16px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dashboard-controls {
+    gap: 8px;
+  }
+
+  .audio-settings-panel {
+    .settings-content {
+      padding: 16px;
     }
 
-    @media (max-width: 768px) {
-        flex-direction: column;
-        align-items: center;
+    .setting-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
 
-        app-consultation-card {
-            width: 90%;
-            height: auto;
-        }
+      input[type="range"] {
+        width: 100%;
+        margin: 8px 0;
+      }
     }
+  }
+}
+
+.dashboard-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 40px;
+  height: 100vh;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+
+  app-consultation-card {
+    flex: 0 0 45%;
+    height: 50vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: center;
+
+    app-consultation-card {
+      width: 90%;
+      height: auto;
+    }
+  }
 }
 
 .loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
 }
 
 .loading-content {
-    background: white;
-    padding: 30px;
-    border-radius: 8px;
-    text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 15px;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 15px;
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
+  0% {
+    transform: rotate(0deg);
+  }
 
-    100% {
-        transform: rotate(360deg);
-    }
+  100% {
+    transform: rotate(360deg);
+  }
 }

@@ -8,7 +8,8 @@ export enum RoutePaths {
   Test = 'test',
   Profile = 'profile',
   Availability = 'availability',
-  Login='login',
-  AcceptTerm='accept-term',
-  FogetPassword='forgot-password'
+  ConsultationRoom = 'consultation-room',
+  Login = 'login',
+  AcceptTerm = 'accept-term',
+  FogetPassword = 'forgot-password'
 }

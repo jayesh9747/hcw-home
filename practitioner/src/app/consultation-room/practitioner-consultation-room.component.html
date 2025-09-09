@@ -1,0 +1,587 @@
+<div class="practitioner-consultation-room">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <h3>Connecting to consultation...</h3>
+    <p>Please wait while we set up your consultation room</p>
+  </div>
+
+  <div *ngIf="error && !isLoading" class="error-container">
+    <div class="error-icon">⚠️</div>
+    <h3>Connection Error</h3>
+    <p>{{ error }}</p>
+    <button class="btn btn-primary" (click)="leaveConsultation()">
+      Back to Dashboard
+    </button>
+  </div>
+
+  <!-- Main Consultation Interface -->
+  <div *ngIf="!isLoading && !error" class="consultation-interface">
+    <!-- Header -->
+    <header class="consultation-header">
+      <div class="header-left">
+        <h2>Consultation Room</h2>
+        <div class="consultation-info">
+          <span
+            class="status-indicator"
+            [class]="consultationState?.sessionStatus"
+          >
+            {{ getSessionStatusText() }}
+          </span>
+          <div
+            class="connection-status-indicator"
+            [attr.data-status]="getConnectionStatusDisplay().color"
+          >
+            <span class="connection-icon">{{
+              getConnectionStatusDisplay().icon
+            }}</span>
+            <span class="connection-text">{{
+              getConnectionStatusDisplay().text
+            }}</span>
+          </div>
+          <span class="duration" *ngIf="consultationDuration">
+            {{ consultationDuration }}
+          </span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div
+          class="participant-count"
+          *ngIf="consultationState?.participantCount"
+        >
+          👥 {{ consultationState.participantCount }}
+        </div>
+
+        <!-- Notification Panel Toggle -->
+        <div class="notification-controls">
+          <button
+            class="btn btn-ghost notification-toggle"
+            (click)="toggleNotifications()"
+            [class.active]="showNotifications"
+            title="Show Notifications"
+          >
+            🔔
+            <span
+              class="notification-badge"
+              *ngIf="getUnreadNotificationCount() > 0"
+            >
+              {{ getUnreadNotificationCount() }}
+            </span>
+          </button>
+
+          <!-- Event History Toggle -->
+          <button
+            class="btn btn-ghost events-toggle"
+            (click)="toggleEvents()"
+            [class.active]="showEvents"
+            title="Show Event History"
+          >
+            📊
+            <span class="events-badge" *ngIf="events.length > 0">
+              {{ events.length }}
+            </span>
+          </button>
+        </div>
+
+        <button class="btn btn-danger" (click)="endConsultation()">
+          End Consultation
+        </button>
+        <button class="btn btn-secondary" (click)="leaveConsultation()">
+          Leave
+        </button>
+      </div>
+    </header>
+
+    <!-- Notification Panel -->
+    <div class="notification-panel" *ngIf="showNotifications">
+      <div class="panel-header">
+        <h3>🔔 Notifications</h3>
+        <div class="panel-actions">
+          <button
+            class="btn btn-small btn-secondary"
+            (click)="clearAllNotifications()"
+            *ngIf="notifications.length > 0"
+          >
+            Clear All
+          </button>
+          <button
+            class="btn btn-ghost close-btn"
+            (click)="toggleNotifications()"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div class="notification-list">
+        <div
+          class="notification-item"
+          *ngFor="let notification of notifications; trackBy: trackNotification"
+          [class]="'notification-' + notification.type"
+        >
+          <div class="notification-content">
+            <div class="notification-header">
+              <span class="notification-icon">{{
+                getNotificationIcon(notification.type)
+              }}</span>
+              <span class="notification-title">{{ notification.title }}</span>
+              <span class="notification-time">{{
+                formatTimestamp(notification.timestamp)
+              }}</span>
+              <button
+                class="btn btn-ghost notification-close"
+                (click)="clearNotification(notification.id)"
+              >
+                ×
+              </button>
+            </div>
+            <div class="notification-message">{{ notification.message }}</div>
+            <div
+              class="notification-actions"
+              *ngIf="notification.actions && notification.actions.length > 0"
+            >
+              <button
+                *ngFor="let action of notification.actions"
+                class="btn btn-small"
+                [class]="'btn-' + (action.style || 'primary')"
+                (click)="
+                  handleNotificationAction(action.action, action.data);
+                  clearNotification(notification.id)
+                "
+              >
+                {{ action.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="notifications.length === 0" class="no-notifications">
+          <div class="empty-state">
+            <span class="empty-icon">🔕</span>
+            <p>No notifications</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event History Panel -->
+    <div class="events-panel" *ngIf="showEvents">
+      <div class="panel-header">
+        <h3>📊 Event History</h3>
+        <div class="panel-actions">
+          <button class="btn btn-ghost close-btn" (click)="toggleEvents()">
+            ×
+          </button>
+        </div>
+      </div>
+
+      <div class="events-list">
+        <div
+          class="event-item"
+          *ngFor="let event of events; trackBy: trackEvent"
+          [class]="'event-' + event.severity"
+        >
+          <div class="event-content">
+            <div class="event-header">
+              <span class="event-icon">{{
+                getEventSeverityIcon(event.severity)
+              }}</span>
+              <span class="event-title">{{ event.title }}</span>
+              <span class="event-time">{{
+                formatTimestamp(event.timestamp)
+              }}</span>
+            </div>
+            <div class="event-description">{{ event.description }}</div>
+            <div class="event-type">{{ event.type }}</div>
+          </div>
+        </div>
+
+        <div *ngIf="events.length === 0" class="no-events">
+          <div class="empty-state">
+            <span class="empty-icon">📈</span>
+            <p>No events recorded</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waiting Room Alert -->
+    <div *ngIf="showWaitingRoomAlert" class="waiting-room-alert">
+      <div class="alert-content">
+        <div class="alert-icon">🚪</div>
+        <div class="alert-text">
+          <h4>Patient waiting in waiting room</h4>
+          <p *ngIf="consultationState?.waitingRoomStatus.waitingCount">
+            {{ consultationState.waitingRoomStatus.waitingCount }} patient(s)
+            waiting
+          </p>
+        </div>
+        <div class="alert-actions">
+          <button class="btn btn-primary" (click)="admitPatient()">
+            Admit Patient
+          </button>
+          <button class="btn btn-ghost" (click)="dismissWaitingRoomAlert()">
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="consultation-content">
+      <!-- Video Area -->
+      <div class="video-section">
+        <div class="video-container">
+          <!-- Local Video (Practitioner) -->
+          <div class="video-stream local-video">
+            <video #videoElement autoplay muted playsinline></video>
+            <div class="video-overlay">
+              <span class="participant-name">You (Dr.)</span>
+              <div class="video-controls-overlay">
+                <button
+                  class="video-control-btn"
+                  [class.active]="isVideoEnabled"
+                  (click)="toggleVideo()"
+                  [disabled]="!areMediaControlsEnabled()"
+                >
+                  {{ isVideoEnabled ? "📹" : "🚫📹" }}
+                </button>
+                <button
+                  class="video-control-btn"
+                  [class.active]="isAudioEnabled"
+                  (click)="toggleAudio()"
+                  [disabled]="!areMediaControlsEnabled()"
+                >
+                  {{ isAudioEnabled ? "🎤" : "🚫🎤" }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Remote Video (Patient) -->
+          <div
+            class="video-stream remote-video"
+            *ngIf="consultationState?.patientPresent"
+          >
+            <div class="patient-video-placeholder">
+              <div class="placeholder-content">
+                <div class="patient-avatar">👤</div>
+                <h4>{{ consultationState?.patientName || "Patient" }}</h4>
+                <p *ngIf="consultationState?.patientLanguage">
+                  Language: {{ consultationState.patientLanguage }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Waiting for Patient -->
+          <div
+            class="patient-waiting"
+            *ngIf="
+              !consultationState?.patientPresent &&
+              consultationState?.sessionStatus === 'waiting'
+            "
+          >
+            <div class="waiting-content">
+              <div class="waiting-icon">⏳</div>
+              <h3>Waiting for patient to join</h3>
+              <p>
+                The patient will appear here once they join the consultation
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Media Controls -->
+        <div class="media-controls">
+          <button
+            class="control-btn video-btn"
+            [class.active]="isVideoEnabled"
+            (click)="toggleVideo()"
+            [disabled]="!areMediaControlsEnabled()"
+          >
+            <span class="icon">{{ isVideoEnabled ? "📹" : "🚫📹" }}</span>
+            <span class="label">Video</span>
+          </button>
+
+          <button
+            class="control-btn audio-btn"
+            [class.active]="isAudioEnabled"
+            (click)="toggleAudio()"
+            [disabled]="!areMediaControlsEnabled()"
+          >
+            <span class="icon">{{ isAudioEnabled ? "🎤" : "🚫🎤" }}</span>
+            <span class="label">Audio</span>
+          </button>
+
+          <button
+            class="control-btn screen-btn"
+            [class.active]="isScreenSharing"
+            (click)="startScreenShare()"
+            [disabled]="!areMediaControlsEnabled()"
+          >
+            <span class="icon">🖥️</span>
+            <span class="label">Share Screen</span>
+          </button>
+
+          <button class="control-btn end-btn" (click)="endConsultation()">
+            <span class="icon">📞</span>
+            <span class="label">End Call</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <!-- Participants Panel -->
+        <div class="sidebar-panel participants-panel">
+          <div class="panel-header">
+            <h3>Participants ({{ participants.length }})</h3>
+            <button
+              class="btn btn-small btn-primary add-participant-btn"
+              (click)="openAddParticipantModal()"
+              [disabled]="!isConsultationActive()"
+              title="Add Expert or Guest"
+            >
+              + Add
+            </button>
+          </div>
+          <div class="participants-list">
+            <div
+              class="participant-item"
+              *ngFor="let participant of participants"
+            >
+              <div class="participant-avatar">
+                {{ participant.firstName?.charAt(0) || "?" }}
+              </div>
+              <div class="participant-info">
+                <div class="participant-name">
+                  {{ getParticipantName(participant) }}
+                </div>
+                <div class="participant-status">
+                  <span class="role" [class]="participant.role.toLowerCase()">
+                    {{ participant.role }}
+                  </span>
+                  <span class="status" [class.active]="participant.isActive">
+                    {{ participant.isActive ? "🟢 Active" : "⚫ Inactive" }}
+                  </span>
+                  <span class="waiting-room" *ngIf="participant.inWaitingRoom">
+                    🚪 Waiting
+                  </span>
+                </div>
+              </div>
+              <div class="participant-actions">
+                <div class="participant-media" *ngIf="participant.mediaStatus">
+                  <span
+                    class="media-icon"
+                    [class.disabled]="!participant.mediaStatus.videoEnabled"
+                  >
+                    📹
+                  </span>
+                  <span
+                    class="media-icon"
+                    [class.disabled]="!participant.mediaStatus.audioEnabled"
+                  >
+                    🎤
+                  </span>
+                </div>
+                <!-- Remove participant button (only for experts/guests, not patient/practitioner) -->
+                <button
+                  *ngIf="
+                    participant.role === 'EXPERT' ||
+                    participant.role === 'GUEST'
+                  "
+                  class="btn btn-small btn-danger remove-participant-btn"
+                  (click)="removeParticipant(participant.id)"
+                  title="Remove participant"
+                >
+                  ×
+                </button>
+                <!-- Admit from waiting room button -->
+                <button
+                  *ngIf="participant.inWaitingRoom"
+                  class="btn btn-small btn-primary admit-btn"
+                  (click)="admitPatientFromWaitingRoom(participant.id)"
+                  title="Admit from waiting room"
+                >
+                  Admit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Panel -->
+        <div class="sidebar-panel chat-panel">
+          <h3>Chat</h3>
+
+          <!-- Chat Messages -->
+          <div #chatContainer class="chat-messages">
+            <div
+              class="message"
+              *ngFor="let message of chatMessages"
+              [class.own-message]="message.isFromPractitioner"
+            >
+              <div class="message-header">
+                <span class="message-author">{{ message.userName }}</span>
+                <span class="message-time">{{
+                  formatMessageTime(message.createdAt)
+                }}</span>
+              </div>
+              <div class="message-content">{{ message.content }}</div>
+            </div>
+
+            <div *ngIf="chatMessages.length === 0" class="no-messages">
+              No messages yet. Start the conversation!
+            </div>
+          </div>
+
+          <!-- Chat Input -->
+          <div class="chat-input" *ngIf="isConsultationActive()">
+            <input
+              type="text"
+              [(ngModel)]="newMessage"
+              (keyup.enter)="sendMessage()"
+              placeholder="Type a message..."
+              class="message-input"
+            />
+            <button
+              class="send-btn"
+              (click)="sendMessage()"
+              [disabled]="!newMessage.trim()"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-left">
+        <span class="connection-status">
+          {{
+            consultationState?.isConnected ? "🟢 Connected" : "🔴 Disconnected"
+          }}
+        </span>
+        <span class="media-status" *ngIf="mediaSessionState?.canJoinMedia">
+          🎥 Media Ready
+        </span>
+      </div>
+
+      <div class="status-right">
+        <span class="session-info" *ngIf="consultationState?.consultationId">
+          Session ID: {{ consultationState.consultationId }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Participant Modal -->
+  <div
+    class="modal-overlay"
+    *ngIf="showAddParticipantModal"
+    (click)="closeAddParticipantModal()"
+  >
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add Participant</h3>
+        <button class="close-btn" (click)="closeAddParticipantModal()">
+          ×
+        </button>
+      </div>
+
+      <form class="modal-body" (ngSubmit)="submitAddParticipant()">
+        <div class="form-group">
+          <label for="participantRole">Role *</label>
+          <select
+            id="participantRole"
+            [(ngModel)]="newParticipant.role"
+            name="role"
+            class="form-control"
+            required
+          >
+            <option value="EXPERT">Expert</option>
+            <option value="GUEST">Guest</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="participantEmail">Email *</label>
+          <input
+            type="email"
+            id="participantEmail"
+            [(ngModel)]="newParticipant.email"
+            name="email"
+            class="form-control"
+            placeholder="participant@example.com"
+            required
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="participantFirstName">First Name *</label>
+            <input
+              type="text"
+              id="participantFirstName"
+              [(ngModel)]="newParticipant.firstName"
+              name="firstName"
+              class="form-control"
+              placeholder="John"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="participantLastName">Last Name *</label>
+            <input
+              type="text"
+              id="participantLastName"
+              [(ngModel)]="newParticipant.lastName"
+              name="lastName"
+              class="form-control"
+              placeholder="Doe"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="participantNotes">Notes</label>
+          <textarea
+            id="participantNotes"
+            [(ngModel)]="newParticipant.notes"
+            name="notes"
+            class="form-control"
+            rows="3"
+            placeholder="Optional notes about this participant..."
+          ></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="closeAddParticipantModal()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="
+              !newParticipant.email ||
+              !newParticipant.firstName ||
+              !newParticipant.lastName
+            "
+          >
+            Add Participant
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
