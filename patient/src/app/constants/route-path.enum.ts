@@ -13,7 +13,7 @@ export const RoutePaths = {
   WaitingRoom: 'waiting-room',
   ConsultationRoom: 'consultation-room',
   JoinConsultation: 'join-consultation',
-
+  payment: 'payment',
   // Terms and Legal Routes  
   AcceptTerm: 'accept-terms',
 

@@ -11,6 +11,8 @@ import { RoutePaths } from './constants/route-path.enum';
 import { AuthGuard } from './auth/guards/auth.guard';
 import { ProfileComponent } from './components/profile/profile.component';
 import { TermBoxComponent } from './components/term-box/term-box.component';
+import { PaymentPage } from './pages/payment/payment.page';
+
 export const routes: Routes = [
   {
     path: '',
@@ -55,6 +57,11 @@ export const routes: Routes = [
     path: RoutePaths.JoinConsultation,
     component: JoinConsultationPage,
     canActivate: [AuthGuard], 
+  },
+  {
+    path: RoutePaths.payment,
+    component: PaymentPage,
+    canActivate: [AuthGuard],
   },
   {
     path: 'join-consultation/:id',

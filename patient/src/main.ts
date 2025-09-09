@@ -8,6 +8,9 @@ import { addIcons } from 'ionicons';
 import { checkmarkCircleOutline, pulseOutline, timeOutline } from 'ionicons/icons';
 import { authInterceptor } from './app/auth/auth.interceptor';
 import { provideMarkdown } from 'ngx-markdown';
+import { importProvidersFrom } from '@angular/core';
+import { NgxStripeModule } from 'ngx-stripe';
+import { environment } from './environments/environment';
 
 addIcons({
   'pulse-outline': pulseOutline,
@@ -21,8 +24,10 @@ bootstrapApplication(AppComponent, {
     provideIonicAngular(),
     provideRouter(routes, withPreloading(PreloadAllModules)),
     provideHttpClient(withInterceptors([authInterceptor])),
-    provideMarkdown()
-
+    provideMarkdown(),
+    importProvidersFrom(
+      NgxStripeModule.forRoot(environment.stripePublishableKey)
+    )
 
   ],
 
