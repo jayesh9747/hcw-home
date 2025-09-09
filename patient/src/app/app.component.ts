@@ -20,9 +20,7 @@ export class AppComponent implements OnInit {
     // Fetch and store latest terms
     this.termService.getLatestTermAndStore().subscribe({
       next: (term) => {
-        if (term) {
-          console.log('Latest term stored successfully:', term);
-        } else {
+        if (!term){
           console.warn('No latest term found.');
         }
       },

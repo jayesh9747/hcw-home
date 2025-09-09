@@ -7,19 +7,15 @@ import {
   HttpStatus,
   Get,
   Body,
-  Query,
   Res,
-  Logger,
-  Next,
   Param,
   HttpException,
   ValidationPipe,
-  Patch
 } from '@nestjs/common';
 import passport from 'passport';
 import { AuthService } from './auth.service';
 import { PassportLocalGuard } from './guards/passport-local.guard';
-import {  LoginResponseDto, LoginUserDto } from './dto/login-user.dto';
+import { LoginResponseDto, LoginUserDto } from './dto/login-user.dto';
 import { ExtendedRequest } from 'src/types/request';
 import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { AuthGuard } from './guards/auth.guard';
@@ -29,7 +25,7 @@ import { Role } from './enums/role.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserResponseDto } from 'src/user/dto/user-response.dto';
-import { ApiResponse, ApiOperation,ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiResponse, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { RefreshTokenDto, TokenDto } from './dto/token.dto';
 import { registerUserSchema } from './validation/auth.validation';
@@ -39,7 +35,6 @@ import { AuthenticatedGuard } from './guards/authenticated.guard';
 import { CustomLoggerService } from 'src/logger/logger.service';
 import { TokenType } from '@prisma/client';
 import { MagicLinkGuard } from './guards/magic-link.guard';
-import { log } from 'console';
 import { updateUserSchema } from 'src/user/validation/user.validation';
 import { UpdateUserDto } from 'src/user/dto/update-user.dto';
 import { MagicLinkLoginDto } from './dto/magic-link-login.dto';
@@ -70,7 +65,7 @@ export class AuthController {
     );
     return ApiResponseDto.success(tokens, 'Successfully logged in', 200);
   }
-  
+
   // login user
   @ApiOperation({ summary: 'Login a user' })
   @ApiResponse({
@@ -241,13 +236,26 @@ export class AuthController {
           return res.redirect(
             `${redirectTo}/login?error=${encodeURIComponent(err.message || 'OIDCError')}`,
           );
-        }
-        const data = user as ApiResponseDto<LoginResponseDto>;
-        if (!data || !data.data || !data.data.tokens) {
+        }        
+        const data = user as LoginResponseDto;
+        if (!data || !data.user || !data.tokens) {
           this.logger.warn('User data or tokens not found in OIDC callback');
           return res.redirect(`${redirectTo}/login?error=UserDataNotFound`);
         }
-        const { accessToken, refreshToken } = data.data.tokens;
+        const { accessToken, refreshToken } = data.tokens; 
+        if (
+          data.user.password &&
+          data.user.password.startsWith('temp') &&
+          ReqRole === Role.PRACTITIONER
+        ) {
+          this.logger.log(`Redirecting to set-password for user ${data.user.email}`);
+
+          const finalRedirect = `${redirectTo}/login?mode=set-password&email=${encodeURIComponent(
+            data.user.email
+          )}&aT=${accessToken}&rT=${refreshToken}`;
+          return res.redirect(finalRedirect);
+        }
+
         const finalRedirect = `${redirectTo}/login?aT=${accessToken}&rT=${refreshToken}`;
         this.logger.log(`Redirecting to ${finalRedirect}`);
         return res.redirect(finalRedirect);
@@ -333,8 +341,6 @@ export class AuthController {
     @Req() req: ExtendedRequest,
   ) {
     const { username, password } = body;
-    console.log(body);
-
     if (!username || !password) {
       throw new HttpException(
         'Email and password are required',

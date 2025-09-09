@@ -1,4 +1,3 @@
-// Chayan Das  <01chayandas@gmail.com>
 
 import {
   Injectable,

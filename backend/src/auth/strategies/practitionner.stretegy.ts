@@ -5,7 +5,6 @@ import { Request } from 'express';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { OidcUserDto } from '../dto/oidc-user.dto';
 import { AuthService } from '../auth.service';
-import { ApiResponseDto } from 'src/common/helpers/response/api-response.dto';
 import { Role } from '../enums/role.enum';
 import { ConfigService } from 'src/config/config.service';
 import { CustomLoggerService } from 'src/logger/logger.service';
@@ -57,9 +56,7 @@ export class PractitionerStrategy extends PassportStrategy(OpenIDConnectStrategy
 
       const data = await this.authService.loginUserValidate(user);
       this.logger.log('User validated:');
-
-      const response = ApiResponseDto.success(data, "user-registration successful", 200);
-      return done(null, response);
+      return done(null, data);
     } catch (err) {
       return done(err, null);
     }

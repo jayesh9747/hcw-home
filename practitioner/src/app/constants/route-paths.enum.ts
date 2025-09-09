@@ -1,3 +1,4 @@
+
 export enum RoutePaths {
   Dashboard = 'dashboard',
   WaitingRoom = 'waiting-room',
@@ -8,8 +9,14 @@ export enum RoutePaths {
   Test = 'test',
   Profile = 'profile',
   Availability = 'availability',
+
+  Login='login',
+  AcceptTerm='accept-term',
+  FogetPassword='forgot-password',
+  SetPassword='set-password',
   ConsultationRoom = 'consultation-room',
   Login = 'login',
   AcceptTerm = 'accept-term',
   FogetPassword = 'forgot-password'
+
 }

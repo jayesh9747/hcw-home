@@ -1,4 +1,3 @@
-// Chayan Das <01chayandas@gmail.com>
 
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';

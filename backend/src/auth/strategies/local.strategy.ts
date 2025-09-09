@@ -2,12 +2,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-local';
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { AuthService } from '../auth.service';
-import { NIL } from 'uuid';
-import { User } from '@prisma/client';
-import { Role } from '../enums/role.enum';
 import { HttpExceptionHelper } from 'src/common/helpers/execption/http-exception.helper';
 import { CustomLoggerService } from 'src/logger/logger.service';
-import { log } from 'console';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
