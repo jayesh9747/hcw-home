@@ -6,7 +6,7 @@ import { ConsultationRequestPage } from './pages/consultation-request/consultati
 import { LoginPage } from './pages/login/login.page';
 import { WaitingRoomPage } from './pages/waiting-room/waiting-room.page';
 import { ConsultationRoomPage } from './pages/consultation-room/consultation-room.page';
-import { JoinConsultationPage } from './pages/join-consultation/join-consultation.page';
+import { JoinConsultationPage } from './pages/join-consultation/join-consultation.page.final';
 import { RoutePaths } from './constants/route-path.enum';
 import { AuthGuard } from './auth/guards/auth.guard';
 import { ProfileComponent } from './components/profile/profile.component';
@@ -54,16 +54,16 @@ export const routes: Routes = [
   {
     path: RoutePaths.JoinConsultation,
     component: JoinConsultationPage,
-    canActivate: [AuthGuard], 
+    canActivate: [AuthGuard],
   },
   {
     path: 'join-consultation/:id',
     component: JoinConsultationPage,
-    canActivate: [AuthGuard], 
+    canActivate: [AuthGuard],
   },
   {
     path: 'join-consultation/token/:token',
-    component: JoinConsultationPage, 
+    component: JoinConsultationPage,
   },
   // Terms and Legal Routes
   {

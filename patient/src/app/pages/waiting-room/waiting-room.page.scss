@@ -104,3 +104,12 @@
 .loading-container {
   animation: pulse 2s infinite;
 }
+
+/* Text color classes */
+.text-success {
+  color: var(--ion-color-success);
+}
+
+.text-warning {
+  color: var(--ion-color-warning);
+}
