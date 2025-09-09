@@ -10,13 +10,20 @@ import {
   ChatMessage,
   ConsultationParticipant,
   WebSocketNotification,
-  ConsultationEvent
+  ConsultationEvent,
+  TypingUser
 } from '../services/practitioner-consultation-room.service';
+
+import { PractitionerChatComponent } from '../components/practitioner-chat/practitioner-chat.component';
 
 @Component({
   selector: 'app-practitioner-consultation-room',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PractitionerChatComponent],
+=======
+  ConsultationEvent
+} from '../services/practitioner-consultation-room.service';
+
   templateUrl: './practitioner-consultation-room.component.html',
   styleUrls: ['./practitioner-consultation-room.component.scss']
 })
@@ -47,6 +54,13 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
   // UI state for notifications
   showNotifications = false;
   showEvents = false;
+
+
+  // Enhanced chat properties
+  typingUsers: TypingUser[] = [];
+  unreadMessageCount = 0;
+  showChat = false;
+  consultationId = 0;
 
   isVideoEnabled = false;
   isAudioEnabled = false;
@@ -93,7 +107,17 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
       this.isLoading = true;
       this.error = null;
 
+      this.consultationId = consultationId;
+
       console.log(`[PractitionerConsultationRoomComponent] Initializing consultation room: ${consultationId}`);
+
+      // Setup service subscriptions first
+      this.setupServiceSubscriptions();
+
+
+
+      console.log(`[PractitionerConsultationRoomComponent] Initializing consultation room: ${consultationId}`);
+
 
       await this.consultationRoomService.initializePractitionerConsultationRoom(consultationId, this.practitionerId);
 
@@ -116,8 +140,6 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
       .subscribe(state => {
         console.log(`[PractitionerConsultationRoomComponent] Consultation state update:`, state);
         this.consultationState = state;
-
-        // Show waiting room alert
         if (state.waitingRoomStatus.hasWaitingPatients) {
           this.showWaitingRoomAlert = true;
         }
@@ -216,6 +238,26 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
       .subscribe(status => {
         this.connectionStatus = status;
       });
+
+    // Enhanced chat subscriptions
+    this.consultationRoomService.typingUsers$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(typingUsers => {
+        this.typingUsers = typingUsers;
+      });
+
+    this.consultationRoomService.unreadCount$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(count => {
+        this.unreadMessageCount = count;
+      });
+
+    this.consultationRoomService.showChat$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(showChat => {
+        this.showChat = showChat;
+      });
+
   }
 
   /**
@@ -317,6 +359,57 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
   }
 
   /**
+   * Send chat message (for chat component integration)
+   */
+  async sendChatMessage(content: string): Promise<void> {
+    try {
+      await this.consultationRoomService.sendMessage(content, this.practitionerId);
+    } catch (error) {
+      console.error(`[PractitionerConsultationRoomComponent] Failed to send chat message:`, error);
+    }
+  }
+
+  /**
+   * Send file message
+   */
+  async sendFileMessage(file: File): Promise<void> {
+    try {
+      await this.consultationRoomService.sendFileMessage(file, this.practitionerId);
+    } catch (error) {
+      console.error(`[PractitionerConsultationRoomComponent] Failed to send file:`, error);
+    }
+  }
+
+  /**
+   * Start typing indicator
+   */
+  startTypingIndicator(): void {
+    this.consultationRoomService.startTypingIndicator(this.practitionerId, 'Practitioner');
+  }
+
+  /**
+   * Stop typing indicator
+   */
+  stopTypingIndicator(): void {
+    this.consultationRoomService.stopTypingIndicator(this.practitionerId, 'Practitioner');
+  }
+
+  /**
+   * Mark all messages as read
+   */
+  markAllMessagesAsRead(): void {
+    this.consultationRoomService.markAllMessagesAsRead(this.practitionerId);
+  }
+
+  /**
+   * Close chat
+   */
+  closeChat(): void {
+    this.consultationRoomService.toggleChatVisibility();
+  }
+
+  /**
+
    * Toggle video
    */
   async toggleVideo(): Promise<void> {

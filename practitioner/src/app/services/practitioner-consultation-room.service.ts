@@ -42,6 +42,19 @@ export interface ChatMessage {
   userId: number;
   content: string;
   createdAt: string;
+  messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
+  fileName?: string;
+  fileSize?: number;
+  filePath?: string;
+  userName?: string;
+  isFromPractitioner?: boolean;
+  readBy?: { userId: number; readAt: string }[];
+}
+
+export interface TypingUser {
+  userId: number;
+  userName: string;
+  isTyping: boolean;
   messageType: 'user' | 'system';
   userName?: string;
   isFromPractitioner?: boolean;
@@ -144,6 +157,13 @@ export class PractitionerConsultationRoomService {
   private chatMessagesSubject = new BehaviorSubject<ChatMessage[]>([]);
   private participantsSubject = new BehaviorSubject<ConsultationParticipant[]>([]);
 
+
+  // Enhanced chat features
+  private typingUsersSubject = new BehaviorSubject<TypingUser[]>([]);
+  private unreadCountSubject = new BehaviorSubject<number>(0);
+  private showChatSubject = new BehaviorSubject<boolean>(false);
+
+
   // Event subjects for real-time notifications
   private patientJoinedSubject = new Subject<any>();
   private patientLeftSubject = new Subject<any>();
@@ -180,6 +200,20 @@ export class PractitionerConsultationRoomService {
   get participants$(): Observable<ConsultationParticipant[]> {
     return this.participantsSubject.asObservable();
   }
+
+  // Enhanced chat observables
+  get typingUsers$(): Observable<TypingUser[]> {
+    return this.typingUsersSubject.asObservable();
+  }
+
+  get unreadCount$(): Observable<number> {
+    return this.unreadCountSubject.asObservable();
+  }
+
+  get showChat$(): Observable<boolean> {
+    return this.showChatSubject.asObservable();
+  }
+
 
   get patientJoined$(): Observable<any> {
     return this.patientJoinedSubject.asObservable();
@@ -277,7 +311,6 @@ export class PractitionerConsultationRoomService {
   private async initializeWebSocketConnections(consultationId: number, practitionerId: number): Promise<void> {
     try {
       const wsBaseUrl = environment.apiUrl.replace('/api', '').replace('3000', '3001');
-
       // Initialize consultation WebSocket
       this.consultationSocket = io(`${wsBaseUrl}/consultation`, {
         transports: ['websocket'],
@@ -546,6 +579,49 @@ export class PractitionerConsultationRoomService {
       });
 
       this.patientLeftSubject.next(data);
+    });
+
+
+    this.consultationSocket.on('consultation_activated', (data) => {
+      console.log(`[PractitionerConsultationRoomService] Consultation activated:`, data);
+      this.updateConsultationState({
+        sessionStatus: 'active',
+        consultationStartTime: new Date(),
+        isConnected: true
+      });
+
+      this.addNotification({
+        type: 'success',
+        title: '🎉 Consultation Active',
+        message: 'Consultation is now active and ready for participants',
+        duration: 3000
+      });
+
+      this.addEvent({
+        type: 'consultation_status_changed',
+        title: 'Consultation Activated',
+        description: 'Consultation session is now live',
+        severity: 'success',
+        data
+      });
+    });
+
+    this.consultationSocket.on('consultation_activated_response', (data) => {
+      if (data.success) {
+        console.log(`[PractitionerConsultationRoomService] Consultation activation successful`);
+        this.updateConsultationState({
+          sessionStatus: 'active',
+          isConnected: true
+        });
+      } else {
+        console.error(`[PractitionerConsultationRoomService] Consultation activation failed:`, data.error);
+        this.addNotification({
+          type: 'error',
+          title: 'Activation Failed',
+          message: data.error || 'Failed to activate consultation',
+          duration: 5000
+        });
+      }
     });
 
     // Consultation state events
@@ -824,9 +900,14 @@ export class PractitionerConsultationRoomService {
         userId: msg.userId,
         content: msg.content,
         createdAt: msg.createdAt,
-        messageType: 'user',
+        messageType: msg.messageType || 'TEXT',
+        fileName: msg.fileName,
+        fileSize: msg.fileSize,
+        filePath: msg.filePath,
         userName: msg.userName || 'Unknown',
-        isFromPractitioner: msg.role === 'PRACTITIONER'
+        isFromPractitioner: msg.role === 'PRACTITIONER',
+        readBy: msg.readBy || []
+
       })) || [];
 
       this.chatMessagesSubject.next(messages);
@@ -849,9 +930,14 @@ export class PractitionerConsultationRoomService {
         userId: data.userId,
         content: data.content,
         createdAt: data.createdAt || new Date().toISOString(),
-        messageType: 'user',
+        messageType: data.messageType || 'TEXT',
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        filePath: data.filePath,
         userName: data.userName || 'Unknown',
-        isFromPractitioner: data.role === 'PRACTITIONER'
+        isFromPractitioner: data.role === 'PRACTITIONER',
+        readBy: data.readBy || []
+
       };
 
       this.chatMessagesSubject.next([...currentMessages, newMessage]);
@@ -914,6 +1000,54 @@ export class PractitionerConsultationRoomService {
         description: 'Chat WebSocket disconnected',
         severity: 'warning'
       });
+    });
+
+
+    // Enhanced chat event listeners
+    this.chatSocket.on('typing_indicator', (data) => {
+      const currentTyping = this.typingUsersSubject.value;
+      let updatedTyping: TypingUser[];
+
+      if (data.isTyping) {
+        // Add user to typing list if not already there
+        if (!currentTyping.find(user => user.userId === data.userId)) {
+          updatedTyping = [...currentTyping, {
+            userId: data.userId,
+            userName: data.userName || 'Unknown',
+            isTyping: true
+          }];
+        } else {
+          updatedTyping = currentTyping;
+        }
+      } else {
+        // Remove user from typing list
+        updatedTyping = currentTyping.filter(user => user.userId !== data.userId);
+      }
+
+      this.typingUsersSubject.next(updatedTyping);
+    });
+
+    this.chatSocket.on('message_read', (data) => {
+      const currentMessages = this.chatMessagesSubject.value;
+      const updatedMessages = currentMessages.map(message => {
+        if (message.id === data.messageId) {
+          return {
+            ...message,
+            readBy: [...(message.readBy || []), {
+              userId: data.userId,
+              readAt: data.readAt
+            }]
+          };
+        }
+        return message;
+      });
+
+      this.chatMessagesSubject.next(updatedMessages);
+    });
+
+    this.chatSocket.on('file_upload_progress', (data) => {
+      // Handle file upload progress if needed
+      console.log('File upload progress:', data);
     });
   }
 
@@ -1056,6 +1190,119 @@ export class PractitionerConsultationRoomService {
   }
 
   /**
+   * Send file message
+   */
+  async sendFileMessage(file: File, practitionerId: number): Promise<void> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('consultationId', this.consultationStateSubject.value.consultationId.toString());
+      formData.append('userId', practitionerId.toString());
+      formData.append('role', 'PRACTITIONER');
+
+      const response = await this.http.post(`${environment.apiUrl}/chat/upload`, formData).toPromise();
+      console.log(`[PractitionerConsultationRoomService] File sent:`, response);
+    } catch (error) {
+      console.error(`[PractitionerConsultationRoomService] Failed to send file:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Start typing indicator
+   */
+  startTypingIndicator(practitionerId: number, practitionerName: string): void {
+    if (!this.chatSocket) return;
+
+    const consultationId = this.consultationStateSubject.value.consultationId;
+    this.chatSocket.emit('typing', {
+      consultationId,
+      userId: practitionerId,
+      userName: practitionerName,
+      isTyping: true
+    });
+  }
+
+  /**
+   * Stop typing indicator
+   */
+  stopTypingIndicator(practitionerId: number, practitionerName: string): void {
+    if (!this.chatSocket) return;
+
+    const consultationId = this.consultationStateSubject.value.consultationId;
+    this.chatSocket.emit('typing', {
+      consultationId,
+      userId: practitionerId,
+      userName: practitionerName,
+      isTyping: false
+    });
+  }
+
+  /**
+   * Mark message as read
+   */
+  markMessageAsRead(messageId: number, practitionerId: number): void {
+    if (!this.chatSocket) return;
+
+    const consultationId = this.consultationStateSubject.value.consultationId;
+    this.chatSocket.emit('read_message', {
+      consultationId,
+      messageId,
+      userId: practitionerId
+    });
+  }
+
+  /**
+   * Mark all messages as read
+   */
+  markAllMessagesAsRead(practitionerId: number): void {
+    const messages = this.chatMessagesSubject.value;
+    messages.forEach(message => {
+      if (!message.readBy?.find(r => r.userId === practitionerId)) {
+        this.markMessageAsRead(message.id, practitionerId);
+      }
+    });
+    this.unreadCountSubject.next(0);
+  }
+
+  /**
+   * Toggle chat visibility
+   */
+  toggleChatVisibility(): void {
+    const currentState = this.showChatSubject.value;
+    this.showChatSubject.next(!currentState);
+  }
+
+  /**
+   * Update unread count
+   */
+  updateUnreadCount(count: number): void {
+    this.unreadCountSubject.next(count);
+  }
+
+  /**
+   * Activate consultation (move from WAITING to ACTIVE)
+   */
+  async activateConsultation(consultationId: number, practitionerId: number): Promise<void> {
+    try {
+      if (!this.consultationSocket) {
+        throw new Error('Consultation socket not connected');
+      }
+
+      this.consultationSocket.emit('activate_consultation', {
+        consultationId,
+        practitionerId
+      });
+
+      console.log(`[PractitionerConsultationRoomService] Consultation activation requested: ${consultationId}`);
+    } catch (error) {
+      console.error(`[PractitionerConsultationRoomService] Failed to activate consultation:`, error);
+      throw error;
+    }
+  }
+
+  /**
+
    * Toggle media (video/audio)
    */
   async toggleMedia(mediaType: 'video' | 'audio', enabled: boolean): Promise<void> {
@@ -1265,17 +1512,13 @@ export class PractitionerConsultationRoomService {
         }
         break;
       case 'retry_connection':
-        // Implement retry logic
         this.reinitializeConnections();
         break;
       case 'navigate_dashboard':
-        // This should be handled by the component
         break;
       case 'show_waiting_room':
-        // This should be handled by the component
         break;
       case 'open_chat':
-        // This should be handled by the component
         break;
     }
   }

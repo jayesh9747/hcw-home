@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { CreateMessageDto } from './dto/create-message.dto';
+import { CreateMessageDto, MessageType } from './dto/create-message.dto';
 import { ReadMessageDto } from './dto/read-message.dto';
 import { StorageService } from 'src/storage/storage.service';
 import { ConfigService } from 'src/config/config.service';
@@ -24,19 +24,29 @@ export class ChatService {
     try {
       let mediaUrl: string | undefined;
       let mediaType: string | undefined;
+      let fileName: string | undefined;
+      let fileSize: number | undefined;
+      let messageType = data.messageType || MessageType.TEXT;
 
       if (file) {
         this.validateFile(file);
 
         mediaUrl = await this.storageService.uploadFile(file);
         mediaType = file.mimetype;
+        fileName = file.originalname;
+        fileSize = file.size;
+
+        if (file.mimetype.startsWith('image/')) {
+          messageType = MessageType.IMAGE;
+        } else {
+          messageType = MessageType.FILE;
+        }
 
         this.logger.log(`File uploaded for message: ${mediaUrl}`);
       }
 
       await this.verifyConsultationAccess(data.userId, data.consultationId);
 
-      // Create message with read receipt for sender
       const message = await this.prisma.message.create({
         data: {
           userId: data.userId,
@@ -45,6 +55,9 @@ export class ChatService {
           clientUuid: data.clientUuid,
           mediaUrl: mediaUrl || data.mediaUrl,
           mediaType: mediaType || data.mediaType,
+          messageType,
+          fileName: fileName || data.fileName,
+          fileSize: fileSize || data.fileSize,
           readReceipts: {
             create: {
               userId: data.userId,
@@ -76,7 +89,7 @@ export class ChatService {
       });
 
       this.logger.log(
-        `Message created: ID ${message.id}, User ${data.userId}, Consultation ${data.consultationId}`,
+        `Message created: ID ${message.id}, User ${data.userId}, Consultation ${data.consultationId}, Type: ${messageType}`,
       );
 
       return message;
@@ -88,7 +101,7 @@ export class ChatService {
 
   async getMessages(
     consultationId: number,
-    limit: number = 50,
+    limit: number = this.configService.chatMessageHistoryLimit,
     offset: number = 0,
   ) {
     try {
@@ -142,7 +155,6 @@ export class ChatService {
         throw new NotFoundException('Message not found or access denied');
       }
 
-      // Verify user has access to consultation
       await this.verifyConsultationAccess(data.userId, data.consultationId);
 
       // Create or update read receipt
@@ -191,7 +203,6 @@ export class ChatService {
     try {
       await this.verifyConsultationAccess(userId, consultationId);
 
-      // Verify all messages belong to the consultation
       const messageCount = await this.prisma.message.count({
         where: {
           id: { in: messageIds },
@@ -296,11 +307,138 @@ export class ChatService {
         consultationId,
         content,
         isSystem: true,
+        messageType: MessageType.SYSTEM,
         userId: 0, // A user ID of 0 can represent the system
         clientUuid: 'system-message',
       },
     });
     return message;
+  }
+
+  /**
+   * Get consultation participants for read receipts
+   */
+  async getConsultationParticipants(consultationId: number) {
+    try {
+      const participants = await this.prisma.participant.findMany({
+        where: { consultationId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+            },
+          },
+        },
+      });
+
+      return participants.map(p => p.user);
+    } catch (error) {
+      this.logger.error('Failed to get consultation participants:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark all messages as read for a user in a consultation
+   */
+  async markAllMessagesAsReadForUser(
+    userId: number,
+    consultationId: number,
+  ) {
+    try {
+      await this.verifyConsultationAccess(userId, consultationId);
+
+      // Get all unread messages for this user in the consultation
+      const unreadMessages = await this.prisma.message.findMany({
+        where: {
+          consultationId,
+          userId: { not: userId }, // Don't mark own messages
+          readReceipts: {
+            none: {
+              userId,
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      if (unreadMessages.length === 0) {
+        return [];
+      }
+
+      // Create read receipts for all unread messages
+      const readReceiptsData = unreadMessages.map(msg => ({
+        messageId: msg.id,
+        userId,
+        readAt: new Date(),
+      }));
+
+      const readReceipts = await this.prisma.messageReadReceipt.createMany({
+        data: readReceiptsData,
+        skipDuplicates: true,
+      });
+
+      this.logger.log(
+        `Marked ${unreadMessages.length} messages as read for user ${userId} in consultation ${consultationId}`,
+      );
+
+      return readReceipts;
+    } catch (error) {
+      this.logger.error('Failed to mark all messages as read:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get typing users for a consultation
+   */
+  private typingUsers = new Map<string, {
+    userId: number;
+    consultationId: number;
+    userName: string;
+    timeout: NodeJS.Timeout;
+  }>();
+
+  setUserTyping(userId: number, consultationId: number, userName: string): void {
+    const key = `${userId}-${consultationId}`;
+
+    // Clear existing timeout
+    const existing = this.typingUsers.get(key);
+    if (existing?.timeout) {
+      clearTimeout(existing.timeout);
+    }
+
+    // Set new timeout (user stops typing after configured inactivity period)
+    const timeout = setTimeout(() => {
+      this.typingUsers.delete(key);
+    }, this.configService.chatTypingInactivityMs);
+
+    this.typingUsers.set(key, {
+      userId,
+      consultationId,
+      userName,
+      timeout,
+    });
+  }
+
+  setUserStoppedTyping(userId: number, consultationId: number): void {
+    const key = `${userId}-${consultationId}`;
+    const existing = this.typingUsers.get(key);
+
+    if (existing?.timeout) {
+      clearTimeout(existing.timeout);
+    }
+
+    this.typingUsers.delete(key);
+  }
+
+  getTypingUsers(consultationId: number): Array<{ userId: number; userName: string }> {
+    return Array.from(this.typingUsers.values())
+      .filter(user => user.consultationId === consultationId)
+      .map(user => ({ userId: user.userId, userName: user.userName }));
   }
 
   async deleteMessage(
@@ -360,10 +498,11 @@ export class ChatService {
         throw new NotFoundException('Message not found or access denied');
       }
 
-      // Check if message is too old to edit (e.g., older than 5 minutes)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      if (message.createdAt < fiveMinutesAgo) {
-        throw new BadRequestException('Message is too old to edit');
+      // Check if message is too old to edit (configurable timeout)
+      const editTimeoutMs = this.configService.chatMessageEditTimeoutMinutes * 60 * 1000;
+      const editDeadline = new Date(Date.now() - editTimeoutMs);
+      if (message.createdAt < editDeadline) {
+        throw new BadRequestException(`Message is too old to edit (limit: ${this.configService.chatMessageEditTimeoutMinutes} minutes)`);
       }
 
       const updatedMessage = await this.prisma.message.update({

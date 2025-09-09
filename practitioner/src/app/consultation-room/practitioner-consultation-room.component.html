@@ -412,6 +412,22 @@
           </div>
         </div>
 
+
+        <app-practitioner-chat
+          [messages]="chatMessages"
+          [consultationId]="consultationId"
+          [practitionerId]="practitionerId"
+          [practitionerName]="'Practitioner'"
+          [isVisible]="true"
+          [unreadCount]="unreadMessageCount"
+          [typingUsers]="typingUsers"
+          (sendMessage)="sendChatMessage($event)"
+          (sendFile)="sendFileMessage($event)"
+          (markAllRead)="markAllMessagesAsRead()"
+          (startTyping)="startTypingIndicator()"
+          (stopTyping)="stopTypingIndicator()"
+        ></app-practitioner-chat>
+
         <!-- Chat Panel -->
         <div class="sidebar-panel chat-panel">
           <h3>Chat</h3>

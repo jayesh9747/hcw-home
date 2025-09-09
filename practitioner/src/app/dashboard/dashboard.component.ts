@@ -8,6 +8,7 @@ import { ConsultationWithPatient } from '../dtos';
 import { DashboardWebSocketService } from '../services/dashboard-websocket.service';
 import { Subject, takeUntil } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { WaitingRoomResponse } from '../dtos';
 
 @Component({
   selector: 'app-dashboard',

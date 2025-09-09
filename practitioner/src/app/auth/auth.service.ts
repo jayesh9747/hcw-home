@@ -1,10 +1,10 @@
 import { Injectable, computed, signal } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
-import { map, switchMap } from "rxjs/operators";
+import { map, switchMap, catchError } from "rxjs/operators";
 
 import { Router } from "@angular/router";
 import { environment } from "../../environments/environment";
-import { LoginUser,UpdateUserProfileDto,ApiResponse,User } from "../models/user.model";
+import { LoginUser, UpdateUserProfileDto, ApiResponse, User } from "../models/user.model";
 import { Observable, throwError } from "rxjs";
 
 @Injectable({ providedIn: "root" })
@@ -109,6 +109,11 @@ export class AuthService {
   refreshToken() {
     const rToken = this.getrefreshToken();
 
+    if (!rToken) {
+      this.logout();
+      return throwError(() => new Error('No refresh token available'));
+    }
+
     return this.http.post<any>(`${this.baseurl}/refresh-token`, { refreshToken: rToken }).pipe(
       map(res => {
         if (res.data?.accessToken) {
@@ -120,14 +125,33 @@ export class AuthService {
           const updatedUser: LoginUser = {
             ...currentUser,
             accessToken: res.data.accessToken,
+            refreshToken: res.data.refreshToken || rToken, // Use new refresh token if provided
           };
 
           this.storeCurrentUser(updatedUser);
+          console.log('Token refreshed successfully');
 
           return updatedUser;
         } else {
           throw new Error('[AuthService] No access token found in refresh response');
         }
+      }),
+      // Enhanced error handling for token refresh failures
+      catchError((error: any) => {
+        console.error('Token refresh failed:', error);
+
+        if (error.status === 401 || error.status === 403) {
+          // Auth error - logout immediately
+          this.logout();
+        } else if (error.status === 0 || error.status >= 500) {
+          // Network or server error - don't logout immediately, let interceptor handle retry
+          console.warn('Network/server error during token refresh - will retry');
+        } else {
+          // Other errors - logout for safety
+          this.logout();
+        }
+
+        return throwError(() => error);
       })
     );
   }
@@ -139,9 +163,9 @@ export class AuthService {
 
 
 
-  updatePassword(password:string,username:string){
-    return this.http.post<any>(`${this.baseurl}/update-password`,{password:password, username:username}).pipe(
-      map(res=>{return res.data})
+  updatePassword(password: string, username: string) {
+    return this.http.post<any>(`${this.baseurl}/update-password`, { password: password, username: username }).pipe(
+      map(res => { return res.data })
     )
   }
   updateProfile(updateData: UpdateUserProfileDto): Observable<User> {

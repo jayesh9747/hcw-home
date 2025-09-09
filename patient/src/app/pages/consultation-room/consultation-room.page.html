@@ -225,4 +225,20 @@
       </ion-footer>
     </ng-template>
   </ion-modal>
+  <!-- Enhanced Chat Component -->
+  <app-patient-chat
+    [messages]="chatMessages"
+    [consultationId]="consultationId"
+    [patientId]="patientId"
+    [patientName]="'Patient'"
+    [isVisible]="showChat"
+    [unreadCount]="unreadMessageCount"
+    [typingUsers]="typingUsers"
+    (sendMessage)="sendChatMessage($event)"
+    (sendFile)="sendFileMessage($event)"
+    (markAllRead)="markAllMessagesAsRead()"
+    (startTyping)="startTypingIndicator()"
+    (stopTyping)="stopTypingIndicator()"
+    (closeChat)="closeChat()"
+  ></app-patient-chat>
 </ion-content>

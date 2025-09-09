@@ -120,29 +120,48 @@ export class ConsultationService {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
         const params = new HttpParams()
-        .set('userId', user.id.toString())
-        .set('page', page.toString())
-        .set('limit', limit.toString())
-        .set('sortOrder', sortOrder);
+          .set('userId', user.id.toString())
+          .set('page', page.toString())
+          .set('limit', limit.toString())
+          .set('sortOrder', sortOrder);
 
         return this.http
           .get<any>(`${this.baseUrl}/waiting-room`, { params })
           .pipe(
             map((response) => ({
-              success: response.data.success,           
-              statusCode: response.data.statusCode,     
-              message: response.data.message,      
+              success: response.data.success,
+              statusCode: response.data.statusCode,
+              message: response.data.message,
               waitingRooms: response.data.waitingRooms || [],
               totalCount: response.data.totalCount || 0,
               currentPage: response.data.currentPage || 1,
               totalPages: response.data.totalPages || 1,
-              timestamp: response.timestamp       
+              timestamp: response.timestamp
             }))
           );
       })
     );
   }
-  
+
+
+  getWaitingRoomConsultations(practitionerId: number, page: number = 1, limit: number = 10): Observable<any> {
+    const params = new HttpParams()
+      .set('userId', practitionerId.toString())
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<any>(`${this.baseUrl}/waiting-room`, { params })
+      .pipe(
+        map((response) => {
+          return response?.data || {
+            success: true,
+            waitingRooms: [],
+            totalCount: 0,
+            totalPages: 0
+          };
+        })
+      );
+  }
 
   getWaitingRoomConsultations(practitionerId: number, page: number = 1, limit: number = 10): Observable<any> {
     const params = new HttpParams()
@@ -184,7 +203,7 @@ export class ConsultationService {
       })
     );
   }
-  
+
   private convertWaitingRoomToConsultationWithPatient(
     item: WaitingRoomItem,
     practitionerId: number
@@ -268,7 +287,7 @@ export class ConsultationService {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
         const params = new HttpParams().set('userId', user.id.toString());
-        
+
         // Map frontend satisfaction values to backend enum values
         let mappedSatisfaction: 'SATISFIED' | 'NEUTRAL' | 'DISSATISFIED' | undefined;
         if (feedbackData.satisfaction === 'SATISFIED') {
@@ -300,7 +319,7 @@ export class ConsultationService {
     return this.userService.getCurrentUser().pipe(
       switchMap(user => {
         const params = new HttpParams().set('userId', user.id.toString());
-        
+
         return this.http.get<FeedbackApiResponse>(
           `${this.baseUrl}/${consultationId}/feedback`,
           { params }

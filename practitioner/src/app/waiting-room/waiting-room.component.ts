@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { WaitingRoomResponse, WaitingRoomItem } from '../dtos/consultations/consultation-dashboard-response.dto';
 import { Subject, takeUntil } from 'rxjs';
 import { ConsultationService } from '../services/consultations/consultation.service';
 import { DashboardWebSocketService, WaitingRoomNotification } from '../services/dashboard-websocket.service';
@@ -224,8 +225,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
         queryParams: { practitionerId: this.practitionerId }
       });
     } catch (error) {
-      console.error('Error entering consultation:', error);
-      this.error = 'Failed to enter consultation';
+      console.error('Navigation error:', error);
     }
   }
 
