@@ -4,11 +4,10 @@ import { ConsultationCardComponent } from '../components/consultations-card/cons
 import { InviteFormComponent } from '../components/invite-form/invite-form.component';
 import { RoutePaths } from '../constants/route-paths.enum';
 import { ConsultationService, CreatePatientConsultationRequest } from '../services/consultations/consultation.service';
-import { ConsultationWithPatient } from '../dtos';
+import { ConsultationWithPatient, WaitingRoomResponse } from '../dtos';
 import { DashboardWebSocketService } from '../services/dashboard-websocket.service';
 import { Subject, takeUntil } from 'rxjs';
 import { FormsModule } from '@angular/forms';
-import { WaitingRoomResponse } from '../dtos';
 
 @Component({
   selector: 'app-dashboard',
@@ -88,7 +87,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (data) => {
           console.log('Waiting consultations received:', data);
-          this.waitingConsultations.set(data);
+          this.waitingConsultations.set(data.data || []);
         },
         error: (error) => {
           console.error('Error fetching waiting consultations:', error);
@@ -108,6 +107,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
   }
 
+  private mapToWaitingRoomResponse(consultations: ConsultationWithPatient[]): WaitingRoomResponse {
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Mapped consultations',
+      waitingRooms: consultations.map(consultation => ({
+        id: consultation.consultation.id,
+        patientInitials: consultation.patient.initials,
+        joinTime: consultation.consultation.startedAt ? new Date(consultation.consultation.startedAt) : null,
+        language: 'English', // Default or derived value
+        queuePosition: 1, // Placeholder, update as needed
+        estimatedWaitTime: '5 mins', // Placeholder, update as needed
+      })),
+      totalCount: consultations.length,
+      currentPage: 1,
+      totalPages: 1,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   cards = computed(() => {
     const cards = [
       {
@@ -116,6 +135,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         consultations: this.waitingConsultations(),
         routerLink: RoutePaths.WaitingRoom,
         showInvite: true,
+        type: 'waiting',
+        waitingData: this.waitingConsultations() ? this.mapToWaitingRoomResponse(this.waitingConsultations()) : null,
       },
       {
         title: 'OPEN CONSULTATIONS',
@@ -123,6 +144,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         consultations: this.openConsultations(),
         routerLink: RoutePaths.OpenConsultations,
         showInvite: false,
+        type: 'open', // Added type property
+        waitingData: null, // Added waitingData property
       },
     ];
     console.log('Cards computed:', cards);
@@ -206,9 +229,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /**
    * Update audio volume
    */
-  updateVolume(volume: number): void {
-    this.audioVolume.set(volume);
-    this.dashboardWebSocketService.setAudioVolume(volume);
+  updateVolume(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const value = parseFloat(input.value);
+    this.audioVolume.set(isNaN(value) ? 0 : value);
+    this.dashboardWebSocketService.setAudioVolume(this.audioVolume());
   }
 
   /**

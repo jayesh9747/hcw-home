@@ -1,3 +1,5 @@
+
+
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -6,14 +8,6 @@ import { Subject, takeUntil } from 'rxjs';
 import { ConsultationService } from '../services/consultations/consultation.service';
 import { DashboardWebSocketService, WaitingRoomNotification } from '../services/dashboard-websocket.service';
 
-interface WaitingRoomItem {
-  id: number;
-  patientInitials: string;
-  joinTime: string | null;
-  language: string | null;
-  queuePosition: number;
-  estimatedWaitTime: string;
-}
 
 @Component({
   selector: 'app-waiting-room',
@@ -23,9 +17,30 @@ interface WaitingRoomItem {
   styleUrls: ['./waiting-room.component.scss']
 })
 export class WaitingRoomComponent implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
-  private practitionerId: number = 1;
+  // ...existing properties...
 
+  // Placeholder for real-time status
+  isRealTimeActive(): boolean {
+    // Implement actual logic as needed
+    return true;
+  }
+
+  getConnectionStatus(): string {
+    // Implement actual logic as needed
+    return this.isRealTimeActive() ? 'Connected' : 'Offline';
+  }
+
+  reconnectWebSocket(): void {
+    // Implement actual reconnection logic as needed
+    this.initializeDashboardWebSocket();
+  }
+
+  getStatusMessage(): string {
+    // Implement actual logic as needed
+    return this.error || (this.isRealTimeActive() ? 'Connected' : 'Offline');
+  }
+  private destroy$ = new Subject<void>();
+  practitionerId: number = 1;
   waitingRoomItems: WaitingRoomItem[] = [];
   isLoading = true;
   error: string | null = null;
@@ -51,6 +66,52 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Format join time for display
+   */
+  getJoinTimeFormatted(joinTime: Date | null): string {
+    if (!joinTime) return '';
+    return joinTime.toLocaleString();
+  }
+
+  /**
+   * Check if consultation is stale (e.g., waiting too long)
+   */
+  isConsultationStale(joinTime: Date | null): boolean {
+    if (!joinTime) return false;
+    const now = new Date();
+    const diffMins = Math.floor((now.getTime() - joinTime.getTime()) / 60000);
+    return diffMins > 30; // Mark as stale if waiting more than 30 minutes
+  }
+
+  /**
+   * Get queue status for a waiting room entry
+   */
+  getQueueStatus(entry: WaitingRoomItem): string {
+    return entry.queuePosition === 1 ? 'Next' : `#${entry.queuePosition}`;
+  }
+
+  /**
+   * Get estimated wait time for a waiting room entry
+   */
+  getEstimatedWaitTime(entry: WaitingRoomItem): string {
+    return entry.estimatedWaitTime;
+  }
+
+  /**
+   * Handler for joining a consultation from the waiting room
+   */
+  onJoinConsultation(entry: WaitingRoomItem): void {
+    this.enterConsultation(entry.id);
+  }
+
+  /**
+   * Alias for refresh to match template usage
+   */
+  onRefresh(): void {
+    this.loadWaitingRoom();
+  }
+
+  /**
    * Load waiting room consultations
    */
   private loadWaitingRoom(): void {
@@ -59,7 +120,10 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           if (response.success) {
-            this.waitingRoomItems = response.waitingRooms || [];
+            this.waitingRoomItems = (response.waitingRooms || []).map((item: WaitingRoomItem) => ({
+              ...item,
+              joinTime: item.joinTime instanceof Date ? item.joinTime : (item.joinTime ? new Date(item.joinTime) : null)
+            }));
             this.totalPages = response.totalPages || 0;
             this.totalCount = response.totalCount || 0;
             this.error = null;
@@ -143,7 +207,7 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
       const newItem: WaitingRoomItem = {
         id: notification.consultationId,
         patientInitials: notification.patientInitials,
-        joinTime: notification.joinTime.toISOString(),
+        joinTime: notification.joinTime instanceof Date ? notification.joinTime : (notification.joinTime ? new Date(notification.joinTime) : null),
         language: notification.language,
         queuePosition: this.waitingRoomItems.length + 1,
         estimatedWaitTime: this.calculateEstimatedWaitTime(this.waitingRoomItems.length + 1)
@@ -167,13 +231,11 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
    */
   private handlePatientLeft(data: any): void {
     const consultationId = data.consultationId || data.id;
-
     const index = this.waitingRoomItems.findIndex(item => item.id === consultationId);
     if (index !== -1) {
       this.waitingRoomItems.splice(index, 1);
       this.updateQueuePositions();
       this.totalCount = Math.max(0, this.totalCount - 1);
-
       console.log(`Patient removed from waiting room: ${consultationId}`);
     }
   }
@@ -204,7 +266,6 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   private calculateEstimatedWaitTime(position: number): string {
     const avgConsultationTime = 15; // 15 minutes average
     const waitMinutes = (position - 1) * avgConsultationTime;
-
     if (waitMinutes === 0) {
       return 'Next';
     } else if (waitMinutes < 60) {
@@ -232,17 +293,13 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   /**
    * Get relative time for join time
    */
-  getRelativeTime(joinTime: string | null): string {
+  getRelativeTime(joinTime: Date | null): string {
     if (!joinTime) return 'Unknown';
-
     const now = new Date();
-    const joined = new Date(joinTime);
-    const diffMs = now.getTime() - joined.getTime();
+    const diffMs = now.getTime() - joinTime.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min ago`;
-
     const diffHours = Math.floor(diffMins / 60);
     return `${diffHours}h ${diffMins % 60}m ago`;
   }
@@ -250,14 +307,11 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   /**
    * Get priority class based on wait time
    */
-  getPriorityClass(joinTime: string | null): string {
+  getPriorityClass(joinTime: Date | null): string {
     if (!joinTime) return '';
-
     const now = new Date();
-    const joined = new Date(joinTime);
-    const diffMs = now.getTime() - joined.getTime();
+    const diffMs = now.getTime() - joinTime.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-
     if (diffMins > 15) return 'priority-high';
     if (diffMins > 10) return 'priority-medium';
     return 'priority-normal';
@@ -284,10 +338,16 @@ export class WaitingRoomComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Refresh waiting room
+   * Get the number of patients currently waiting
    */
-  refresh(): void {
-    this.isLoading = true;
-    this.loadWaitingRoom();
+  getWaitingPatientsCount(): number {
+    return this.waitingRoomItems.length;
+  }
+
+  /**
+   * TrackBy function for ngFor to optimize rendering
+   */
+  trackByPatientId(index: number, item: WaitingRoomItem): number {
+    return item.id;
   }
 }

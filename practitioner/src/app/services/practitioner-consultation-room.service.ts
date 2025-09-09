@@ -39,16 +39,19 @@ export interface PractitionerMediaSessionState {
 
 export interface ChatMessage {
   id: number;
-  userId: number;
   content: string;
-  createdAt: string;
-  messageType: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
-  fileName?: string;
-  fileSize?: number;
-  filePath?: string;
+  senderId: number;
+  senderName: string;
+  timestamp: string;
+  messageType: 'text' | 'image' | 'file' | 'system';
+  userId?: number; // Added missing properties
   userName?: string;
   isFromPractitioner?: boolean;
   readBy?: { userId: number; readAt: string }[];
+  createdAt?: string; // Added missing property
+  fileName?: string; // Added missing property
+  fileSize?: number; // Added missing property
+  filePath?: string; // Added missing property
 }
 
 export interface TypingUser {
@@ -56,7 +59,6 @@ export interface TypingUser {
   userName: string;
   isTyping: boolean;
   messageType: 'user' | 'system';
-  userName?: string;
   isFromPractitioner?: boolean;
 }
 
@@ -926,18 +928,19 @@ export class PractitionerConsultationRoomService {
     this.chatSocket.on('new_message', (data) => {
       const currentMessages = this.chatMessagesSubject.value;
       const newMessage: ChatMessage = {
-        id: data.id || Date.now(),
-        userId: data.userId,
+        id: data.id,
+        senderId: data.senderId || 0, // Ensure senderId is provided
+        senderName: data.senderName || 'Unknown', // Ensure senderName is provided
+        timestamp: data.timestamp || new Date().toISOString(), // Ensure timestamp is provided
         content: data.content,
-        createdAt: data.createdAt || new Date().toISOString(),
-        messageType: data.messageType || 'TEXT',
+        messageType: data.messageType,
         fileName: data.fileName,
         fileSize: data.fileSize,
         filePath: data.filePath,
-        userName: data.userName || 'Unknown',
-        isFromPractitioner: data.role === 'PRACTITIONER',
-        readBy: data.readBy || []
-
+        userName: data.userName,
+        isFromPractitioner: data.isFromPractitioner || false,
+        readBy: data.readBy || [],
+        createdAt: data.createdAt || new Date().toISOString(),
       };
 
       this.chatMessagesSubject.next([...currentMessages, newMessage]);
@@ -1014,7 +1017,8 @@ export class PractitionerConsultationRoomService {
           updatedTyping = [...currentTyping, {
             userId: data.userId,
             userName: data.userName || 'Unknown',
-            isTyping: true
+            isTyping: true,
+            messageType: 'user', // or 'system' if appropriate
           }];
         } else {
           updatedTyping = currentTyping;
