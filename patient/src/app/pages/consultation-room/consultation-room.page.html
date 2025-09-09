@@ -128,6 +128,13 @@
                 (click)="openChat()"
               >
                 <ion-icon name="chatbubble-outline"></ion-icon>
+                <ion-badge
+                  color="danger"
+                  *ngIf="unreadMessageCount > 0"
+                  class="chat-badge"
+                >
+                  {{unreadMessageCount}}
+                </ion-badge>
               </ion-button>
             </ion-col>
 
@@ -154,4 +161,68 @@
       </ion-fab-button>
     </ion-fab>
   </div>
+
+  <!-- Chat Modal -->
+  <ion-modal [isOpen]="showChat" (didDismiss)="closeChat()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Chat with {{practitionerName}}</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeChat()">
+              <ion-icon name="close"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="chat-content">
+        <div class="chat-messages">
+          <div
+            *ngFor="let message of chatMessages"
+            class="message"
+            [class.own-message]="!message.isFromPractitioner"
+            [class.other-message]="message.isFromPractitioner"
+          >
+            <div class="message-header">
+              <ion-text color="medium">
+                <small>
+                  {{message.userName}} •
+                  {{formatMessageTime(message.createdAt)}}
+                </small>
+              </ion-text>
+            </div>
+            <div class="message-content">
+              <p>{{message.content}}</p>
+            </div>
+          </div>
+
+          <div *ngIf="chatMessages.length === 0" class="no-messages">
+            <ion-text color="medium">
+              <p>No messages yet. Start the conversation!</p>
+            </ion-text>
+          </div>
+        </div>
+      </ion-content>
+
+      <ion-footer class="chat-footer">
+        <ion-item lines="none">
+          <ion-input
+            [(ngModel)]="newMessage"
+            placeholder="Type your message..."
+            (keyup.enter)="sendChatMessage(newMessage); newMessage = ''"
+            class="message-input"
+          ></ion-input>
+          <ion-button
+            slot="end"
+            fill="clear"
+            (click)="sendChatMessage(newMessage); newMessage = ''"
+            [disabled]="!newMessage?.trim()"
+          >
+            <ion-icon name="send"></ion-icon>
+          </ion-button>
+        </ion-item>
+      </ion-footer>
+    </ng-template>
+  </ion-modal>
 </ion-content>

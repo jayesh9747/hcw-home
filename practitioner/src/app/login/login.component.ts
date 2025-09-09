@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import {
   FormControl,
   ReactiveFormsModule,
@@ -33,7 +33,6 @@ export class MyErrorStateMatcher implements ErrorStateMatcher {
     return !!(control && control.invalid && (control.dirty || control.touched || isSubmitted));
   }
 }
-// this.snackBarService.showError(`Failed to load users: ${error.message || 'Unknown error'}`);
 
 
 @Component({
@@ -81,11 +80,11 @@ export class LoginComponent implements OnInit {
   }
   error: string | null = null;
   matcher = new MyErrorStateMatcher();
-  loading =  signal(false)
+  loading = signal(false)
   returnUrl: string = '';
   showPasswordLogin = signal(true);
   showOpenIdLogin = signal(true);
-  openIdLoginUrl:string=`${environment.apiUrl}/v1/auth/openid/login?role=practitioner`
+  openIdLoginUrl: string = `${environment.apiUrl}/v1/auth/openid/login?role=practitioner`
 
   ngOnInit() {
     const queryParams = this.route.snapshot.queryParams;
@@ -100,11 +99,12 @@ export class LoginComponent implements OnInit {
     }
     else if (accessToken && refreshToken) {
       this.authService.login(accessToken,refreshToken).subscribe({
+
         next: (user) => {
           if (user) {
             this.snackBarService.showSuccess('Logged In Successfull')
             this.termService.getLatestTermAndStore()
-            this.router.navigateByUrl(this.returnUrl).then(()=>{
+            this.router.navigateByUrl(this.returnUrl).then(() => {
               this.termService.getLatestTermAndStore().subscribe();
             });
           }
@@ -114,39 +114,58 @@ export class LoginComponent implements OnInit {
         }
       });
       return;
-    } else if (error){
-      this.errorMessage=error
+    } else if (error) {
+      this.errorMessage = error
     }
-  
+
     if (this.authService.getCurrentUser()) {
       this.router.navigateByUrl(this.returnUrl);
       return;
     }
   }
-  
+
 
   loginLocal() {
     if (this.loginForm.valid) {
       this.loading.set(true);
       this.error = null;
-      const { email, password } = this.loginForm.value!;  
+      const { email, password } = this.loginForm.value!;
       this.authService.loginLocal(email!, password!).subscribe({
         next: (res) => {
           this.loading.set(false);
-          this.snackBarService.showSuccess('Login Successfull')
-  
+          this.snackBarService.showSuccess('Login Successful')
+
           setTimeout(() => {
             this.router.navigateByUrl(this.returnUrl);
           }, 100);
         },
         error: (err) => {
           this.loading.set(false);
-          this.error = err?.error?.message || 'Invalid email or password.';
+
+          if (err?.error?.message) {
+            const message = err.error.message.toLowerCase();
+
+            if (message.includes('pending approval') || message.includes('not approved')) {
+              this.error = `Account Pending Approval: ${err.error.message}`;
+              this.snackBarService.showError('Your account is pending approval by an administrator. Please contact support for assistance.');
+            } else if (message.includes('access denied') || message.includes('rejected')) {
+              this.error = `Account Access Denied: ${err.error.message}`;
+              this.snackBarService.showError('Your account access has been denied. Please contact support for more information.');
+            } else {
+              this.error = err.error.message;
+              this.snackBarService.showError(err.error.message);
+            }
+          } else {
+            this.error = 'Invalid email or password.';
+            this.snackBarService.showError('Invalid email or password.');
+          }
+
           console.error('Login failed:', err);
         }
       });
     } else {
       console.warn('Form invalid');
+      this.snackBarService.showError('Please fill in all required fields correctly.');
     }
   }
 
