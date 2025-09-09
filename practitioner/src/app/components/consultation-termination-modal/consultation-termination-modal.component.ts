@@ -1,5 +1,8 @@
-import { Component, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { ButtonComponent } from '../ui/button/button.component';
 import { ButtonSize, ButtonVariant } from '../../constants/button.enums';
 
@@ -12,33 +15,25 @@ export enum TerminationAction {
 @Component({
   selector: 'app-consultation-termination-modal',
   standalone: true,
-  imports: [CommonModule, ButtonComponent],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, ButtonComponent],
   templateUrl: './consultation-termination-modal.component.html',
   styleUrls: ['./consultation-termination-modal.component.scss']
 })
-export class ConsultationTerminationModalComponent implements OnInit, OnDestroy {
-  @Output() actionSelected = new EventEmitter<TerminationAction>();
-  @Output() close = new EventEmitter<void>();
+export class ConsultationTerminationModalComponent {
+  constructor(
+    private dialogRef: MatDialogRef<ConsultationTerminationModalComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: any
+  ) {}
 
   readonly ButtonSize = ButtonSize;
   readonly ButtonVariant = ButtonVariant;
   readonly TerminationAction = TerminationAction;
 
-  ngOnInit(): void {
-    document.body.classList.add('modal-open');
-  }
-
-  ngOnDestroy(): void {
-    document.body.classList.remove('modal-open');
-  }
-
   onActionSelect(action: TerminationAction): void {
-    document.body.classList.remove('modal-open');
-    this.actionSelected.emit(action);
+    this.dialogRef.close(action);
   }
 
   onClose(): void {
-    document.body.classList.remove('modal-open');
-    this.close.emit();
+    this.dialogRef.close();
   }
 }

@@ -1,9 +1,9 @@
-<div class="termination-overlay" (click)="onClose()">
-  <div class="termination-modal" (click)="$event.stopPropagation()">
-    
+<div mat-dialog-content class="termination-modal">
     <header class="termination-modal__header">
-      <h2 class="termination-modal__title">TERMINATE THE CONSULTATION</h2>
-      <button (click)="onClose()" class="termination-modal__close">×</button>
+      <h2 mat-dialog-title class="termination-modal__title">TERMINATE THE CONSULTATION</h2>
+      <button mat-icon-button (click)="onClose()" class="termination-modal__close">
+        <mat-icon>close</mat-icon>
+      </button>
     </header>
 
     <div class="termination-modal__body">
@@ -68,5 +68,4 @@
       </div>
     </div>
 
-  </div>
 </div>

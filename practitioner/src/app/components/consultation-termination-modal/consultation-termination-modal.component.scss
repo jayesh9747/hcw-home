@@ -1,26 +1,8 @@
 @use '../../../styles/variables' as *;
 
-.termination-overlay {
-  position: fixed;
-  inset: 0;
-  background: $color-overlay-bg;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  backdrop-filter: blur(2px);
-}
-
 .termination-modal {
-  position: relative;
-  z-index: 10001;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   max-width: 900px;
   width: 90vw;
-  max-height: 90vh;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -46,23 +28,9 @@
 }
 
 .termination-modal__close {
-  background: none;
-  border: none;
-  font-size: 28px;
-  line-height: 1;
-  cursor: pointer;
   color: #6b7280;
-  padding: 4px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-
+  
   &:hover {
-    background: #f3f4f6;
     color: #374151;
   }
 }
@@ -174,8 +142,6 @@
 
   .termination-modal {
     width: 95vw;
-    max-height: 95vh;
-    margin: 20px;
   }
 
   .termination-modal__header {
