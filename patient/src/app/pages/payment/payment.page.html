@@ -1,0 +1,147 @@
+<app-header [title]="'Payment'"> </app-header>
+
+<ion-content [fullscreen]="true" class="payment-content">
+  <div class="payment-container">
+    <div class="payment-form-wrapper">
+      <h1 class="form-title">Complete Payment</h1>
+      
+      <form [formGroup]="paymentForm" class="payment-form">
+        <!-- Customer Information Section -->
+        <div class="form-section">
+          <h2 class="section-title">Customer Information</h2>
+          
+          <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <ion-input 
+              formControlName="name" 
+              placeholder="Enter your full name"
+              type="text"
+              class="custom-input"
+              fill="outline">
+            </ion-input>
+            <div class="error-message" *ngIf="nameError">{{ nameError }}</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <ion-input 
+              formControlName="email" 
+              placeholder="Enter your email address"
+              type="email"
+              class="custom-input"
+              fill="outline">
+            </ion-input>
+            <div class="error-message" *ngIf="emailError">{{ emailError }}</div>
+          </div>
+
+          <!-- Currency and Amount Row -->
+          <div class="form-row amount-currency-row">
+            <div class="form-group currency-group">
+              <label class="form-label">Currency *</label>
+              <ion-select 
+                formControlName="currency" 
+                placeholder="Select currency"
+                class="custom-select"
+                fill="outline"
+                interface="popover">
+                <ion-select-option value="usd">USD ($)</ion-select-option>
+                <ion-select-option value="eur">EUR (€)</ion-select-option>
+                <ion-select-option value="gbp">GBP (£)</ion-select-option>
+                <ion-select-option value="inr">INR (₹)</ion-select-option>
+                <ion-select-option value="cad">CAD (C$)</ion-select-option>
+                <ion-select-option value="aud">AUD (A$)</ion-select-option>
+                <ion-select-option value="jpy">JPY (¥)</ion-select-option>
+              </ion-select>
+              <div class="error-message" *ngIf="currencyError">{{ currencyError }}</div>
+            </div>
+
+            <div class="form-group amount-group">
+              <label class="form-label">Amount *</label>
+              <ion-input 
+                formControlName="amount" 
+                placeholder="Enter payment amount"
+                type="number"
+                class="custom-input amount-input"
+                fill="outline">
+                <div slot="start" class="currency-symbol">{{ getCurrencySymbol() }}</div>
+              </ion-input>
+              <div class="error-message" *ngIf="amountError">{{ amountError }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Information Section -->
+        <div class="form-section">
+          <h2 class="section-title">Payment Information</h2>
+          
+          <div class="stripe-container" ngxStripeCardGroup [elementsOptions]="elementsOptions">
+            
+            <div class="form-group">
+              <label class="form-label">Card Number *</label>
+              <div class="stripe-element-wrapper">
+                <ngx-stripe-card-number [options]="cardOptions"></ngx-stripe-card-number>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group form-group-half">
+                <label class="form-label">Expiry Date *</label>
+                <div class="stripe-element-wrapper">
+                  <ngx-stripe-card-expiry [options]="cardOptions"></ngx-stripe-card-expiry>
+                </div>
+              </div>
+              
+              <div class="form-group form-group-half">
+                <label class="form-label">CVC *</label>
+                <div class="stripe-element-wrapper">
+                  <ngx-stripe-card-cvc [options]="cardOptions"></ngx-stripe-card-cvc>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Payment Summary -->
+        <div class="payment-summary" *ngIf="paymentForm.get('amount')?.value">
+          <div class="summary-row">
+            <span class="summary-label">Consultation Fee:</span>
+            <span class="summary-value">{{ getCurrencySymbol() }}{{ paymentForm.get('amount')?.value }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Processing Fee:</span>
+            <span class="summary-value">{{ getCurrencySymbol() }}0.00</span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-row summary-total">
+            <span class="summary-label">Total Amount:</span>
+            <span class="summary-value">{{ getCurrencySymbol() }}{{ paymentForm.get('amount')?.value }}</span>
+          </div>
+          <div class="currency-note" *ngIf="paymentForm.get('currency')?.value !== 'usd'">
+            <small>* Amount will be converted to {{ getCurrencyName() }} at current exchange rate</small>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <ion-button 
+          expand="block" 
+          (click)="pay()" 
+          [disabled]="!paymentForm.valid"
+          class="submit-button">
+          <ion-icon name="card-outline" slot="start"></ion-icon>
+          Complete Payment
+          <span *ngIf="paymentForm.get('amount')?.value" class="amount-badge">
+            {{ getCurrencySymbol() }}{{ paymentForm.get('amount')?.value }}
+          </span>
+        </ion-button>
+
+        <!-- Security Notice -->
+        <div class="security-notice">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <span>Your payment information is encrypted and secure</span>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</ion-content>
