@@ -78,11 +78,11 @@ export class ConsultationRequestPage implements OnInit {
   }
 
   getPatientId(): number {
-    return 2; // Replace with real logged-in patient ID
+    return 3; 
   }
 
   getCurrentUserId(): number {
-    return 1; // Replace with real admin ID
+    return 3; 
   }
 
   submitRequest() {
@@ -101,7 +101,9 @@ export class ConsultationRequestPage implements OnInit {
     this.consultationRequestService.createConsultation(dto, UserId).subscribe({
       next: () => {
         this.showSuccessToast('Consultation created');
-        this.router.navigate(['/consultation-list']);
+        setTimeout(() => {
+          this.router.navigate(['/dashboard']);
+        }, 2000);
       },
       error: (err) => {
         console.error('API error:', err);

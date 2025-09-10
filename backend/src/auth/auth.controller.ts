@@ -364,7 +364,7 @@ export class AuthController {
     const pateintUrl = process.env.PATIENT_URL;
 
     const magicLink = `${pateintUrl}/login?token=${token}`;
-
+    console.log('magicLink ', magicLink);
     // await this.messageService.send({
     //   to: contact,
     //   payload: {
