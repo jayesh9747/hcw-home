@@ -2,13 +2,13 @@ export const environment = {
   production: true,
   environment: 'production',
 
-  apiUrl: process.env['NG_APP_API_URL'] || 'https://your-production-api.com/api/v1',
-  baseUrl: process.env['NG_APP_BASE_URL'] || 'https://your-production-api.com',
+  apiUrl: 'https://your-production-api.com/api/v1',
+  baseUrl: 'https://your-production-api.com',
 
-  wsUrl: process.env['NG_APP_WS_URL'] || 'https://your-production-api.com',
-  socketUrl: process.env['NG_APP_SOCKET_URL'] || 'https://your-production-api.com',
+  wsUrl: 'https://your-production-api.com',
+  socketUrl: 'https://your-production-api.com',
 
-  healthCheckUrl: process.env['NG_APP_HEALTH_URL'] || 'https://your-production-api.com/health',
+  healthCheckUrl: 'https://your-production-api.com/health',
   healthCheckInterval: 60000, // 1 minute in production
 
   connectionTimeout: 15000, // 15 seconds

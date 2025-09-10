@@ -181,8 +181,8 @@
           <div
             *ngFor="let message of chatMessages"
             class="message"
-            [class.own-message]="!message.isFromPractitioner"
-            [class.other-message]="message.isFromPractitioner"
+            [class.own-message]="message.isFromPatient"
+            [class.other-message]="!message.isFromPatient"
           >
             <div class="message-header">
               <ion-text color="medium">
@@ -217,7 +217,7 @@
             slot="end"
             fill="clear"
             (click)="sendChatMessage(newMessage); newMessage = ''"
-            [disabled]="!newMessage?.trim()"
+            [disabled]="!newMessage.trim()"
           >
             <ion-icon name="send"></ion-icon>
           </ion-button>

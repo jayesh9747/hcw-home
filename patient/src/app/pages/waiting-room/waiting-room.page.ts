@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import {
  IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
  IonCardHeader, IonCardTitle, IonCardContent, IonButton,
- IonSpinner, IonText, IonIcon, IonItem, IonLabel,
+ IonSpinner, IonText, IonIcon, IonItem, IonLabel, IonList,
  LoadingController, ToastController, AlertController
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -29,7 +29,7 @@ import { environment } from 'src/environments/environment';
   CommonModule,
   IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
   IonCardHeader, IonCardTitle, IonCardContent, IonButton,
-  IonSpinner, IonText, IonIcon, IonItem, IonLabel
+  IonSpinner, IonText, IonIcon, IonItem, IonLabel, IonList
  ],
 })
 export class WaitingRoomPage implements OnInit, OnDestroy {

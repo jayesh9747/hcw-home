@@ -11,6 +11,7 @@ import { ProfileComponent } from './pages/profile/profile.component';
 import { LoginComponent } from './login/login.component';
 import { AuthGuard } from './auth/guard/auth.guard';
 import { PractitionerConsultationRoomComponent } from './consultation-room/practitioner-consultation-room.component';
+import { ConsultationRoomComponent } from './consultation-room/consultation-room.component';
 import { AvailabilityComponent } from './pages/availability/availability.component';
 import { TermComponent } from './pages/term/term.component';
 import { TermGuard } from './auth/guard/terms.guard';
@@ -65,12 +66,12 @@ export const routes: Routes = [
 
       {
         path: RoutePaths.SetPassword,
-        component:SetPasswordComponent
+        component: SetPasswordComponent
 
       },
-      { 
+      {
         path: RoutePaths.ConsultationRoom,
-        component: ConsultationRoomComponent 
+        component: ConsultationRoomComponent
       },
       {
         path: `${RoutePaths.ConsultationRoom}/:id`,
@@ -84,7 +85,7 @@ export const routes: Routes = [
     component: LoginComponent,
   },
   {
-    path: RoutePaths.FogetPassword,
+    path: RoutePaths.ForgotPassword,
     component: ForgotPasswordComponent
   },
   {

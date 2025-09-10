@@ -1,17 +1,23 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { IonContent, IonButton, IonTextarea } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
-import { ToastController } from '@ionic/angular';
+import {
+  IonContent, IonButton, IonTextarea,
+  ToastController
+} from '@ionic/angular/standalone';
 import { ConsultationService, SubmitFeedbackRequest } from 'src/app/services/consultation.service';
 import { UserService } from 'src/app/services/user.service';
+import { RoutePaths } from 'src/app/constants/route-path.enum';
 @Component({
   standalone: true,
   selector: 'app-post-feedback',
   templateUrl: './post-consultation-feedback.page.html',
   styleUrls: ['./post-consultation-feedback.page.scss'],
-  imports: [ReactiveFormsModule, CommonModule, IonContent, IonButton, IonTextarea]
+  imports: [
+    ReactiveFormsModule, CommonModule,
+    IonContent, IonButton, IonTextarea
+  ]
 })
 
 
@@ -28,7 +34,7 @@ export class PostConsultationFeedbackPage implements OnInit {
     private toastCtrl: ToastController,
     private consultationService: ConsultationService,
     private userService: UserService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.feedbackForm = this.fb.group({
@@ -80,10 +86,10 @@ export class PostConsultationFeedbackPage implements OnInit {
 
       // Submit feedback
       await this.consultationService.submitFeedback(feedbackRequest, user.id).toPromise();
-      
+
       await this.showToast('Thank you for your feedback!', 'success');
-      this.router.navigate(['/patient-dashboard']);
-      
+      this.router.navigate([`/${RoutePaths.PatientDashboard}`]);
+
     } catch (error) {
       console.error('Error submitting feedback:', error);
       await this.showToast('Failed to submit feedback. Please try again.', 'danger');
@@ -93,7 +99,7 @@ export class PostConsultationFeedbackPage implements OnInit {
   }
 
   skipFeedback() {
-    this.router.navigate(['/patient-dashboard']);
+    this.router.navigate([`/${RoutePaths.PatientDashboard}`]);
   }
 
   private async showToast(message: string, color: 'success' | 'danger') {

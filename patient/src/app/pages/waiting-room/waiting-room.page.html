@@ -71,7 +71,7 @@
             </ion-icon>
             <ion-label>
               <h3>Connection Status</h3>
-              <p [color]="isConnected ? 'success' : 'warning'">
+              <p [ngClass]="isConnected ? 'text-success' : 'text-warning'">
                 <strong>{{isConnected ? 'Connected' : 'Reconnecting...'}}</strong>
               </p>
             </ion-label>

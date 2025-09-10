@@ -2,11 +2,10 @@ import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, E
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
- IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
- IonCardHeader, IonCardTitle, IonCardContent, IonButton,
- IonIcon, IonText, IonInput, IonItem, IonLabel, IonList,
+ IonButton,
+ IonIcon,
  IonTextarea, IonBadge, IonFabButton, IonFab, IonAvatar,
- IonProgressBar, IonAlert
+ IonProgressBar
 } from '@ionic/angular/standalone';
 import { Subscription } from 'rxjs';
 
@@ -45,11 +44,10 @@ export interface TypingIndicator {
  imports: [
   CommonModule,
   FormsModule,
-  IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
-  IonCardHeader, IonCardTitle, IonCardContent, IonButton,
-  IonIcon, IonText, IonInput, IonItem, IonLabel, IonList,
+  IonButton,
+  IonIcon,
   IonTextarea, IonBadge, IonFabButton, IonFab, IonAvatar,
-  IonProgressBar, IonAlert
+  IonProgressBar
  ],
  templateUrl: './patient-chat.component.html',
  styleUrls: ['./patient-chat.component.scss']
@@ -130,13 +128,18 @@ export class PatientChatComponent implements OnInit, OnDestroy, AfterViewChecked
    clearTimeout(this.typingTimeout);
   }
 
-  // Stop typing after 3 seconds of inactivity
   this.typingTimeout = window.setTimeout(() => {
    this.stopTypingIndicator();
   }, 3000);
  }
 
- startTypingIndicator() {
+ handleEnterKey(event: Event) {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === 'Enter' && !keyboardEvent.shiftKey) {
+   keyboardEvent.preventDefault();
+   this.onSendMessage();
+  }
+ } startTypingIndicator() {
   this.isTyping = true;
   this.startTyping.emit();
  }

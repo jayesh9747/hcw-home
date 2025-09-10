@@ -48,9 +48,9 @@
       <div class="header-right">
         <div
           class="participant-count"
-          *ngIf="consultationState?.participantCount"
+          *ngIf="consultationState?.participantCount !== null"
         >
-          👥 {{ consultationState.participantCount }}
+          👥 {{ consultationState?.participantCount }}
         </div>
 
         <!-- Notification Panel Toggle -->
@@ -212,8 +212,10 @@
         <div class="alert-icon">🚪</div>
         <div class="alert-text">
           <h4>Patient waiting in waiting room</h4>
-          <p *ngIf="consultationState?.waitingRoomStatus.waitingCount">
-            {{ consultationState.waitingRoomStatus.waitingCount }} patient(s)
+          <p
+            *ngIf="consultationState?.waitingRoomStatus?.waitingCount !== null"
+          >
+            {{ consultationState?.waitingRoomStatus?.waitingCount }} patient(s)
             waiting
           </p>
         </div>
@@ -269,7 +271,7 @@
                 <div class="patient-avatar">👤</div>
                 <h4>{{ consultationState?.patientName || "Patient" }}</h4>
                 <p *ngIf="consultationState?.patientLanguage">
-                  Language: {{ consultationState.patientLanguage }}
+                  Language: {{ consultationState?.patientLanguage }}
                 </p>
               </div>
             </div>
@@ -353,7 +355,7 @@
               *ngFor="let participant of participants"
             >
               <div class="participant-avatar">
-                {{ participant.firstName?.charAt(0) || "?" }}
+                {{ participant.firstName.charAt(0) || "?" }}
               </div>
               <div class="participant-info">
                 <div class="participant-name">
@@ -412,7 +414,6 @@
           </div>
         </div>
 
-
         <app-practitioner-chat
           [messages]="chatMessages"
           [consultationId]="consultationId"
@@ -420,7 +421,7 @@
           [practitionerName]="'Practitioner'"
           [isVisible]="true"
           [unreadCount]="unreadMessageCount"
-          [typingUsers]="typingUsers"
+          [typingUsers]="typingIndicators"
           (sendMessage)="sendChatMessage($event)"
           (sendFile)="sendFileMessage($event)"
           (markAllRead)="markAllMessagesAsRead()"
@@ -488,9 +489,9 @@
       </div>
 
       <div class="status-right">
-        <span class="session-info" *ngIf="consultationState?.consultationId">
-          Session ID: {{ consultationState.consultationId }}
-        </span>
+        <span *ngIf="consultationState?.consultationId !== null"
+          >Session ID: {{ consultationState?.consultationId }}</span
+        >
       </div>
     </div>
   </div>
