@@ -16,9 +16,10 @@ export interface WaitingRoomResponse {
   message: string;
   waitingRooms: WaitingRoomItem[];
   totalCount: number;
-  currentPage: number;     
-  totalPages: number;  
-  timestamp: string;        
+  currentPage: number;
+  totalPages: number;
+  timestamp: string;
+  data?: any; // Added missing data property
 }
 export interface OpenConsultationItem {
   id: number;

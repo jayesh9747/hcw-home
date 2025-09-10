@@ -197,7 +197,7 @@
       <ion-textarea
         [(ngModel)]="newMessage"
         (ionInput)="onInputChange()"
-        (keydown.enter)="$event.shiftKey ? null : ($event.preventDefault(), onSendMessage())"
+        (keydown.enter)="handleEnterKey($event)"
         placeholder="Type a message..."
         autoGrow="true"
         rows="1"

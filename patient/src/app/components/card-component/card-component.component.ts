@@ -1,19 +1,16 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import {
   IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonList, IonItem, IonLabel, IonButton, IonIcon,
-<<<<<<< HEAD
-  IonChip, IonText, ToastController, LoadingController,
-=======
-  IonChip, IonText, ToastController,
->>>>>>> 99b93b9c5104f0e269a236d00d6399ab1f2411e2
+  IonChip, IonText, ToastController, LoadingController
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
   videocamOutline, starOutline,
-  calendarOutline, checkmarkCircle
+  calendarOutline,
+  checkmarkCircle
 } from 'ionicons/icons';
 
 import { AuthService } from 'src/app/services/auth.service';
@@ -38,19 +35,18 @@ import { RoutePaths } from 'src/app/constants/route-path.enum';
     IonButton,
     IonIcon,
     IonChip,
-    IonText,
-  ],
+    IonText
+  ]
 })
 
 export class CardComponentComponent {
+  private toastController = inject(ToastController);
+  private loadingController = inject(LoadingController);
+  private router = inject(Router);
+  private joinConsultationService = inject(JoinConsultationService);
+  private authService = inject(AuthService);
 
-  constructor(
-    private router: Router,
-    private toastController: ToastController,
-    private loadingController: LoadingController,
-    private joinConsultationService: JoinConsultationService,
-    private authService: AuthService
-  ) {
+  constructor() {
     addIcons({
       videocamOutline,
       starOutline,
@@ -62,8 +58,6 @@ export class CardComponentComponent {
   @Input() completedConsultations: Consultation[] = [];
   @Input() upcomingConsultations: Consultation[] = [];
 
-
-<<<<<<< HEAD
   /**
    * Enhanced join consultation with comprehensive error handling and state management
    */
@@ -75,12 +69,6 @@ export class CardComponentComponent {
       await this.presentErrorToast('Please log in to join consultation.');
       return;
     }
-=======
-  goToJoinPage(consultationId: number) {
-    this.router.navigate(['/join-consultation', consultationId]);
-  }
-
->>>>>>> 99b93b9c5104f0e269a236d00d6399ab1f2411e2
 
     // Check if already joining to prevent duplicate requests
     if (this.joinConsultationService.isCurrentlyJoining()) {
@@ -88,7 +76,7 @@ export class CardComponentComponent {
       return;
     }
 
-    let loading: HTMLIonLoadingElement | null = null;
+    let loading: any = null;
 
     try {
       loading = await this.loadingController.create({

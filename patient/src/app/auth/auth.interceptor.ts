@@ -4,20 +4,21 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { SnackbarService } from '../services/snackbar.service';
+import { RoutePaths } from '../constants/route-path.enum';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
   const token = authService.getToken();
-  const snackbarService=inject(SnackbarService)
+  const snackbarService = inject(SnackbarService)
 
   // Clone request with token if available
   const authReq = token
     ? req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      setHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
     : req;
 
   return next(authReq).pipe(
@@ -48,9 +49,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
             });
             return next(retryReq);
           }),
-          catchError((err) => {
+          catchError((err: HttpErrorResponse) => {
             authService.logout();
-            router.navigate(['/login']);
+            router.navigate([`/${RoutePaths.Login}`]);
             return throwError(() => err);
           })
         );
@@ -60,7 +61,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       if (isUnauthorized && isRefreshRequest && tokenExpired) {
 
         authService.logout();
-        router.navigate(['/login']);
+        router.navigate([`/${RoutePaths.Login}`]);
         snackbarService.showInfo("session expired,Login Again")
       }
 

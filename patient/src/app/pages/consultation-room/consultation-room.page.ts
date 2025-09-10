@@ -1,12 +1,14 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import {
  IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
- IonCardHeader, IonCardTitle, IonCardContent, IonButton,
+ IonCardContent, IonButton, IonButtons,
  IonIcon, IonText, IonFab, IonFabButton, IonGrid, IonRow, IonCol,
- IonList, IonItem, IonLabel, IonBadge, IonToast,
+ IonItem, IonBadge, IonModal,
+ IonFooter, IonInput,
  LoadingController, ToastController, AlertController
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -35,11 +37,12 @@ import { PatientChatComponent } from '../../components/patient-chat/patient-chat
  styleUrls: ['./consultation-room.page.scss'],
  standalone: true,
  imports: [
-  CommonModule,
+  CommonModule, FormsModule,
   IonContent, IonHeader, IonTitle, IonToolbar, IonCard,
-  IonCardHeader, IonCardTitle, IonCardContent, IonButton,
+  IonCardContent, IonButton, IonButtons,
   IonIcon, IonText, IonFab, IonFabButton, IonGrid, IonRow, IonCol,
-  IonList, IonItem, IonLabel, IonBadge, IonToast,
+  IonItem, IonBadge, IonModal,
+  IonFooter, IonInput,
   PatientChatComponent
  ],
 })
@@ -197,7 +200,7 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
    if (response?.redirectTo === 'waiting-room') {
     // Patient should be in waiting room, redirect
     this.showToast('Please wait to be admitted by the doctor', 'warning');
-    this.router.navigate([`/${RoutePaths.WaitingRoom.replace(':consultationId', this.consultationId.toString())}`]);
+    this.router.navigate([`/waiting-room/${this.consultationId}`]);
     return;
    }
 
@@ -465,15 +468,6 @@ export class ConsultationRoomPage implements OnInit, OnDestroy {
  }
 
  newMessage = '';
-
- openChat() {
-  this.showChat = true;
-  this.unreadMessageCount = 0;
- }
-
- closeChat() {
-  this.showChat = false;
- }
 
  formatMessageTime(timestamp: string): string {
   const date = new Date(timestamp);

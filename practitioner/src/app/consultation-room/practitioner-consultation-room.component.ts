@@ -14,16 +14,12 @@ import {
   TypingUser
 } from '../services/practitioner-consultation-room.service';
 
-import { PractitionerChatComponent } from '../components/practitioner-chat/practitioner-chat.component';
+import { PractitionerChatComponent, TypingIndicator } from '../components/practitioner-chat/practitioner-chat.component';
 
 @Component({
   selector: 'app-practitioner-consultation-room',
   standalone: true,
   imports: [CommonModule, FormsModule, PractitionerChatComponent],
-=======
-  ConsultationEvent
-} from '../services/practitioner-consultation-room.service';
-
   templateUrl: './practitioner-consultation-room.component.html',
   styleUrls: ['./practitioner-consultation-room.component.scss']
 })
@@ -32,12 +28,12 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
   @ViewChild('chatContainer', { static: false }) chatContainer!: ElementRef<HTMLDivElement>;
 
   private destroy$ = new Subject<void>();
-  private practitionerId: number = 0; // This should come from auth service
+  public practitionerId: number = 0; // This should come from auth service
 
   // Component state
   consultationState: PractitionerConsultationState | null = null;
   mediaSessionState: PractitionerMediaSessionState | null = null;
-  chatMessages: ChatMessage[] = [];
+  chatMessages: import('../components/practitioner-chat/practitioner-chat.component').ChatMessage[] = [];
   participants: ConsultationParticipant[] = [];
 
   // Enhanced notification system
@@ -58,6 +54,13 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
 
   // Enhanced chat properties
   typingUsers: TypingUser[] = [];
+  get typingIndicators(): TypingIndicator[] {
+    return this.typingUsers.map(user => ({
+      userId: user.userId,
+      userName: user.userName,
+      typing: user.isTyping
+    }));
+  }
   unreadMessageCount = 0;
   showChat = false;
   consultationId = 0;
@@ -158,7 +161,7 @@ export class PractitionerConsultationRoomComponent implements OnInit, OnDestroy 
       .pipe(takeUntil(this.destroy$))
       .subscribe(messages => {
         console.log(`[PractitionerConsultationRoomComponent] Chat messages update:`, messages);
-        this.chatMessages = messages;
+        this.chatMessages = messages.filter(msg => msg.userId !== undefined) as import('../components/practitioner-chat/practitioner-chat.component').ChatMessage[];
         this.scrollChatToBottom();
       });
 

@@ -33,9 +33,6 @@
                 "output": "assets"
               }
             ],
-            "stylePreprocessorOptions": {
-              "includePaths": ["src/styles"]
-            },
             "styles": [
               "@angular/material/prebuilt-themes/azure-blue.css",
               "src/styles/styles.scss"
@@ -107,8 +104,7 @@
                 }
               ]
             },
-            "ci": {
-            }
+            "ci": {}
           },
           "defaultConfiguration": "production"
         },
@@ -193,21 +189,13 @@
     "@angular-eslint/schematics:library": {
       "setParserOptionsProject": true
     },
-    "@schematics/angular:component": {
-    },
-    "@schematics/angular:directive": {
-    },
-    "@schematics/angular:service": {
-    },
-    "@schematics/angular:guard": {
-    },
-    "@schematics/angular:interceptor": {
-    },
-    "@schematics/angular:module": {
-    },
-    "@schematics/angular:pipe": {
-    },
-    "@schematics/angular:resolver": {
-    }
+    "@schematics/angular:component": {},
+    "@schematics/angular:directive": {},
+    "@schematics/angular:service": {},
+    "@schematics/angular:guard": {},
+    "@schematics/angular:interceptor": {},
+    "@schematics/angular:module": {},
+    "@schematics/angular:pipe": {},
+    "@schematics/angular:resolver": {}
   }
 }

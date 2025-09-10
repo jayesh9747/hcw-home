@@ -39,6 +39,24 @@ export interface TypingIndicator {
  styleUrls: ['./practitioner-chat.component.scss']
 })
 export class PractitionerChatComponent implements OnInit, OnDestroy, AfterViewChecked {
+ // TrackBy function for ngFor
+ trackByMessageId(index: number, message: ChatMessage): number {
+  return message.id;
+ }
+
+ // Open image preview (placeholder: implement modal or lightbox as needed)
+ openImagePreview(mediaUrl: string): void {
+  window.open(mediaUrl, '_blank');
+ }
+
+ // Handle keydown events in textarea
+ onKeyDown(event: KeyboardEvent): void {
+  // Example: send message on Enter (without Shift)
+  if (event.key === 'Enter' && !event.shiftKey) {
+   event.preventDefault();
+   this.onSendMessage();
+  }
+ }
  @Input() messages: ChatMessage[] = [];
  @Input() consultationId!: number;
  @Input() practitionerId!: number;
