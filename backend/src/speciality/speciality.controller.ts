@@ -5,7 +5,7 @@ import { UpdateSpecialityDto } from './dto/update-speciality.dto';
 import { GetSpecialityDto } from './dto/get-speciality.dto';
 @Controller('speciality')
 export class SpecialityController {
-  constructor(private readonly service: SpecialityService) {}
+  constructor(private readonly service: SpecialityService) { }
 
   @Post()
   create(@Body() dto: CreateSpecialityDto) {
@@ -14,6 +14,7 @@ export class SpecialityController {
 
   @Get()
   findAll(): Promise<GetSpecialityDto[]> {
+    const res = this.service.findAll();
     return this.service.findAll();
   }
 
