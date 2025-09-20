@@ -44,7 +44,6 @@ import { ConsultationInvitationModule } from './consultation-invitation.module';
   ],
 })
 export class ConsultationModule implements OnModuleInit {
-  onModuleInit() {
-    console.log('=== ConsultationModule initialized ===');
-  }
+  onModuleInit() {}
 }
+export class ConsultationModule {} 
